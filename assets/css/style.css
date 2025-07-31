@@ -1,0 +1,248 @@
+/* 
+ * Custom CSS for Cooperative Society Information Management System (CSIMS)
+ * Version: 1.0
+ */
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Dashboard Styles */
+.feather {
+    width: 16px;
+    height: 16px;
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100; /* Behind the navbar */
+    padding: 48px 0 0; /* Height of navbar */
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+@media (max-width: 767.98px) {
+    .sidebar {
+        top: 5rem;
+    }
+}
+
+.sidebar-sticky {
+    position: relative;
+    top: 0;
+    height: calc(100vh - 48px);
+    padding-top: .5rem;
+    overflow-x: hidden;
+    overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.2rem;
+    border-radius: 0.25rem;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.sidebar .nav-link.active {
+    color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.sidebar .nav-link .feather {
+    margin-right: 4px;
+    color: #727272;
+}
+
+.sidebar .nav-link.active .feather {
+    color: #007bff;
+}
+
+.sidebar-heading {
+    font-size: .75rem;
+}
+
+/* Navbar */
+.navbar-brand {
+    padding-top: .75rem;
+    padding-bottom: .75rem;
+    background-color: rgba(0, 0, 0, .25);
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25);
+}
+
+.navbar .navbar-toggler {
+    top: .25rem;
+    right: 1rem;
+}
+
+.navbar .form-control {
+    padding: .75rem 1rem;
+}
+
+.form-control-dark {
+    color: #fff;
+    background-color: rgba(255, 255, 255, .1);
+    border-color: rgba(255, 255, 255, .1);
+}
+
+.form-control-dark:focus {
+    border-color: transparent;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
+}
+
+/* Cards */
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-footer {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-top: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Tables */
+.table-responsive {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+/* Forms */
+.form-label {
+    font-weight: 500;
+}
+
+.required:after {
+    content: ' *';
+    color: red;
+}
+
+/* Custom Buttons */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+/* Member Profile */
+.profile-header {
+    background-color: #f8f9fa;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.profile-img {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid #fff;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+/* Login Page */
+.login-page {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+}
+
+.login-form {
+    max-width: 400px;
+    width: 100%;
+    padding: 2rem;
+    background-color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* Pagination */
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.pagination .page-link {
+    color: #007bff;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 0.5rem;
+}
+
+/* Footer */
+.footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Print Styles */
+@media print {
+    .sidebar, .navbar, .btn, .no-print {
+        display: none !important;
+    }
+    
+    .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #dee2e6 !important;
+    }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .profile-img {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+    }
+    
+    .table {
+        font-size: 0.9rem;
+    }
+}

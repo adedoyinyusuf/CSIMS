@@ -1,0 +1,24 @@
+RewriteEngine On
+
+# Exclude assets, uploads, and other static files from rewriting
+RewriteRule ^(assets|uploads|config|includes|models|controllers)/.*$ - [L]
+
+# Handle requests to views/admin/ directory
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^admin/(.*)$ views/admin/$1 [L]
+
+# Handle requests to views/auth/ directory
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^auth/(.*)$ views/auth/$1 [L]
+
+# Handle controller requests
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^controllers/(.*)$ controllers/$1 [L]
+
+# Redirect to index.php for other requests
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
