@@ -1,8 +1,16 @@
 <?php
-require_once '../config/auth_check.php';
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../includes/session.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+
+// Initialize session and auth
+$session = Session::getInstance();
+$authController = new AuthController();
+
+// Check if user is logged in and is admin
+if (!$authController->isLoggedIn() || !$authController->hasRole('admin')) {
+    header('Location: ../auth/login.php');
+    exit();
+}
 
 // Use the MySQLi connection from database.php
 $db = $conn;
@@ -14,12 +22,6 @@ try {
     $db = $pdo;
 } catch(PDOException $e) {
     die("Connection failed: " . $e->getMessage());
-}
-
-// Check if user is Super Admin
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Super Admin') {
-    header('Location: ' . BASE_URL . '/admin/dashboard.php');
-    exit();
 }
 
 $page_title = 'System Settings';
@@ -144,12 +146,28 @@ if (is_dir($backup_dir)) {
     });
 }
 
-include '../includes/header.php';
 ?>
 
-<div class="container-fluid">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?> - CSIMS</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="../../assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <?php include '../../views/includes/header.php'; ?>
+    
+    <div class="container-fluid">
     <div class="row">
-        <?php include '../includes/sidebar.php'; ?>
+        <?php include '../../views/includes/sidebar.php'; ?>
         
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -371,4 +389,9 @@ include '../includes/header.php';
     </div>
 </div>
 
-<?php include '../includes/footer.php'; ?>
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<?php include '../../views/includes/footer.php'; ?>
+</body>
+</html>

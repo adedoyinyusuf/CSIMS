@@ -1,7 +1,7 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/member_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/member_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -39,12 +39,12 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
 </head>
 <body>
     <!-- Include Header/Navbar -->
-    <?php include '../includes/header.php'; ?>
+    <?php include '../../views/includes/header.php'; ?>
     
     <div class="container-fluid">
         <div class="row">
             <!-- Include Sidebar -->
-            <?php include '../includes/sidebar.php'; ?>
+            <?php include '../../views/includes/sidebar.php'; ?>
             
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
@@ -79,73 +79,61 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
                 <!-- Statistics Cards -->
                 <div class="row mb-4">
                     <div class="col-md-3 mb-3">
-                        <div class="card text-white bg-primary h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="card-title">Total Members</h6>
-                                        <h2 class="card-text"><?php echo $stats['total_members']; ?></h2>
-                                    </div>
-                                    <i class="fas fa-users fa-3x opacity-50"></i>
+                        <div class="dashboard-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">Total Members</h6>
+                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo $stats['total_members']; ?></h2>
                                 </div>
+                                <i class="fas fa-users fa-3x" style="color: rgba(255,255,255,0.6);"></i>
                             </div>
-                            <div class="card-footer d-flex align-items-center justify-content-between">
-                                <a href="<?php echo BASE_URL; ?>/admin/members.php" class="text-white text-decoration-none">View Details</a>
-                                <i class="fas fa-arrow-circle-right text-white"></i>
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
                             </div>
                         </div>
                     </div>
                     
                     <div class="col-md-3 mb-3">
-                        <div class="card text-white bg-success h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="card-title">Active Members</h6>
-                                        <h2 class="card-text"><?php echo $stats['active_members']; ?></h2>
-                                    </div>
-                                    <i class="fas fa-user-check fa-3x opacity-50"></i>
+                        <div class="dashboard-card" style="background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">Active Members</h6>
+                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo $stats['active_members']; ?></h2>
                                 </div>
+                                <i class="fas fa-user-check fa-3x" style="color: rgba(255,255,255,0.6);"></i>
                             </div>
-                            <div class="card-footer d-flex align-items-center justify-content-between">
-                                <a href="<?php echo BASE_URL; ?>/admin/members.php?status=Active" class="text-white text-decoration-none">View Details</a>
-                                <i class="fas fa-arrow-circle-right text-white"></i>
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php?status=Active" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
                             </div>
                         </div>
                     </div>
                     
                     <div class="col-md-3 mb-3">
-                        <div class="card text-white bg-warning h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="card-title">Expiring Soon</h6>
-                                        <h2 class="card-text"><?php echo count($expiring_memberships); ?></h2>
-                                    </div>
-                                    <i class="fas fa-clock fa-3x opacity-50"></i>
+                        <div class="dashboard-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">Expiring Soon</h6>
+                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo count($expiring_memberships); ?></h2>
                                 </div>
+                                <i class="fas fa-clock fa-3x" style="color: rgba(255,255,255,0.6);"></i>
                             </div>
-                            <div class="card-footer d-flex align-items-center justify-content-between">
-                                <a href="<?php echo BASE_URL; ?>/admin/expiring_memberships.php" class="text-white text-decoration-none">View Details</a>
-                                <i class="fas fa-arrow-circle-right text-white"></i>
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?filter=expiring" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
                             </div>
                         </div>
                     </div>
                     
                     <div class="col-md-3 mb-3">
-                        <div class="card text-white bg-info h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="card-title">New This Month</h6>
-                                        <h2 class="card-text"><?php echo $stats['new_members_this_month']; ?></h2>
-                                    </div>
-                                    <i class="fas fa-user-plus fa-3x opacity-50"></i>
+                        <div class="dashboard-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">New This Month</h6>
+                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo $stats['new_members_this_month']; ?></h2>
                                 </div>
+                                <i class="fas fa-user-plus fa-3x" style="color: rgba(255,255,255,0.6);"></i>
                             </div>
-                            <div class="card-footer d-flex align-items-center justify-content-between">
-                                <a href="<?php echo BASE_URL; ?>/admin/members.php?filter=new" class="text-white text-decoration-none">View Details</a>
-                                <i class="fas fa-arrow-circle-right text-white"></i>
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php?filter=new" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
                             </div>
                         </div>
                     </div>
@@ -182,7 +170,7 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
                         <div class="card h-100">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="card-title mb-0">Recent Members</h5>
-                                <a href="<?php echo BASE_URL; ?>/admin/members.php" class="btn btn-sm btn-primary">View All</a>
+                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="btn btn-sm btn-primary">View All</a>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -209,7 +197,7 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
                                                     <td><?php echo $member['membership_type']; ?></td>
                                                     <td><?php echo date('M d, Y', strtotime($member['join_date'])); ?></td>
                                                     <td>
-                                                        <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
+                                                        <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -230,7 +218,7 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
                         <div class="card h-100">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="card-title mb-0">Expiring Memberships</h5>
-                                <a href="<?php echo BASE_URL; ?>/admin/expiring_memberships.php" class="btn btn-sm btn-warning">View All</a>
+                                <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?filter=expiring" class="btn btn-sm btn-warning">View All</a>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -255,7 +243,7 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
                                                     <td><?php echo $member['membership_type']; ?></td>
                                                     <td><?php echo date('M d, Y', strtotime($member['expiry_date'])); ?></td>
                                                     <td>
-                                                        <a href="<?php echo BASE_URL; ?>/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-sync-alt"></i> Renew</a>
+                                                        <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?action=renew&id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-sync-alt"></i> Renew</a>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -274,7 +262,7 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
                 </div>
                 
                 <!-- Include Footer -->
-                <?php include '../includes/footer.php'; ?>
+                <?php include '../../views/includes/footer.php'; ?>
             </main>
         </div>
     </div>

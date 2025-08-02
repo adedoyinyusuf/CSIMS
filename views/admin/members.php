@@ -1,7 +1,7 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/member_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/member_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -51,12 +51,12 @@ $membership_types = $memberController->getMembershipTypes();
 </head>
 <body>
     <!-- Include Header/Navbar -->
-    <?php include '../includes/header.php'; ?>
+    <?php include '../../views/includes/header.php'; ?>
     
     <div class="container-fluid">
         <div class="row">
             <!-- Include Sidebar -->
-            <?php include '../includes/sidebar.php'; ?>
+            <?php include '../../views/includes/sidebar.php'; ?>
             
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
@@ -203,18 +203,18 @@ $membership_types = $memberController->getMembershipTypes();
                                                 </td>
                                                 <td>
                                                     <div class="btn-group">
-                                                        <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-info" data-bs-toggle="tooltip" title="View Details">
+                                                        <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-info" data-bs-toggle="tooltip" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="<?php echo BASE_URL; ?>/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="Edit Member">
+                                        <a href="<?php echo BASE_URL; ?>/views/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="Edit Member">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <?php if ($days_left <= 0): ?>
-                                            <a href="<?php echo BASE_URL; ?>/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="Renew Membership">
+                                            <a href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="Renew Membership">
                                                 <i class="fas fa-sync-alt"></i>
                                             </a>
                                         <?php endif; ?>
-                                        <a href="<?php echo BASE_URL; ?>/admin/delete_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-danger btn-delete" data-bs-toggle="tooltip" title="Delete Member">
+                                        <a href="<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-danger btn-delete" data-bs-toggle="tooltip" title="Delete Member">
                                             <i class="fas fa-trash"></i>
                                         </a>
                                                     </div>
@@ -260,7 +260,7 @@ $membership_types = $memberController->getMembershipTypes();
                 </div>
                 
                 <!-- Include Footer -->
-                <?php include '../includes/footer.php'; ?>
+                <?php include '../../views/includes/footer.php'; ?>
             </main>
         </div>
     </div>

@@ -1,10 +1,16 @@
 <?php
+// Include required files
+require_once __DIR__ . '/../../controllers/auth_controller.php';
+
 // Get current user
-$current_user = isset($current_user) ? $current_user : $auth->getCurrentUser();
+if (!isset($current_user)) {
+    $authController = new AuthController();
+    $current_user = $authController->getCurrentUser();
+}
 ?>
 
 <header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
-    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="<?php echo BASE_URL; ?>/admin/dashboard.php">
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="<?php echo BASE_URL; ?>/views/admin/dashboard.php">
         <?php echo APP_SHORT_NAME; ?>
     </a>
     <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,10 +41,10 @@ $current_user = isset($current_user) ? $current_user : $auth->getCurrentUser();
                 <i class="fas fa-user-circle"></i> <?php echo $current_user['first_name']; ?>
             </a>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/admin/profile.php"><i class="fas fa-user fa-fw"></i> Profile</a></li>
-                <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/admin/settings.php"><i class="fas fa-cog fa-fw"></i> Settings</a></li>
+                <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/profile.php"><i class="fas fa-user fa-fw"></i> Profile</a></li>
+                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/settings.php"><i class="fas fa-cog fa-fw"></i> Settings</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/auth/logout.php"><i class="fas fa-sign-out-alt fa-fw"></i> Logout</a></li>
+                <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/auth/logout.php"><i class="fas fa-sign-out-alt fa-fw"></i> Logout</a></li>
             </ul>
         </div>
     </div>

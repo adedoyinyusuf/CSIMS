@@ -308,8 +308,14 @@ class LoanController {
     public function getLoansByMemberId($member_id, $limit = 0) {
         try {
             $member_id = (int)$member_id;
+            $limit = (int)$limit;
             
-            $query = "SELECT * FROM loans WHERE member_id = ? ORDER BY application_date DESC";
+            $query = "SELECT l.*, 
+                m.first_name, m.last_name, m.email, m.phone 
+                FROM loans l 
+                JOIN members m ON l.member_id = m.member_id 
+                WHERE l.member_id = ? 
+                ORDER BY l.application_date DESC";
             
             if ($limit > 0) {
                 $query .= " LIMIT ?";
@@ -331,7 +337,7 @@ class LoanController {
             return $loans;
         } catch (Exception $e) {
             // Log error
-            error_log("Error getting member loans: " . $e->getMessage());
+            error_log("Error getting loans by member ID: " . $e->getMessage());
             return false;
         }
     }
@@ -811,6 +817,27 @@ class LoanController {
         ];
         
         return $classes[$status] ?? 'secondary';
+    }
+    
+    /**
+     * Add a loan (wrapper method for compatibility)
+     * 
+     * @param array $data Loan application data
+     * @return int|bool The ID of the newly created loan or false on failure
+     */
+    public function addLoan($data) {
+        return $this->addLoanApplication($data);
+    }
+    
+    /**
+     * Get loans for a specific member (wrapper method for compatibility)
+     * 
+     * @param int $member_id Member ID
+     * @param int $limit Number of records to return (0 for all)
+     * @return array|bool Loan data or false on failure
+     */
+    public function getMemberLoans($member_id, $limit = 0) {
+        return $this->getLoansByMemberId($member_id, $limit);
     }
 }
 ?>

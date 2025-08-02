@@ -424,5 +424,143 @@ class ContributionController {
             'Other'
         ];
     }
+    
+    /**
+     * Get member contributions with pagination
+     * 
+     * @param int $member_id Member ID
+     * @param int $page Current page number
+     * @param int $limit Records per page
+     * @return array Contributions and pagination data
+     */
+    public function getMemberContributions($member_id, $page = 1, $limit = 10) {
+        try {
+            $member_id = (int)$member_id;
+            $page = max(1, (int)$page);
+            $limit = max(1, (int)$limit);
+            $offset = ($page - 1) * $limit;
+            
+            // Get total count
+            $count_stmt = $this->db->prepare("SELECT COUNT(*) as total FROM contributions WHERE member_id = ?");
+            $count_stmt->bind_param("i", $member_id);
+            $count_stmt->execute();
+            $total_records = $count_stmt->get_result()->fetch_assoc()['total'];
+            
+            // Get contributions
+            $stmt = $this->db->prepare("SELECT * FROM contributions WHERE member_id = ? ORDER BY contribution_date DESC LIMIT ? OFFSET ?");
+            $stmt->bind_param("iii", $member_id, $limit, $offset);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            $contributions = [];
+            while ($row = $result->fetch_assoc()) {
+                $contributions[] = $row;
+            }
+            
+            $total_pages = ceil($total_records / $limit);
+            
+            return [
+                'contributions' => $contributions,
+                'pagination' => [
+                    'total_records' => $total_records,
+                    'total_pages' => $total_pages,
+                    'current_page' => $page,
+                    'limit' => $limit
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting member contributions: " . $e->getMessage());
+            return [
+                'contributions' => [],
+                'pagination' => [
+                    'total_records' => 0,
+                    'total_pages' => 0,
+                    'current_page' => $page,
+                    'limit' => $limit
+                ]
+            ];
+        }
+    }
+    
+    /**
+     * Get member total contributions
+     * 
+     * @param int $member_id Member ID
+     * @return float Total contribution amount
+     */
+    public function getMemberTotalContributions($member_id) {
+        try {
+            $member_id = (int)$member_id;
+            
+            $stmt = $this->db->prepare("SELECT SUM(amount) as total FROM contributions WHERE member_id = ?");
+            $stmt->bind_param("i", $member_id);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            
+            return (float)($result['total'] ?? 0);
+        } catch (Exception $e) {
+            error_log("Error getting member total contributions: " . $e->getMessage());
+            return 0.0;
+        }
+    }
+    
+    /**
+     * Get member contribution count
+     * 
+     * @param int $member_id Member ID
+     * @return int Number of contributions
+     */
+    public function getMemberContributionCount($member_id) {
+        try {
+            $member_id = (int)$member_id;
+            
+            $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM contributions WHERE member_id = ?");
+            $stmt->bind_param("i", $member_id);
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            
+            return (int)($result['count'] ?? 0);
+        } catch (Exception $e) {
+            error_log("Error getting member contribution count: " . $e->getMessage());
+            return 0;
+        }
+    }
+    
+    /**
+     * Get member last contribution
+     * 
+     * @param int $member_id Member ID
+     * @return array|null Last contribution data or null if none found
+     */
+    public function getMemberLastContribution($member_id) {
+        try {
+            $member_id = (int)$member_id;
+            
+            $stmt = $this->db->prepare("SELECT * FROM contributions WHERE member_id = ? ORDER BY contribution_date DESC LIMIT 1");
+            $stmt->bind_param("i", $member_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                return $result->fetch_assoc();
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            error_log("Error getting member last contribution: " . $e->getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Get contributions for a specific member (wrapper method for compatibility)
+     * 
+     * @param int $member_id Member ID
+     * @param int $limit Number of records to return (0 for all)
+     * @return array|bool Contribution data or false on failure
+     */
+    public function getContributionsByMember($member_id, $limit = 0) {
+        return $this->getContributionsByMemberId($member_id, $limit);
+    }
 }
 ?>

@@ -1,7 +1,7 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/notification_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/notification_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -79,7 +79,7 @@ $notification_types = $notificationController->getNotificationTypes();
 </head>
 <body>
     <!-- Include Header/Navbar -->
-    <?php include '../includes/header.php'; ?>
+    <?php include '../../views/includes/header.php'; ?>
 
 <div class="container-fluid">
     <div class="row">

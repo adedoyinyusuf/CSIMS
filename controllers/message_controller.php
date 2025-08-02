@@ -1,8 +1,8 @@
 <?php
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 class MessageController {
-    private $conn;
+    public $conn;
     
     public function __construct() {
         global $conn;
@@ -193,6 +193,218 @@ class MessageController {
         }
         
         return $admins;
+    }
+    
+    /**
+     * Get recent messages with enhanced details for communication portal
+     */
+    public function getRecentMessages($limit = 10) {
+        try {
+            $sql = "SELECT m.*, 
+                           CASE 
+                               WHEN m.sender_type = 'Admin' THEN CONCAT(sa.first_name, ' ', sa.last_name)
+                               WHEN m.sender_type = 'Member' THEN CONCAT(sm.first_name, ' ', sm.last_name)
+                           END as sender_name,
+                           CASE 
+                               WHEN m.recipient_type = 'Admin' THEN CONCAT(ra.first_name, ' ', ra.last_name)
+                               WHEN m.recipient_type = 'Member' THEN CONCAT(rm.first_name, ' ', rm.last_name)
+                           END as recipient_name,
+                           'normal' as priority
+                    FROM messages m
+                    LEFT JOIN admins sa ON m.sender_type = 'Admin' AND m.sender_id = sa.admin_id
+                    LEFT JOIN members sm ON m.sender_type = 'Member' AND m.sender_id = sm.member_id
+                    LEFT JOIN admins ra ON m.recipient_type = 'Admin' AND m.recipient_id = ra.admin_id
+                    LEFT JOIN members rm ON m.recipient_type = 'Member' AND m.recipient_id = rm.member_id
+                    ORDER BY m.created_at DESC
+                    LIMIT ?";
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching recent messages: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Send bulk messages to multiple recipients
+     */
+    public function sendBulkMessages($senderData, $recipients, $messageData) {
+        try {
+            $successCount = 0;
+            $failedCount = 0;
+            $errors = [];
+            
+            foreach ($recipients as $recipient) {
+                 $data = [
+                     'sender_type' => 'Admin',
+                     'sender_id' => $senderData['sender_id'],
+                     'recipient_type' => 'Member',
+                     'recipient_id' => $recipient['id'],
+                     'subject' => $messageData['subject'],
+                     'message' => $messageData['message']
+                 ];
+                
+                if ($this->createMessage($data)) {
+                    $successCount++;
+                } else {
+                    $failedCount++;
+                    $errors[] = "Failed to send message to {$recipient['first_name']} {$recipient['last_name']}";
+                }
+            }
+            
+            return [
+                'success' => $successCount,
+                'failed' => $failedCount,
+                'errors' => $errors
+            ];
+        } catch (Exception $e) {
+            error_log("Error sending bulk messages: " . $e->getMessage());
+            return [
+                'success' => 0,
+                'failed' => count($recipients),
+                'errors' => [$e->getMessage()]
+            ];
+        }
+    }
+    
+    /**
+     * Get enhanced message statistics for communication portal
+     */
+    public function getCommunicationStatistics() {
+        try {
+            $stats = [];
+            
+            // Get basic message stats
+            $basicStats = $this->getMessageStats();
+            $stats['total_messages'] = $basicStats['total_messages'];
+            $stats['unread_messages'] = $basicStats['unread_messages'];
+            $stats['read_messages'] = $basicStats['read_messages'];
+            
+            // Messages today
+            $sql = "SELECT COUNT(*) as count FROM messages WHERE DATE(created_at) = CURDATE()";
+            $result = $this->conn->query($sql);
+            $stats['messages_today'] = $result->fetch_assoc()['count'];
+            
+            // Messages this week
+            $sql = "SELECT COUNT(*) as count FROM messages WHERE YEARWEEK(created_at) = YEARWEEK(NOW())";
+            $result = $this->conn->query($sql);
+            $stats['messages_this_week'] = $result->fetch_assoc()['count'];
+            
+            // Messages this month
+            $sql = "SELECT COUNT(*) as count FROM messages WHERE MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())";
+            $result = $this->conn->query($sql);
+            $stats['messages_this_month'] = $result->fetch_assoc()['count'];
+            
+            // Active announcements (placeholder - would need announcements table)
+            $stats['active_announcements'] = 0;
+            
+            return $stats;
+        } catch (Exception $e) {
+            error_log("Error fetching communication statistics: " . $e->getMessage());
+            return [
+                'total_messages' => 0,
+                'messages_today' => 0,
+                'messages_this_week' => 0,
+                'messages_this_month' => 0,
+                'active_announcements' => 0
+            ];
+        }
+    }
+    
+    /**
+     * Get all active members for messaging
+     */
+    public function getAllActiveMembers() {
+        try {
+            $sql = "SELECT member_id as id, first_name, last_name, email, phone 
+                    FROM members 
+                    WHERE status = 'Active' 
+                    ORDER BY first_name, last_name";
+            
+            $result = $this->conn->query($sql);
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching active members: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Get members by status for targeted messaging
+     */
+    public function getMembersByStatus($status) {
+        try {
+            $sql = "SELECT member_id as id, first_name, last_name, email, phone 
+                    FROM members 
+                    WHERE status = ? 
+                    ORDER BY first_name, last_name";
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param('s', $status);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching members by status: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Get members with expiring memberships
+     */
+    public function getExpiringMembers($days = 30) {
+        try {
+            $sql = "SELECT member_id as id, first_name, last_name, email, phone, membership_expiry 
+                    FROM members 
+                    WHERE status = 'Active' 
+                    AND membership_expiry BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+                    ORDER BY membership_expiry, first_name";
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param('i', $days);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching expiring members: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Get members by IDs for bulk operations
+     */
+    public function getMembersByIds($ids) {
+        try {
+            if (empty($ids) || !is_array($ids)) {
+                return [];
+            }
+            
+            $placeholders = str_repeat('?,', count($ids) - 1) . '?';
+            $sql = "SELECT member_id as id, first_name, last_name, email, phone 
+                    FROM members 
+                    WHERE member_id IN ($placeholders) 
+                    ORDER BY first_name, last_name";
+            
+            $stmt = $this->conn->prepare($sql);
+            $types = str_repeat('i', count($ids));
+            $stmt->bind_param($types, ...$ids);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            return $result->fetch_all(MYSQLI_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error fetching members by IDs: " . $e->getMessage());
+            return [];
+        }
     }
 }
 ?>

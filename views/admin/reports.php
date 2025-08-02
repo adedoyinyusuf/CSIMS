@@ -1,7 +1,7 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/report_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/report_controller.php';
 
 // Initialize session and auth
 $session = Session::getInstance();

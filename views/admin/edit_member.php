@@ -1,7 +1,7 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/member_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/member_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -156,20 +156,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <!-- Include Header/Navbar -->
-    <?php include '../includes/header.php'; ?>
+    <?php include '../../views/includes/header.php'; ?>
     
     <div class="container-fluid">
         <div class="row">
             <!-- Include Sidebar -->
-            <?php include '../includes/sidebar.php'; ?>
+            <?php include '../../views/includes/sidebar.php'; ?>
             
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/dashboard.php">Dashboard</a></li>
-                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/members.php">Members</a></li>
-                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member_id; ?>">View Member</a></li>
+                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/members.php">Members</a></li>
+                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member_id; ?>">View Member</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Edit Member</li>
                     </ol>
                 </nav>
@@ -371,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             
                             <div class="d-flex justify-content-between mt-4">
-                                <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member_id; ?>" class="btn btn-secondary">Cancel</a>
+                                <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member_id; ?>" class="btn btn-secondary">Cancel</a>
                                 <button type="submit" class="btn btn-primary">Update Member</button>
                             </div>
                         </form>
@@ -379,7 +379,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <!-- Include Footer -->
-                <?php include '../includes/footer.php'; ?>
+                <?php include '../../views/includes/footer.php'; ?>
             </main>
         </div>
     </div>

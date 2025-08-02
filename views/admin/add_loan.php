@@ -6,10 +6,10 @@
  */
 
 // Require authentication and controllers
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/loan_controller.php';
-require_once '../controllers/member_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/loan_controller.php';
+require_once '../../controllers/member_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();

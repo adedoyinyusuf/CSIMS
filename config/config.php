@@ -2,12 +2,12 @@
 // Application Configuration
 
 // Application Information
-define('APP_NAME', 'Cooperative Society Information Management System');
-define('APP_SHORT_NAME', 'CSIMS');
+define('APP_NAME', 'NPC CTLStaff Loan Society');
+define('APP_SHORT_NAME', 'NPC CTLStaff');
 define('APP_VERSION', '1.0.0');
 
 // URL Configuration
-define('BASE_URL', 'http://' . $_SERVER['HTTP_HOST'] . '/CSIMS');
+define('BASE_URL', 'http://' . $_SERVER['HTTP_HOST']);
 
 // Directory Configuration
 define('ROOT_DIR', dirname(__DIR__));

@@ -1,7 +1,7 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/member_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/member_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -66,19 +66,19 @@ $is_expired = $now > $expiry_date;
 </head>
 <body>
     <!-- Include Header/Navbar -->
-    <?php include '../includes/header.php'; ?>
+    <?php include '../../views/includes/header.php'; ?>
     
     <div class="container-fluid">
         <div class="row">
             <!-- Include Sidebar -->
-            <?php include '../includes/sidebar.php'; ?>
+            <?php include '../../views/includes/sidebar.php'; ?>
             
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/dashboard.php">Dashboard</a></li>
-                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/members.php">Members</a></li>
+                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/members.php">Members</a></li>
                         <li class="breadcrumb-item active" aria-current="page">View Member</li>
                     </ol>
                 </nav>
@@ -139,7 +139,7 @@ $is_expired = $now > $expiry_date;
                             </div>
                             <div class="col-md-3 text-end">
                                 <div class="btn-group">
-                                    <a href="<?php echo BASE_URL; ?>/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-primary">
+                                    <a href="<?php echo BASE_URL; ?>/views/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-primary">
                                         <i class="fas fa-edit me-2"></i> Edit
                                     </a>
                                     <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -147,12 +147,12 @@ $is_expired = $now > $expiry_date;
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <?php if ($is_expired): ?>
-                                            <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-sync-alt me-2"></i> Renew Membership</a></li>
+                                            <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-sync-alt me-2"></i> Renew Membership</a></li>
                                         <?php endif; ?>
-                                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Add Contribution</a></li>
+                                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Add Contribution</a></li>
                                         <li><a class="dropdown-item" href="#" onclick="window.print();"><i class="fas fa-print me-2"></i> Print Profile</a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item text-danger btn-delete" href="<?php echo BASE_URL; ?>/admin/delete_member.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-trash me-2"></i> Delete Member</a></li>
+                                        <li><a class="dropdown-item text-danger btn-delete" href="<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-trash me-2"></i> Delete Member</a></li>
                                     </ul>
                                 </div>
                             </div>
@@ -491,7 +491,7 @@ $is_expired = $now > $expiry_date;
                 </div>
                 
                 <!-- Include Footer -->
-                <?php include '../includes/footer.php'; ?>
+                <?php include '../../views/includes/footer.php'; ?>
             </main>
         </div>
     </div>

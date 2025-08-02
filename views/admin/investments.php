@@ -1,8 +1,10 @@
 <?php
-require_once '../config/config.php';
-session_start();
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/investment_controller.php';
+require_once '../../config/config.php';
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/investment_controller.php';
 
 $auth = new AuthController();
 $current_user = $auth->getCurrentUser();
@@ -41,11 +43,11 @@ $stats = $investmentController->getInvestmentStats();
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <?php include '../includes/header.php'; ?>
+    <?php include '../../views/includes/header.php'; ?>
     
     <div class="container-fluid">
         <div class="row">
-            <?php include '../includes/sidebar.php'; ?>
+            <?php include '../../views/includes/sidebar.php'; ?>
             
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">

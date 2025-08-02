@@ -4,6 +4,9 @@ require_once 'database.php';
 // Create Members table
 $sql_members = "CREATE TABLE IF NOT EXISTS members (
     member_id INT AUTO_INCREMENT PRIMARY KEY,
+    ippis_no VARCHAR(6) UNIQUE NOT NULL,
+    username VARCHAR(50) UNIQUE,
+    password VARCHAR(255),
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     dob DATE NOT NULL,
@@ -17,6 +20,7 @@ $sql_members = "CREATE TABLE IF NOT EXISTS members (
     join_date DATE NOT NULL DEFAULT CURRENT_DATE,
     expiry_date DATE,
     status ENUM('Active', 'Inactive', 'Suspended', 'Expired') DEFAULT 'Active',
+    last_login DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )";

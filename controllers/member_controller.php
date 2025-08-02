@@ -1,9 +1,9 @@
 <?php
-require_once $_SERVER['DOCUMENT_ROOT'] . '/CSIMS/config/config.php';
+require_once __DIR__ . '/../config/config.php';
 
 class MemberController {
     private $db;
-    private $conn;
+    public $conn;
     private $session;
     
     public function __construct() {
@@ -12,7 +12,227 @@ class MemberController {
         $this->session = Session::getInstance();
     }
     
-    // Add new member
+    // Register new member (self-registration)
+    public function registerMember($data) {
+        // Sanitize inputs
+        $ippis_no = Utilities::sanitizeInput($data['ippis_no']);
+        $username = Utilities::sanitizeInput($data['username']);
+        $password = $data['password'];
+        $first_name = Utilities::sanitizeInput($data['first_name']);
+        $last_name = Utilities::sanitizeInput($data['last_name']);
+        $dob = Utilities::sanitizeInput($data['dob']);
+        $gender = Utilities::sanitizeInput($data['gender']);
+        $address = Utilities::sanitizeInput($data['address']);
+        $phone = Utilities::sanitizeInput($data['phone']);
+        $email = Utilities::sanitizeInput($data['email']);
+        $occupation = Utilities::sanitizeInput($data['occupation']);
+        $membership_type_id = (int)$data['membership_type_id'];
+        
+        // Validate email
+        if (!Utilities::validateEmail($email)) {
+            return false;
+        }
+        
+        // Hash password
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+        
+        // Calculate expiry date based on membership type
+        $membershipStmt = $this->conn->prepare("SELECT duration FROM membership_types WHERE membership_type_id = ?");
+        $membershipStmt->bind_param("i", $membership_type_id);
+        $membershipStmt->execute();
+        $membershipResult = $membershipStmt->get_result();
+        
+        if ($membershipResult->num_rows == 0) {
+            return false;
+        }
+        
+        $membership = $membershipResult->fetch_assoc();
+        $duration = $membership['duration'];
+        
+        $join_date = date('Y-m-d');
+        $expiry_date = date('Y-m-d', strtotime("+$duration months"));
+        
+        // Insert member with pending approval status
+        $stmt = $this->conn->prepare("INSERT INTO members (ippis_no, username, password, first_name, last_name, dob, gender, address, phone, email, occupation, membership_type_id, join_date, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')");
+        
+        $stmt->bind_param("ssssssssssssss", $ippis_no, $username, $password_hash, $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $membership_type_id, $join_date, $expiry_date);
+        
+        return $stmt->execute();
+    }
+    
+    // Check if email already exists
+    public function checkExistingMember($email) {
+        $stmt = $this->conn->prepare("SELECT member_id FROM members WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->num_rows > 0;
+    }
+    
+    // Check if username already exists
+    public function checkExistingUsername($username) {
+        $stmt = $this->conn->prepare("SELECT member_id FROM members WHERE username = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->num_rows > 0;
+    }
+    
+    // Check if IPPIS number already exists
+    public function checkExistingIppis($ippis_no) {
+        $stmt = $this->conn->prepare("SELECT member_id FROM members WHERE ippis_no = ?");
+        $stmt->bind_param("s", $ippis_no);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->num_rows > 0;
+    }
+    
+    // Authenticate member login using username and password
+    public function authenticateMember($username, $password) {
+        $stmt = $this->conn->prepare("SELECT member_id, username, password, first_name, last_name, email, status FROM members WHERE username = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows == 1) {
+            $member = $result->fetch_assoc();
+            // Verify password
+            if (password_verify($password, $member['password'])) {
+                // Remove password from returned data for security
+                unset($member['password']);
+                
+                // Return member data with status for login feedback
+                if ($member['status'] === 'Active') {
+                    return $member; // Allow login
+                } else {
+                    // Return status info for feedback but don't allow login
+                    return ['status' => $member['status'], 'login_allowed' => false];
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    // Get membership types
+    public function getMembershipTypes() {
+        $stmt = $this->conn->prepare("SELECT * FROM membership_types ORDER BY fee ASC");
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+    
+    // Get pending members for admin approval
+    public function getPendingMembers() {
+        $stmt = $this->conn->prepare("SELECT m.*, mt.name as membership_type FROM members m JOIN membership_types mt ON m.membership_type_id = mt.membership_type_id WHERE m.status = 'Pending' ORDER BY m.join_date DESC");
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
+    
+    // Approve member registration
+    public function approveMember($member_id) {
+        $stmt = $this->conn->prepare("UPDATE members SET status = 'Active' WHERE member_id = ? AND status = 'Pending'");
+        $stmt->bind_param("i", $member_id);
+        
+        if ($stmt->execute() && $stmt->affected_rows > 0) {
+            return ['success' => true, 'message' => 'Member approved successfully'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to approve member or member not found'];
+        }
+    }
+    
+    // Reject member registration
+    public function rejectMember($member_id) {
+        $stmt = $this->conn->prepare("UPDATE members SET status = 'Rejected' WHERE member_id = ? AND status = 'Pending'");
+        $stmt->bind_param("i", $member_id);
+        
+        if ($stmt->execute() && $stmt->affected_rows > 0) {
+            return ['success' => true, 'message' => 'Member registration rejected'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to reject member or member not found'];
+        }
+    }
+    
+    // Update member profile (member self-update)
+    public function updateMemberProfile($member_id, $data) {
+        // Sanitize inputs
+        $first_name = Utilities::sanitizeInput($data['first_name']);
+        $last_name = Utilities::sanitizeInput($data['last_name']);
+        $dob = Utilities::sanitizeInput($data['dob']);
+        $gender = Utilities::sanitizeInput($data['gender']);
+        $address = Utilities::sanitizeInput($data['address']);
+        $phone = Utilities::sanitizeInput($data['phone']);
+        $email = Utilities::sanitizeInput($data['email']);
+        $occupation = Utilities::sanitizeInput($data['occupation']);
+        
+        // Validate email
+        if (!empty($email) && !Utilities::validateEmail($email)) {
+            return ['success' => false, 'message' => 'Invalid email format'];
+        }
+        
+        // Check if email already exists for another member
+        if (!empty($email)) {
+            $checkStmt = $this->conn->prepare("SELECT member_id FROM members WHERE email = ? AND member_id != ?");
+            $checkStmt->bind_param("si", $email, $member_id);
+            $checkStmt->execute();
+            $checkResult = $checkStmt->get_result();
+            
+            if ($checkResult->num_rows > 0) {
+                return ['success' => false, 'message' => 'Email already exists for another member'];
+            }
+        }
+        
+        // Update member profile
+        $stmt = $this->conn->prepare("UPDATE members SET first_name = ?, last_name = ?, dob = ?, gender = ?, address = ?, phone = ?, email = ?, occupation = ? WHERE member_id = ?");
+        $stmt->bind_param("ssssssssi", $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $member_id);
+        
+        if ($stmt->execute()) {
+            return ['success' => true, 'message' => 'Profile updated successfully'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to update profile: ' . $stmt->error];
+        }
+    }
+    
+    // Change member password
+    public function changePassword($member_id, $current_password, $new_password) {
+        // Get current password hash
+        $stmt = $this->conn->prepare("SELECT password FROM members WHERE member_id = ?");
+        $stmt->bind_param("i", $member_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows !== 1) {
+            return ['success' => false, 'message' => 'Member not found'];
+        }
+        
+        $member = $result->fetch_assoc();
+        
+        // Verify current password
+        if (!password_verify($current_password, $member['password'])) {
+            return ['success' => false, 'message' => 'Current password is incorrect'];
+        }
+        
+        // Hash new password
+        $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+        
+        // Update password
+        $updateStmt = $this->conn->prepare("UPDATE members SET password = ? WHERE member_id = ?");
+        $updateStmt->bind_param("si", $new_password_hash, $member_id);
+        
+        if ($updateStmt->execute()) {
+            return ['success' => true, 'message' => 'Password changed successfully'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to change password: ' . $updateStmt->error];
+        }
+    }
+
+    // Add new member (admin function)
     public function addMember($data, $photo = null) {
         // Sanitize inputs
         $first_name = Utilities::sanitizeInput($data['first_name']);
@@ -412,18 +632,157 @@ class MemberController {
         return $members;
     }
     
-    // Get membership types
-    public function getMembershipTypes() {
-        $stmt = $this->conn->prepare("SELECT * FROM membership_types ORDER BY fee");
+
+    
+    // Advanced member search
+    public function searchMembersAdvanced($filters = [], $itemsPerPage = 20) {
+        $page = $filters['page'] ?? 1;
+        $offset = ($page - 1) * $itemsPerPage;
+        
+        // Base query
+        $query = "SELECT m.*, mt.name as membership_type 
+                  FROM members m 
+                  JOIN membership_types mt ON m.membership_type_id = mt.membership_type_id 
+                  WHERE 1=1";
+        
+        $countQuery = "SELECT COUNT(*) as total 
+                       FROM members m 
+                       JOIN membership_types mt ON m.membership_type_id = mt.membership_type_id 
+                       WHERE 1=1";
+        
+        $params = [];
+        $types = "";
+        
+        // Search filter
+        if (!empty($filters['search'])) {
+            $searchCondition = " AND (m.first_name LIKE ? OR m.last_name LIKE ? OR m.email LIKE ? OR m.phone LIKE ? OR m.member_id LIKE ?)";
+            $query .= $searchCondition;
+            $countQuery .= $searchCondition;
+            $searchTerm = "%" . $filters['search'] . "%";
+            $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+            $types .= "sssss";
+        }
+        
+        // Status filter
+        if (!empty($filters['status'])) {
+            $query .= " AND m.status = ?";
+            $countQuery .= " AND m.status = ?";
+            $params[] = $filters['status'];
+            $types .= "s";
+        }
+        
+        // Membership type filter
+        if (!empty($filters['membership_type'])) {
+            $query .= " AND m.membership_type_id = ?";
+            $countQuery .= " AND m.membership_type_id = ?";
+            $params[] = $filters['membership_type'];
+            $types .= "i";
+        }
+        
+        // Gender filter
+        if (!empty($filters['gender'])) {
+            $query .= " AND m.gender = ?";
+            $countQuery .= " AND m.gender = ?";
+            $params[] = $filters['gender'];
+            $types .= "s";
+        }
+        
+        // Age range filter
+        if (!empty($filters['age_min']) || !empty($filters['age_max'])) {
+            if (!empty($filters['age_min'])) {
+                $query .= " AND TIMESTAMPDIFF(YEAR, m.date_of_birth, CURDATE()) >= ?";
+                $countQuery .= " AND TIMESTAMPDIFF(YEAR, m.date_of_birth, CURDATE()) >= ?";
+                $params[] = $filters['age_min'];
+                $types .= "i";
+            }
+            if (!empty($filters['age_max'])) {
+                $query .= " AND TIMESTAMPDIFF(YEAR, m.date_of_birth, CURDATE()) <= ?";
+                $countQuery .= " AND TIMESTAMPDIFF(YEAR, m.date_of_birth, CURDATE()) <= ?";
+                $params[] = $filters['age_max'];
+                $types .= "i";
+            }
+        }
+        
+        // Join date range filter
+        if (!empty($filters['join_date_from'])) {
+            $query .= " AND m.join_date >= ?";
+            $countQuery .= " AND m.join_date >= ?";
+            $params[] = $filters['join_date_from'];
+            $types .= "s";
+        }
+        if (!empty($filters['join_date_to'])) {
+            $query .= " AND m.join_date <= ?";
+            $countQuery .= " AND m.join_date <= ?";
+            $params[] = $filters['join_date_to'];
+            $types .= "s";
+        }
+        
+        // Expiry date range filter
+        if (!empty($filters['expiry_date_from'])) {
+            $query .= " AND m.expiry_date >= ?";
+            $countQuery .= " AND m.expiry_date >= ?";
+            $params[] = $filters['expiry_date_from'];
+            $types .= "s";
+        }
+        if (!empty($filters['expiry_date_to'])) {
+            $query .= " AND m.expiry_date <= ?";
+            $countQuery .= " AND m.expiry_date <= ?";
+            $params[] = $filters['expiry_date_to'];
+            $types .= "s";
+        }
+        
+        // City filter
+        if (!empty($filters['city'])) {
+            $query .= " AND m.city LIKE ?";
+            $countQuery .= " AND m.city LIKE ?";
+            $params[] = "%" . $filters['city'] . "%";
+            $types .= "s";
+        }
+        
+        // State filter
+        if (!empty($filters['state'])) {
+            $query .= " AND m.state LIKE ?";
+            $countQuery .= " AND m.state LIKE ?";
+            $params[] = "%" . $filters['state'] . "%";
+            $types .= "s";
+        }
+        
+        // Get total count
+        $countStmt = $this->conn->prepare($countQuery);
+        if (!empty($types)) {
+            $countStmt->bind_param($types, ...$params);
+        }
+        $countStmt->execute();
+        $countResult = $countStmt->get_result();
+        $totalMembers = $countResult->fetch_assoc()['total'];
+        
+        // Add ordering and pagination
+        $query .= " ORDER BY m.member_id DESC LIMIT ? OFFSET ?";
+        $params[] = $itemsPerPage;
+        $params[] = $offset;
+        $types .= "ii";
+        
+        // Get members
+        $stmt = $this->conn->prepare($query);
+        if (!empty($types)) {
+            $stmt->bind_param($types, ...$params);
+        }
         $stmt->execute();
         $result = $stmt->get_result();
         
-        $types = [];
+        $members = [];
         while ($row = $result->fetch_assoc()) {
-            $types[] = $row;
+            $members[] = $row;
         }
         
-        return $types;
+        $totalPages = ceil($totalMembers / $itemsPerPage);
+        
+        return [
+            'members' => $members,
+            'total_members' => $totalMembers,
+            'total_pages' => $totalPages,
+            'current_page' => $page
+        ];
     }
     
     // Get member statistics
@@ -484,5 +843,183 @@ class MemberController {
         
         return $stats;
     }
+    
+    // Update member status
+    public function updateMemberStatus($memberId, $status) {
+        $validStatuses = ['active', 'inactive', 'suspended', 'expired'];
+        
+        if (!in_array(strtolower($status), $validStatuses)) {
+            return false;
+        }
+        
+        $stmt = $this->conn->prepare("UPDATE members SET status = ? WHERE id = ?");
+        $stmt->bind_param("si", $status, $memberId);
+        
+        return $stmt->execute();
+    }
+    
+    // Extend membership
+    public function extendMembership($memberId, $months) {
+        // Get current member data
+        $member = $this->getMemberById($memberId);
+        if (!$member) {
+            return false;
+        }
+        
+        // Calculate new expiry date
+        $currentExpiry = $member['membership_expiry'];
+        if (empty($currentExpiry) || strtotime($currentExpiry) < time()) {
+            // If no expiry or already expired, start from today
+            $newExpiry = date('Y-m-d', strtotime("+$months months"));
+        } else {
+            // Extend from current expiry date
+            $newExpiry = date('Y-m-d', strtotime($currentExpiry . " +$months months"));
+        }
+        
+        // Update the member's expiry date and status
+        $stmt = $this->conn->prepare("UPDATE members SET membership_expiry = ?, status = 'active' WHERE id = ?");
+        $stmt->bind_param("si", $newExpiry, $memberId);
+        
+        if ($stmt->execute()) {
+            // Record the extension as a transaction
+            $this->recordMembershipExtension($memberId, $months, $newExpiry);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Record membership extension transaction
+    private function recordMembershipExtension($memberId, $months, $newExpiry) {
+        $description = "Membership extended by $months month(s). New expiry: $newExpiry";
+        
+        $stmt = $this->conn->prepare(
+            "INSERT INTO member_transactions (member_id, transaction_type, description, transaction_date) 
+             VALUES (?, 'membership_extension', ?, NOW())"
+        );
+        $stmt->bind_param("is", $memberId, $description);
+        $stmt->execute();
+    }
+    
+    // Get members by IDs (for bulk operations)
+    public function getMembersByIds($memberIds) {
+        if (empty($memberIds)) {
+            return [];
+        }
+        
+        $placeholders = str_repeat('?,', count($memberIds) - 1) . '?';
+        $query = "SELECT m.*, mt.type_name as membership_type 
+                  FROM members m 
+                  LEFT JOIN membership_types mt ON m.membership_type_id = mt.id 
+                  WHERE m.id IN ($placeholders)";
+        
+        $stmt = $this->conn->prepare($query);
+        $types = str_repeat('i', count($memberIds));
+        $stmt->bind_param($types, ...$memberIds);
+        $stmt->execute();
+        
+        $result = $stmt->get_result();
+        $members = [];
+        while ($row = $result->fetch_assoc()) {
+            $members[] = $row;
+        }
+        
+        return $members;
+    }
+    
+    // Bulk update member statuses
+    public function bulkUpdateStatus($memberIds, $status) {
+        if (empty($memberIds)) {
+            return false;
+        }
+        
+        $validStatuses = ['active', 'inactive', 'suspended', 'expired'];
+        if (!in_array(strtolower($status), $validStatuses)) {
+            return false;
+        }
+        
+        $placeholders = str_repeat('?,', count($memberIds) - 1) . '?';
+        $query = "UPDATE members SET status = ? WHERE id IN ($placeholders)";
+        
+        $stmt = $this->conn->prepare($query);
+        $types = 's' . str_repeat('i', count($memberIds));
+        $params = array_merge([$status], $memberIds);
+        $stmt->bind_param($types, ...$params);
+        
+        return $stmt->execute();
+    }
+    
+    // Bulk extend memberships
+    public function bulkExtendMembership($memberIds, $months) {
+        if (empty($memberIds)) {
+            return false;
+        }
+        
+        $successCount = 0;
+        foreach ($memberIds as $memberId) {
+            if ($this->extendMembership($memberId, $months)) {
+                $successCount++;
+            }
+        }
+        
+        return $successCount;
+    }
+    
+    // Get members by status
+    public function getMembersByStatus($status) {
+        $stmt = $this->conn->prepare("SELECT m.*, mt.name as membership_type 
+                                    FROM members m 
+                                    JOIN membership_types mt ON m.membership_type_id = mt.membership_type_id 
+                                    WHERE m.status = ? 
+                                    ORDER BY m.last_name, m.first_name");
+        $stmt->bind_param("s", $status);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $members = [];
+        while ($row = $result->fetch_assoc()) {
+            $members[] = $row;
+        }
+        
+        return $members;
+    }
+    
+    // Get expiring members
+    public function getExpiringMembers($days = 30) {
+        $current_date = date('Y-m-d');
+        $expiry_date = date('Y-m-d', strtotime("+$days days"));
+        
+        $stmt = $this->conn->prepare("SELECT m.*, mt.name as membership_type 
+                                    FROM members m 
+                                    JOIN membership_types mt ON m.membership_type_id = mt.membership_type_id 
+                                    WHERE m.expiry_date BETWEEN ? AND ? 
+                                    AND m.status = 'Active' 
+                                    ORDER BY m.expiry_date");
+        $stmt->bind_param("ss", $current_date, $expiry_date);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $members = [];
+        while ($row = $result->fetch_assoc()) {
+            $members[] = $row;
+        }
+        
+        return $members;
+    }
+    
+    // Get loans by member ID (wrapper method for compatibility)
+    public function getLoansByMember($member_id, $limit = 0) {
+        require_once __DIR__ . '/loan_controller.php';
+        $loanController = new LoanController();
+        return $loanController->getLoansByMemberId($member_id, $limit);
+    }
+    
+    // Get contributions by member ID (wrapper method for compatibility)
+    public function getContributionsByMember($member_id, $limit = 0) {
+        require_once __DIR__ . '/contribution_controller.php';
+        $contributionController = new ContributionController();
+        return $contributionController->getContributionsByMemberId($member_id, $limit);
+    }
+    
 }
 ?>

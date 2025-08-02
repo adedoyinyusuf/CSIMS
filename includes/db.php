@@ -8,7 +8,7 @@ class Database {
     private static $instance = null;
     
     private function __construct() {
-        require_once $_SERVER['DOCUMENT_ROOT'] . '/CSIMS/config/database.php';
+        require_once __DIR__ . '/../config/database.php';
         $this->host = DB_HOST;
         $this->user = DB_USER;
         $this->pass = DB_PASS;

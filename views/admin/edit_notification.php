@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once '../config/auth_check.php';
-require_once '../controllers/notification_controller.php';
+require_once '../../controllers/notification_controller.php';
 
 // Initialize notification controller
 $notificationController = new NotificationController();

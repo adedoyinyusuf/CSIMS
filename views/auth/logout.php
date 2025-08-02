@@ -1,6 +1,6 @@
 <?php
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
 
 // Create auth controller instance
 $auth = new AuthController();

@@ -7,10 +7,10 @@
  */
 
 // Include required files
-require_once '../config/config.php';
-require_once '../controllers/auth_controller.php';
-require_once '../controllers/contribution_controller.php';
-require_once '../controllers/member_controller.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
+require_once '../../controllers/contribution_controller.php';
+require_once '../../controllers/member_controller.php';
 
 // Initialize controllers
 $auth = new AuthController();
