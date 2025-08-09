@@ -135,7 +135,7 @@ include_once __DIR__ . '/../includes/header.php';
                             <h5>Loan Details</h5>
                             <p><strong>Loan ID:</strong> <?php echo $loan['loan_id']; ?></p>
                             <p><strong>Amount:</strong> $<?php echo number_format($loan['amount'], 2); ?></p>
-                            <p><strong>Term:</strong> <?php echo $loan['term_months']; ?> months</p>
+                            <p><strong>Term:</strong> <?php echo $loan['term']; ?> months</p>
                             <p><strong>Interest Rate:</strong> <?php echo $loan['interest_rate']; ?>%</p>
                             <p><strong>Status:</strong> <span class="badge bg-<?php echo $loanController->getStatusBadgeClass($loan['status']); ?>"><?php echo ucfirst($loan['status']); ?></span></p>
                             <p><strong>Application Date:</strong> <?php echo date('F j, Y', strtotime($loan['application_date'])); ?></p>

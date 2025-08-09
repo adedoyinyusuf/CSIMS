@@ -180,335 +180,322 @@ $page_title = 'System Administration';
 require_once '../includes/header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php require_once '../includes/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">System Administration</h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <div class="btn-group me-2">
-                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#backupModal">
-                            <i class="fas fa-download"></i> Backup Database
-                        </button>
-                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createAdminModal">
-                            <i class="fas fa-user-plus"></i> Add Admin
-                        </button>
-                    </div>
-                </div>
+<!-- Main Content -->
+<div class="flex-1 ml-64 bg-gray-50">
+    <div class="p-8">
+        <!-- Page Heading -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">System Administration</h1>
+                <p class="text-gray-600 mt-2">Manage admin users and system settings</p>
             </div>
-
-            <?php require_once '../includes/flash_messages.php'; ?>
-
-            <!-- System Overview -->
-            <div class="row mb-4">
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-primary shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Members</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['members']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-users fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-success shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Contributions</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['contributions']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Active Loans</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['loans']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-info shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Database Size</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $stats['db_size']; ?> MB</div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-database fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="flex space-x-3">
+                <button type="button" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200" onclick="openModal('backupModal')">
+                    <i class="fas fa-download mr-2"></i> Backup Database
+                </button>
+                <button type="button" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200" onclick="openModal('createAdminModal')">
+                    <i class="fas fa-user-plus mr-2"></i> Add Admin
+                </button>
             </div>
+        </div>
 
-            <!-- Admin Users Management -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">Admin Users</h6>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createAdminModal">
-                        <i class="fas fa-plus"></i> Add New Admin
-                    </button>
+        <?php require_once '../includes/flash_messages.php'; ?>
+
+        <!-- System Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Total Members</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['members']); ?></p>
+                    </div>
+                    <div class="p-3 bg-blue-100 rounded-full">
+                        <i class="fas fa-users text-blue-600 text-xl"></i>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered" id="adminTable">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Username</th>
-                                    <th>Full Name</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Created</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($admins as $admin): ?>
-                                    <tr>
-                                        <td><?php echo $admin['id']; ?></td>
-                                        <td><?php echo htmlspecialchars($admin['username']); ?></td>
-                                        <td><?php echo htmlspecialchars($admin['full_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($admin['email']); ?></td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $admin['role'] === 'Super Admin' ? 'danger' : 'primary'; ?>">
-                                                <?php echo $admin['role']; ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $admin['status'] === 'Active' ? 'success' : 'secondary'; ?>">
-                                                <?php echo $admin['status']; ?>
-                                            </span>
-                                        </td>
-                                        <td><?php echo date('M j, Y', strtotime($admin['created_at'])); ?></td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    onclick="editAdmin(<?php echo htmlspecialchars(json_encode($admin)); ?>)">
-                                                <i class="fas fa-edit"></i>
+                <div class="mt-4 border-l-4 border-blue-500 pl-1"></div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-green-600 uppercase tracking-wide">Total Contributions</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['contributions']); ?></p>
+                    </div>
+                    <div class="p-3 bg-green-100 rounded-full">
+                        <i class="fas fa-hand-holding-usd text-green-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 border-l-4 border-green-500 pl-1"></div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-yellow-600 uppercase tracking-wide">Active Loans</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['loans']); ?></p>
+                    </div>
+                    <div class="p-3 bg-yellow-100 rounded-full">
+                        <i class="fas fa-money-bill-wave text-yellow-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 border-l-4 border-yellow-500 pl-1"></div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-cyan-600 uppercase tracking-wide">Database Size</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo $stats['db_size']; ?> MB</p>
+                    </div>
+                    <div class="p-3 bg-cyan-100 rounded-full">
+                        <i class="fas fa-database text-cyan-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 border-l-4 border-cyan-500 pl-1"></div>
+            </div>
+        </div>
+
+        <!-- Admin Users Management -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Admin Users</h3>
+                <button type="button" class="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200" onclick="openModal('createAdminModal')">
+                    <i class="fas fa-plus mr-2"></i> Add New Admin
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200" id="adminTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($admins as $admin): ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo $admin['id']; ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($admin['username']); ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($admin['full_name']); ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($admin['email']); ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $admin['role'] === 'Super Admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'; ?>">
+                                            <?php echo $admin['role']; ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $admin['status'] === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'; ?>">
+                                            <?php echo $admin['status']; ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo date('M j, Y', strtotime($admin['created_at'])); ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button type="button" class="text-blue-600 hover:text-blue-900 transition-colors duration-200" 
+                                                onclick="editAdmin(<?php echo htmlspecialchars(json_encode($admin)); ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <?php if ($admin['id'] != $_SESSION['admin_id']): ?>
+                                            <button type="button" class="text-red-600 hover:text-red-900 transition-colors duration-200" 
+                                                    onclick="deleteAdmin(<?php echo $admin['id']; ?>, '<?php echo htmlspecialchars($admin['username']); ?>')">
+                                                <i class="fas fa-trash"></i>
                                             </button>
-                                            <?php if ($admin['id'] != $_SESSION['admin_id']): ?>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="deleteAdmin(<?php echo $admin['id']; ?>, '<?php echo htmlspecialchars($admin['username']); ?>')">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
 
-            <!-- System Tools -->
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">Database Management</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-grid gap-2">
-                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#backupModal">
-                                    <i class="fas fa-download"></i> Create Database Backup
-                                </button>
-                                <button type="button" class="btn btn-warning" onclick="optimizeDatabase()">
-                                    <i class="fas fa-tools"></i> Optimize Database
-                                </button>
-                                <button type="button" class="btn btn-danger" onclick="clearLogs()">
-                                    <i class="fas fa-trash-alt"></i> Clear System Logs
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+        <!-- System Tools -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Database Management</h3>
                 </div>
-                
-                <div class="col-lg-6">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">Recent Backups</h6>
-                        </div>
-                        <div class="card-body">
-                            <?php if (!empty($backup_files)): ?>
-                                <div class="list-group">
-                                    <?php foreach (array_slice($backup_files, 0, 5) as $backup): ?>
-                                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <i class="fas fa-file-archive text-muted me-2"></i>
-                                                <?php echo $backup; ?>
-                                                <br>
-                                                <small class="text-muted">
-                                                    <?php echo date('M j, Y g:i A', filemtime('../../backups/' . $backup)); ?>
-                                                    (<?php echo number_format(filesize('../../backups/' . $backup) / 1024, 1); ?> KB)
-                                                </small>
-                                            </div>
-                                            <a href="../../backups/<?php echo $backup; ?>" class="btn btn-sm btn-outline-primary" download>
-                                                <i class="fas fa-download"></i>
-                                            </a>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php else: ?>
-                                <p class="text-muted text-center">No backup files found.</p>
-                            <?php endif; ?>
-                        </div>
+                <div class="p-6">
+                    <div class="space-y-3">
+                        <button type="button" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center" onclick="openModal('backupModal')">
+                            <i class="fas fa-download mr-2"></i> Create Database Backup
+                        </button>
+                        <button type="button" class="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center" onclick="optimizeDatabase()">
+                            <i class="fas fa-tools mr-2"></i> Optimize Database
+                        </button>
+                        <button type="button" class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center" onclick="clearLogs()">
+                            <i class="fas fa-trash-alt mr-2"></i> Clear System Logs
+                        </button>
                     </div>
                 </div>
             </div>
-        </main>
+            
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Recent Backups</h3>
+                </div>
+                <div class="p-6">
+                    <?php if (!empty($backup_files)): ?>
+                        <div class="space-y-3">
+                            <?php foreach (array_slice($backup_files, 0, 5) as $backup): ?>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-file-archive text-gray-400"></i>
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900"><?php echo $backup; ?></p>
+                                            <p class="text-xs text-gray-500">
+                                                <?php echo date('M j, Y g:i A', filemtime('../../backups/' . $backup)); ?>
+                                                (<?php echo number_format(filesize('../../backups/' . $backup) / 1024, 1); ?> KB)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <a href="../../backups/<?php echo $backup; ?>" class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200" download>
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <p class="text-gray-500 text-center py-8">No backup files found.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Create Admin Modal -->
-<div class="modal fade" id="createAdminModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create New Admin</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST">
-                <div class="modal-body">
-                    <input type="hidden" name="action" value="create_admin">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="first_name" class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="first_name" name="first_name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="last_name" class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="last_name" name="last_name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="role" class="form-label">Role</label>
-                        <select class="form-select" id="role" name="role" required>
-                            <option value="Admin">Admin</option>
-                            <option value="Staff">Staff</option>
-                            <option value="Super Admin">Super Admin</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required minlength="6">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Admin</button>
-                </div>
-            </form>
+<div id="createAdminModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Create New Admin</h3>
+            <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeModal('createAdminModal')">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
+        <form method="POST">
+            <div class="space-y-4">
+                <input type="hidden" name="action" value="create_admin">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="username" name="username" required>
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="email" name="email" required>
+                </div>
+                <div>
+                    <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="first_name" name="first_name" required>
+                </div>
+                <div>
+                    <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="last_name" name="last_name" required>
+                </div>
+                <div>
+                    <label for="role" class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="role" name="role" required>
+                        <option value="Admin">Admin</option>
+                        <option value="Staff">Staff</option>
+                        <option value="Super Admin">Super Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="password" name="password" required minlength="6">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50" onclick="closeModal('createAdminModal')">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Create Admin</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <!-- Edit Admin Modal -->
-<div class="modal fade" id="editAdminModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Admin User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" id="editAdminForm">
-                <div class="modal-body">
-                    <input type="hidden" name="action" value="update_admin">
-                    <input type="hidden" name="admin_id" id="edit_admin_id">
-                    <div class="mb-3">
-                        <label for="edit_username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="edit_username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="edit_email" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_first_name" class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="edit_first_name" name="first_name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_last_name" class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="edit_last_name" name="last_name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_role" class="form-label">Role</label>
-                        <select class="form-select" id="edit_role" name="role" required>
-                            <option value="Admin">Admin</option>
-                            <option value="Staff">Staff</option>
-                            <option value="Super Admin">Super Admin</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_status" class="form-label">Status</label>
-                        <select class="form-select" id="edit_status" name="status" required>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Admin</button>
-                </div>
-            </form>
+<div id="editAdminModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Edit Admin User</h3>
+            <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeModal('editAdminModal')">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
+        <form method="POST" id="editAdminForm">
+            <div class="space-y-4">
+                <input type="hidden" name="action" value="update_admin">
+                <input type="hidden" name="admin_id" id="edit_admin_id">
+                <div>
+                    <label for="edit_username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="edit_username" name="username" required>
+                </div>
+                <div>
+                    <label for="edit_email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="edit_email" name="email" required>
+                </div>
+                <div>
+                    <label for="edit_first_name" class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="edit_first_name" name="first_name" required>
+                </div>
+                <div>
+                    <label for="edit_last_name" class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="edit_last_name" name="last_name" required>
+                </div>
+                <div>
+                    <label for="edit_role" class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="edit_role" name="role" required>
+                        <option value="Admin">Admin</option>
+                        <option value="Staff">Staff</option>
+                        <option value="Super Admin">Super Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit_status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="edit_status" name="status" required>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50" onclick="closeModal('editAdminModal')">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Update Admin</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <!-- Backup Modal -->
-<div class="modal fade" id="backupModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create Database Backup</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div id="backupModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Create Database Backup</h3>
+            <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeModal('backupModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="mb-6">
+            <p class="text-gray-600 mb-3">This will create a complete backup of the database including all tables and data.</p>
+            <div class="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+                <p class="text-sm text-yellow-800">This operation may take a few moments depending on the database size.</p>
             </div>
-            <div class="modal-body">
-                <p>This will create a complete backup of the database including all tables and data.</p>
-                <p class="text-warning"><i class="fas fa-exclamation-triangle"></i> This operation may take a few moments depending on the database size.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="action" value="backup_database">
-                    <button type="submit" class="btn btn-success">Create Backup</button>
-                </form>
-            </div>
+        </div>
+        <div class="flex justify-end space-x-3">
+            <button type="button" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50" onclick="closeModal('backupModal')">Cancel</button>
+            <form method="POST" style="display: inline;">
+                <input type="hidden" name="action" value="backup_database">
+                <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">Create Backup</button>
+            </form>
         </div>
     </div>
 </div>
@@ -516,6 +503,26 @@ require_once '../includes/header.php';
 <?php require_once '../includes/footer.php'; ?>
 
 <script>
+// Modal functions
+function openModal(modalId) {
+    document.getElementById(modalId).classList.remove('hidden');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modals = ['createAdminModal', 'editAdminModal', 'backupModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (event.target === modal) {
+            closeModal(modalId);
+        }
+    });
+}
+
 function editAdmin(admin) {
     document.getElementById('edit_admin_id').value = admin.id;
     document.getElementById('edit_username').value = admin.username;
@@ -525,7 +532,7 @@ function editAdmin(admin) {
     document.getElementById('edit_role').value = admin.role;
     document.getElementById('edit_status').value = admin.status;
     
-    new bootstrap.Modal(document.getElementById('editAdminModal')).show();
+    openModal('editAdminModal');
 }
 
 function deleteAdmin(adminId, username) {
@@ -571,24 +578,3 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
-<style>
-.border-left-primary {
-    border-left: 0.25rem solid #4e73df !important;
-}
-.border-left-success {
-    border-left: 0.25rem solid #1cc88a !important;
-}
-.border-left-info {
-    border-left: 0.25rem solid #36b9cc !important;
-}
-.border-left-warning {
-    border-left: 0.25rem solid #f6c23e !important;
-}
-.text-xs {
-    font-size: 0.7rem;
-}
-.shadow {
-    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;
-}
-</style>

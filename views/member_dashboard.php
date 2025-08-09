@@ -177,6 +177,11 @@ $unread_notifications = count(array_filter($member_notifications, function($n) {
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="member_messages.php">
+                                <i class="fas fa-envelope"></i> Messages
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="loan_application.php">
                                 <i class="fas fa-file-alt"></i> Apply for Loan
                             </a>

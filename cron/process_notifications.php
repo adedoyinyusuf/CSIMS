@@ -1,15 +1,13 @@
 <?php
 /**
- * Cron Job Script for Processing Email and SMS Notifications
+ * Process Notifications Cron Job
  * 
- * This script should be run periodically (every 5-10 minutes) to process
- * queued email and SMS notifications.
- * 
- * Usage: php process_notifications.php
- * Or set up as a scheduled task in Windows Task Scheduler
+ * This script processes queued email and SMS notifications
+ * Should be run every 5-10 minutes via cron job
  */
 
-require_once __DIR__ . '/../config/database.php';
+// Include required files
+require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../controllers/notification_controller.php';
 require_once __DIR__ . '/../includes/email_service.php';
 require_once __DIR__ . '/../includes/sms_service.php';
@@ -261,41 +259,31 @@ function cleanupOldRecords($conn) {
 
 // Main execution
 try {
-    logMessage("Starting notification processing cron job");
+    // Initialize database connection
+    $database = Database::getInstance();
+    $db = $database->getConnection();
     
-    // Get database connection
-    $database = new Database();
-    $conn = $database->getConnection();
-    
-    if (!$conn) {
-        throw new Exception("Failed to connect to database");
+    if (!$db) {
+        throw new Exception('Failed to connect to database');
     }
+    
+    logMessage('Starting notification processing');
     
     // Process email queue
-    $emailResults = processEmailQueue($conn);
+    processEmailQueue($db);
     
-    // Process SMS queue
-    $smsResults = processSMSQueue($conn);
+    // Process SMS queue  
+    processSMSQueue($db);
     
-    // Clean up old records (run once per day)
-    $currentHour = (int)date('H');
-    if ($currentHour === 2) { // Run cleanup at 2 AM
-        $cleanupResults = cleanupOldRecords($conn);
+    // Clean up old records (daily)
+    if (date('H') == '02') { // Run at 2 AM
+        cleanupOldRecords($db);
     }
     
-    // Log summary
-    $totalProcessed = $emailResults['processed'] + $smsResults['processed'];
-    $totalFailed = $emailResults['failed'] + $smsResults['failed'];
-    
-    if ($totalProcessed > 0 || $totalFailed > 0) {
-        logMessage("Cron job completed: Total processed: $totalProcessed, Total failed: $totalFailed");
-    }
-    
-    // Close database connection
-    $conn->close();
+    logMessage('Notification processing completed successfully');
     
 } catch (Exception $e) {
-    logMessage("Fatal error in cron job: " . $e->getMessage());
+    logMessage('Error in notification processing: ' . $e->getMessage(), 'ERROR');
     exit(1);
 }
 

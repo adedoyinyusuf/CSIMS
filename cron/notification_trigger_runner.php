@@ -6,7 +6,7 @@
  * Should be run via cron job every few minutes (e.g., every 5 minutes)
  * 
  * Usage:
- * - Via cron: *\/5 * * * * php /path/to/notification_trigger_runner.php
+ * - Via cron: 0/5 * * * * php /path/to/notification_trigger_runner.php
  * - Via command line: php notification_trigger_runner.php
  * - Via web (for testing): http://yoursite.com/cron/notification_trigger_runner.php
  */
@@ -17,9 +17,40 @@ if (isset($_SERVER['HTTP_HOST']) && !isset($_GET['allow_web'])) {
     die('Direct web access not allowed. Use cron job or add ?allow_web=1 for testing.');
 }
 
+// Set up environment for CLI execution
+if (!isset($_SERVER['HTTP_HOST'])) {
+    $_SERVER['HTTP_HOST'] = 'localhost';
+}
+if (!isset($_SERVER['REQUEST_URI'])) {
+    $_SERVER['REQUEST_URI'] = '/cron/notification_trigger_runner.php';
+}
+
+// Include database configuration
 require_once __DIR__ . '/../config/database.php';
+
+// Create PDO connection for NotificationTriggerController
+try {
+    $pdo = new PDO(
+        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false
+        ]
+    );
+} catch (PDOException $e) {
+    die('Database connection failed: ' . $e->getMessage());
+}
+
+// Load notification config only if constants aren't already defined
+if (!defined('EMAIL_ENABLED')) {
+    require_once __DIR__ . '/../config/notification_config.php';
+}
+
+// Include required controller
 require_once __DIR__ . '/../controllers/notification_trigger_controller.php';
-require_once __DIR__ . '/../config/notification_config.php';
 
 // Set time limit and memory limit for long-running processes
 set_time_limit(300); // 5 minutes
@@ -27,7 +58,24 @@ ini_set('memory_limit', '256M');
 
 // Initialize services
 $triggerController = new NotificationTriggerController();
-$config = require __DIR__ . '/../config/notification_config.php';
+
+// Load configuration from constants
+$config = [
+    'scheduling' => [
+        'cron_enabled' => defined('CRON_ENABLED') ? CRON_ENABLED : true,
+        'batch_size' => defined('CRON_BATCH_SIZE') ? CRON_BATCH_SIZE : 10,
+        'delay_between_batches' => defined('CRON_DELAY_BETWEEN_BATCHES') ? CRON_DELAY_BETWEEN_BATCHES : 5,
+        'cleanup_logs_after_days' => defined('CLEANUP_LOGS_AFTER_DAYS') ? CLEANUP_LOGS_AFTER_DAYS : 90
+    ],
+    'security' => [
+        'rate_limiting' => [
+            'enabled' => defined('RATE_LIMITING_ENABLED') ? RATE_LIMITING_ENABLED : true,
+            'max_emails_per_minute' => defined('MAX_EMAILS_PER_MINUTE') ? MAX_EMAILS_PER_MINUTE : 10,
+            'max_sms_per_minute' => defined('MAX_SMS_PER_MINUTE') ? MAX_SMS_PER_MINUTE : 5,
+            'cooldown_period' => defined('COOLDOWN_PERIOD') ? COOLDOWN_PERIOD : 300
+        ]
+    ]
+];
 
 // Log file for cron execution
 $logFile = __DIR__ . '/../logs/notification_trigger_runner.log';
@@ -170,32 +218,21 @@ function runNotificationTriggers() {
 function cleanupOldLogs() {
     global $config;
     
-    try {
-        $cleanupDays = $config['scheduling']['cleanup_logs_after_days'] ?? 90;
-        $logDir = __DIR__ . '/../logs/';
-        
-        if (!is_dir($logDir)) {
-            return;
+    $cleanupDays = $config['scheduling']['cleanup_logs_after_days'] ?? 90;
+    $logDir = __DIR__ . '/../logs';
+    
+    if (!is_dir($logDir)) {
+        return;
+    }
+    
+    $cutoffTime = time() - ($cleanupDays * 24 * 60 * 60);
+    
+    $files = glob($logDir . '/*.log');
+    foreach ($files as $file) {
+        if (filemtime($file) < $cutoffTime) {
+            unlink($file);
+            logMessage('Cleaned up old log file: ' . basename($file));
         }
-        
-        $files = glob($logDir . '*.log');
-        $cutoffTime = time() - ($cleanupDays * 24 * 60 * 60);
-        $deletedCount = 0;
-        
-        foreach ($files as $file) {
-            if (filemtime($file) < $cutoffTime) {
-                if (unlink($file)) {
-                    $deletedCount++;
-                }
-            }
-        }
-        
-        if ($deletedCount > 0) {
-            logMessage('Cleaned up ' . $deletedCount . ' old log files');
-        }
-        
-    } catch (Exception $e) {
-        logMessage('Error during log cleanup: ' . $e->getMessage(), 'WARNING');
     }
 }
 
@@ -210,10 +247,6 @@ function checkRateLimit() {
     }
     
     $rateLimitFile = __DIR__ . '/../logs/rate_limit.json';
-    $maxEmailsPerMinute = $config['security']['rate_limiting']['max_emails_per_minute'] ?? 10;
-    $maxSmsPerMinute = $config['security']['rate_limiting']['max_sms_per_minute'] ?? 5;
-    $cooldownPeriod = $config['security']['rate_limiting']['cooldown_period'] ?? 300;
-    
     $currentTime = time();
     $rateData = [];
     
@@ -226,17 +259,19 @@ function checkRateLimit() {
         return ($currentTime - $timestamp) < 60; // Keep last minute
     });
     
-    // Check if we're within limits
     $emailCount = count(array_filter($rateData, function($entry) {
-        return $entry['type'] === 'email';
+        return isset($entry['type']) && $entry['type'] === 'email';
     }));
     
     $smsCount = count(array_filter($rateData, function($entry) {
-        return $entry['type'] === 'sms';
+        return isset($entry['type']) && $entry['type'] === 'sms';
     }));
     
-    if ($emailCount >= $maxEmailsPerMinute || $smsCount >= $maxSmsPerMinute) {
-        logMessage('Rate limit exceeded. Emails: ' . $emailCount . '/' . $maxEmailsPerMinute . ', SMS: ' . $smsCount . '/' . $maxSmsPerMinute, 'WARNING');
+    $maxEmails = $config['security']['rate_limiting']['max_emails_per_minute'];
+    $maxSms = $config['security']['rate_limiting']['max_sms_per_minute'];
+    
+    if ($emailCount >= $maxEmails || $smsCount >= $maxSms) {
+        logMessage('Rate limit exceeded. Emails: ' . $emailCount . '/' . $maxEmails . ', SMS: ' . $smsCount . '/' . $maxSms, 'WARNING');
         return false;
     }
     
@@ -247,19 +282,34 @@ function checkRateLimit() {
  * Health check function
  */
 function performHealthCheck() {
-    global $triggerController;
+    global $triggerController, $pdo;
+    
+    logMessage('Performing health check');
     
     try {
-        // Check database connection
+        // Database connectivity check
+        $pdo->query('SELECT 1');
+        logMessage('Database connection: OK');
+        
+        // Get trigger statistics
         $stats = $triggerController->getTriggerStats();
+        logMessage('Trigger stats - Total: ' . ($stats['total_triggers'] ?? 0) . 
+                  ', Active: ' . ($stats['active_triggers'] ?? 0) . 
+                  ', Due: ' . ($stats['due_triggers'] ?? 0));
         
-        // Check if email service is configured
-        $emailConfigured = defined('EMAIL_ENABLED') && EMAIL_ENABLED;
+        // Check email configuration
+        if (defined('EMAIL_ENABLED') && EMAIL_ENABLED) {
+            logMessage('Email service: Enabled');
+        } else {
+            logMessage('Email service: Disabled');
+        }
         
-        // Check if SMS service is configured
-        $smsConfigured = defined('SMS_ENABLED') && SMS_ENABLED;
-        
-        logMessage('Health check - DB: OK, Email: ' . ($emailConfigured ? 'OK' : 'NOT CONFIGURED') . ', SMS: ' . ($smsConfigured ? 'OK' : 'NOT CONFIGURED'));
+        // Check SMS configuration
+        if (defined('SMS_ENABLED') && SMS_ENABLED) {
+            logMessage('SMS service: Enabled');
+        } else {
+            logMessage('SMS service: Disabled');
+        }
         
         return true;
         
@@ -270,97 +320,56 @@ function performHealthCheck() {
 }
 
 /**
- * Send status report (optional)
+ * Send daily status report
  */
-function sendStatusReport() {
-    global $triggerController, $config;
+function sendDailyStatusReport() {
+    global $triggerController;
+    
+    // Only send report once per day
+    $lastReportFile = __DIR__ . '/../logs/last_daily_report.txt';
+    $today = date('Y-m-d');
+    
+    if (file_exists($lastReportFile) && file_get_contents($lastReportFile) === $today) {
+        return;
+    }
     
     try {
-        // Only send status report once per day
-        $statusFile = __DIR__ . '/../logs/last_status_report.txt';
-        $lastReport = file_exists($statusFile) ? file_get_contents($statusFile) : '0';
-        
-        if ((time() - intval($lastReport)) < 86400) { // 24 hours
-            return;
-        }
-        
         $stats = $triggerController->getTriggerStats();
         
-        // Create status report
-        $report = [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'total_triggers' => $stats['total_triggers'] ?? 0,
-            'active_triggers' => $stats['active_triggers'] ?? 0,
-            'due_triggers' => $stats['due_triggers'] ?? 0,
-            'executions_today' => $stats['executions_today'] ?? 0
-        ];
+        $report = "Daily Notification System Status Report - " . date('Y-m-d H:i:s') . "\n\n";
+        $report .= "Total Triggers: " . ($stats['total_triggers'] ?? 0) . "\n";
+        $report .= "Active Triggers: " . ($stats['active_triggers'] ?? 0) . "\n";
+        $report .= "Due Triggers: " . ($stats['due_triggers'] ?? 0) . "\n";
+        $report .= "Executions Today: " . ($stats['executions_today'] ?? 0) . "\n";
         
-        logMessage('Daily status report: ' . json_encode($report));
+        logMessage('Daily status report generated');
         
-        // Update last report time
-        file_put_contents($statusFile, time());
+        // Mark report as sent
+        file_put_contents($lastReportFile, $today);
         
     } catch (Exception $e) {
-        logMessage('Error generating status report: ' . $e->getMessage(), 'WARNING');
+        logMessage('Error generating daily status report: ' . $e->getMessage(), 'ERROR');
     }
 }
-
-// Main execution
-if (!checkLockFile()) {
-    exit(1);
-}
-
-try {
-    // Perform health check
-    if (!performHealthCheck()) {
-        logMessage('Health check failed, aborting execution', 'ERROR');
-        exit(1);
-    }
-    
-    // Check rate limits
-    if (!checkRateLimit()) {
-        logMessage('Rate limit exceeded, skipping execution', 'WARNING');
-        exit(0);
-    }
-    
-    // Run notification triggers
-    runNotificationTriggers();
-    
-    // Send daily status report
-    sendStatusReport();
-    
-} catch (Exception $e) {
-    logMessage('Unexpected error: ' . $e->getMessage(), 'ERROR');
-    exit(1);
-}
-
-exit(0);
-
-?>
-
-<?php
-/**
- * Additional utility functions for the notification trigger runner
- */
 
 /**
- * Get system resource usage
+ * Log system resource usage
  */
-function getSystemUsage() {
-    $usage = [
-        'memory_usage' => memory_get_usage(true),
-        'memory_peak' => memory_get_peak_usage(true),
-        'execution_time' => microtime(true) - $_SERVER['REQUEST_TIME_FLOAT']
-    ];
+function logResourceUsage() {
+    $memoryUsage = memory_get_usage(true);
+    $memoryPeak = memory_get_peak_usage(true);
+    $memoryLimit = ini_get('memory_limit');
     
-    return $usage;
+    logMessage('Resource usage - Memory: ' . formatBytes($memoryUsage) . 
+              ' (Peak: ' . formatBytes($memoryPeak) . 
+              ', Limit: ' . $memoryLimit . ')');
 }
 
 /**
  * Format bytes to human readable format
  */
 function formatBytes($bytes, $precision = 2) {
-    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $units = array('B', 'KB', 'MB', 'GB', 'TB');
     
     for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
         $bytes /= 1024;
@@ -370,45 +379,68 @@ function formatBytes($bytes, $precision = 2) {
 }
 
 /**
- * Log system resource usage
- */
-function logSystemUsage() {
-    $usage = getSystemUsage();
-    $message = sprintf(
-        'System usage - Memory: %s (Peak: %s), Execution time: %.3f seconds',
-        formatBytes($usage['memory_usage']),
-        formatBytes($usage['memory_peak']),
-        $usage['execution_time']
-    );
-    
-    logMessage($message, 'DEBUG');
-}
-
-/**
  * Emergency stop function
  */
 function emergencyStop($reason = 'Unknown') {
     logMessage('EMERGENCY STOP: ' . $reason, 'CRITICAL');
     
-    // Send alert to administrators if configured
-    // This could be implemented to send immediate notifications
+    // Remove lock file
+    $lockFile = __DIR__ . '/../logs/notification_trigger_runner.lock';
+    if (file_exists($lockFile)) {
+        unlink($lockFile);
+    }
     
     exit(1);
 }
 
-/**
- * Signal handler for graceful shutdown
- */
-if (function_exists('pcntl_signal')) {
-    pcntl_signal(SIGTERM, function($signal) {
-        logMessage('Received SIGTERM, shutting down gracefully', 'INFO');
+// Signal handlers for graceful shutdown (if available)
+if (extension_loaded('pcntl')) {
+    pcntl_signal(SIGTERM, function() {
+        logMessage('Received SIGTERM, shutting down gracefully');
         exit(0);
     });
     
-    pcntl_signal(SIGINT, function($signal) {
-        logMessage('Received SIGINT, shutting down gracefully', 'INFO');
+    pcntl_signal(SIGINT, function() {
+        logMessage('Received SIGINT, shutting down gracefully');
         exit(0);
     });
+}
+
+// Main execution
+try {
+    // Check if another instance is running
+    if (!checkLockFile()) {
+        exit(1);
+    }
+    
+    // Perform health check
+    if (!performHealthCheck()) {
+        emergencyStop('Health check failed');
+    }
+    
+    // Check rate limiting
+    if (!checkRateLimit()) {
+        logMessage('Rate limit exceeded, skipping this run', 'WARNING');
+        exit(0);
+    }
+    
+    // Run notification triggers
+    runNotificationTriggers();
+    
+    // Send daily status report
+    sendDailyStatusReport();
+    
+    // Log resource usage
+    logResourceUsage();
+    
+    logMessage('Notification trigger runner completed successfully');
+    
+} catch (Exception $e) {
+    logMessage('Fatal error in main execution: ' . $e->getMessage(), 'CRITICAL');
+    emergencyStop('Fatal error: ' . $e->getMessage());
+} catch (Error $e) {
+    logMessage('Fatal PHP error: ' . $e->getMessage(), 'CRITICAL');
+    emergencyStop('Fatal PHP error: ' . $e->getMessage());
 }
 
 ?>

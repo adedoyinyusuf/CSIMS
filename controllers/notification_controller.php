@@ -702,5 +702,31 @@ class NotificationController {
         
         return $stats;
     }
+    
+    /**
+     * Send email (simple wrapper for compatibility)
+     * 
+     * @param string $to_email Recipient email
+     * @param string $subject Email subject
+     * @param string $message Email message
+     * @param string $priority Email priority (optional)
+     * @return bool True on success, false on failure
+     */
+    public function sendEmail($to_email, $subject, $message, $priority = 'normal') {
+        try {
+            $emailData = [
+                'to_email' => $to_email,
+                'to_name' => '',
+                'subject' => $subject,
+                'body' => $message,
+                'priority' => $priority
+            ];
+            
+            return $this->queueEmail($emailData);
+        } catch (Exception $e) {
+            error_log("Email sending failed: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>

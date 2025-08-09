@@ -89,249 +89,285 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loan Application - NPC CTLStaff Loan Society</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
         }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 0.75rem 1rem;
-            margin: 0.25rem 0;
-            border-radius: 0.5rem;
-            transition: all 0.3s ease;
-        }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-        }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        .loan-calculator {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px;
-            padding: 1.5rem;
-        }
-    </style>
+    </script>
 </head>
-<body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0">
-                <div class="sidebar d-flex flex-column p-3">
-                    <h4 class="text-white mb-4">
-                        <i class="fas fa-university"></i> Member Portal
-                    </h4>
-                    
-                    <div class="mb-3">
-                        <small class="text-white-50">Welcome,</small>
-                        <div class="text-white fw-bold"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></div>
-                    </div>
-                    
-                    <nav class="nav flex-column">
-                        <a class="nav-link" href="member_dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                        <a class="nav-link" href="member_profile.php">
-                            <i class="fas fa-user me-2"></i> My Profile
-                        </a>
-                        <a class="nav-link" href="member_loans.php">
-                            <i class="fas fa-money-bill-wave me-2"></i> My Loans
-                        </a>
-                        <a class="nav-link" href="member_contributions.php">
-                            <i class="fas fa-piggy-bank me-2"></i> My Contributions
-                        </a>
-                        <a class="nav-link" href="member_notifications.php">
-                            <i class="fas fa-bell me-2"></i> Notifications
-                        </a>
-                        <a class="nav-link active" href="member_loan_application.php">
-                            <i class="fas fa-plus-circle me-2"></i> Apply for Loan
-                        </a>
-                    </nav>
-                    
-                    <div class="mt-auto">
-                        <a class="nav-link" href="member_logout.php">
-                            <i class="fas fa-sign-out-alt me-2"></i> Logout
-                        </a>
-                    </div>
+<body class="bg-gray-50">
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 bg-gradient-to-br from-primary-600 to-purple-700 shadow-xl">
+            <div class="flex flex-col h-full p-6">
+                <h4 class="text-white text-xl font-bold mb-6">
+                    <i class="fas fa-university mr-2"></i> Member Portal
+                </h4>
+                
+                <div class="mb-6">
+                    <small class="text-primary-200">Welcome,</small>
+                    <div class="text-white font-semibold"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></div>
+                </div>
+                
+                <nav class="flex-1 space-y-2">
+                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_dashboard.php">
+                        <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
+                    </a>
+                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_profile.php">
+                        <i class="fas fa-user mr-3"></i> My Profile
+                    </a>
+                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_loans.php">
+                        <i class="fas fa-money-bill-wave mr-3"></i> My Loans
+                    </a>
+                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_contributions.php">
+                        <i class="fas fa-piggy-bank mr-3"></i> My Contributions
+                    </a>
+                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_notifications.php">
+                        <i class="fas fa-bell mr-3"></i> Notifications
+                    </a>
+                    <a class="flex items-center px-4 py-3 text-white bg-white/20 rounded-lg font-medium" href="member_loan_application.php">
+                        <i class="fas fa-plus-circle mr-3"></i> Apply for Loan
+                    </a>
+                </nav>
+                
+                <div class="mt-auto">
+                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_logout.php">
+                        <i class="fas fa-sign-out-alt mr-3"></i> Logout
+                    </a>
                 </div>
             </div>
+        </div>
             
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
-                <div class="p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-plus-circle me-2"></i> Apply for Loan</h2>
-                        <a href="member_loans.php" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left me-2"></i> Back to My Loans
-                        </a>
+        <!-- Main Content -->
+        <div class="flex-1 overflow-hidden">
+            <div class="p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-plus-circle mr-3 text-primary-600"></i> Apply for Loan
+                        </h1>
+                        <p class="text-gray-600 mt-2">Submit your loan application for review</p>
                     </div>
-                    
-                    <?php if (!empty($errors)): ?>
-                        <div class="alert alert-danger">
-                            <h6><i class="fas fa-exclamation-triangle me-2"></i> Please correct the following errors:</h6>
-                            <ul class="mb-0">
-                                <?php foreach ($errors as $error): ?>
-                                    <li><?php echo htmlspecialchars($error); ?></li>
-                                <?php endforeach; ?>
-                            </ul>
+                    <a href="member_loans.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                        <i class="fas fa-arrow-left mr-2"></i> Back to My Loans
+                    </a>
+                </div>
+                
+                <?php if (!empty($errors)): ?>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-red-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                                <ul class="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+                                    <?php foreach ($errors as $error): ?>
+                                        <li><?php echo htmlspecialchars($error); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
                         </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($success): ?>
-                        <div class="alert alert-success">
-                            <h6><i class="fas fa-check-circle me-2"></i> Application Submitted Successfully!</h6>
-                            <p class="mb-0">Your loan application has been submitted and is pending review. You will be notified once it's processed.</p>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($success): ?>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-green-800">Application Submitted Successfully!</h3>
+                                <p class="mt-2 text-sm text-green-700">Your loan application has been submitted and is pending review. You will be notified once it's processed.</p>
+                            </div>
                         </div>
-                    <?php endif; ?>
+                    </div>
+                <?php endif; ?>
                     
-                    <div class="row">
-                        <div class="col-lg-8">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="card-title mb-0">Loan Application Form</h5>
-                                </div>
-                                <div class="card-body">
-                                    <form method="POST">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="amount" class="form-label">Loan Amount (₦) <span class="text-danger">*</span></label>
-                                                    <input type="number" class="form-control" id="amount" name="amount" 
-                                                           value="<?php echo htmlspecialchars($amount ?? ''); ?>" 
-                                                           min="1000" max="5000000" step="100" required>
-                                                    <div class="form-text">Minimum: ₦1,000 | Maximum: ₦5,000,000</div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2">
+                        <div class="bg-white shadow-lg rounded-xl border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-primary-100">
+                                <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                                    <i class="fas fa-file-alt mr-2 text-primary-600"></i>
+                                    Loan Application Form
+                                </h3>
+                            </div>
+                            <div class="p-6">
+                                <form method="POST" class="space-y-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Loan Amount (₦) <span class="text-red-500">*</span>
+                                            </label>
+                                            <div class="relative">
+                                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <span class="text-gray-500 text-sm">₦</span>
                                                 </div>
+                                                <input type="number" class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
+                                                       id="amount" name="amount" 
+                                                       value="<?php echo htmlspecialchars($amount ?? ''); ?>" 
+                                                       min="1000" max="5000000" step="100" required>
                                             </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="term_months" class="form-label">Loan Term (Months) <span class="text-danger">*</span></label>
-                                                    <select class="form-control" id="term_months" name="term_months" required>
-                                                        <option value="">Select loan term</option>
-                                                        <?php for ($i = 6; $i <= 60; $i += 6): ?>
-                                                            <option value="<?php echo $i; ?>" <?php echo (isset($term_months) && $term_months == $i) ? 'selected' : ''; ?>>
-                                                                <?php echo $i; ?> months (<?php echo number_format($i/12, 1); ?> years)
-                                                            </option>
-                                                        <?php endfor; ?>
-                                                    </select>
-                                                </div>
-                                            </div>
+                                            <p class="mt-1 text-xs text-gray-500">Minimum: ₦1,000 | Maximum: ₦5,000,000</p>
                                         </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="purpose" class="form-label">Purpose of Loan <span class="text-danger">*</span></label>
-                                            <textarea class="form-control" id="purpose" name="purpose" rows="3" required 
-                                                      placeholder="Please describe the purpose of this loan..."><?php echo htmlspecialchars($purpose ?? ''); ?></textarea>
+                                        <div>
+                                            <label for="term_months" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Loan Term (Months) <span class="text-red-500">*</span>
+                                            </label>
+                                            <select class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
+                                                    id="term_months" name="term_months" required>
+                                                <option value="">Select loan term</option>
+                                                <?php for ($i = 6; $i <= 60; $i += 6): ?>
+                                                    <option value="<?php echo $i; ?>" <?php echo (isset($term_months) && $term_months == $i) ? 'selected' : ''; ?>>
+                                                        <?php echo $i; ?> months (<?php echo number_format($i/12, 1); ?> years)
+                                                    </option>
+                                                <?php endfor; ?>
+                                            </select>
                                         </div>
+                                    </div>
                                         
-                                        <div class="mb-3">
-                                            <label for="collateral" class="form-label">Collateral <span class="text-danger">*</span></label>
-                                            <textarea class="form-control" id="collateral" name="collateral" rows="3" required 
+                                    <div>
+                                        <label for="purpose" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Purpose of Loan <span class="text-red-500">*</span>
+                                        </label>
+                                        <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
+                                                  id="purpose" name="purpose" rows="3" required 
+                                                  placeholder="Please describe the purpose of this loan..."><?php echo htmlspecialchars($purpose ?? ''); ?></textarea>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label for="collateral" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Collateral <span class="text-red-500">*</span>
+                                            </label>
+                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
+                                                      id="collateral" name="collateral" rows="3" required 
                                                       placeholder="Please describe the collateral you're offering..."><?php echo htmlspecialchars($collateral ?? ''); ?></textarea>
-                                            <div class="form-text">Describe any assets or property you're offering as security for this loan.</div>
+                                            <p class="mt-1 text-xs text-gray-500">Describe any assets or property you're offering as security for this loan.</p>
                                         </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="guarantor" class="form-label">Guarantor Information <span class="text-danger">*</span></label>
-                                            <textarea class="form-control" id="guarantor" name="guarantor" rows="3" required 
+                                        <div>
+                                            <label for="guarantor" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Guarantor Information <span class="text-red-500">*</span>
+                                            </label>
+                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
+                                                      id="guarantor" name="guarantor" rows="3" required 
                                                       placeholder="Please provide guarantor details (Name, Phone, Relationship)..."><?php echo htmlspecialchars($guarantor ?? ''); ?></textarea>
-                                            <div class="form-text">Provide the name, contact information, and relationship of your guarantor.</div>
+                                            <p class="mt-1 text-xs text-gray-500">Provide the name, contact information, and relationship of your guarantor.</p>
                                         </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Additional Notes
+                                        </label>
+                                        <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
+                                                  id="notes" name="notes" rows="2" 
+                                                  placeholder="Any additional information..."><?php echo htmlspecialchars($notes ?? ''); ?></textarea>
+                                    </div>
                                         
-                                        <div class="mb-3">
-                                            <label for="notes" class="form-label">Additional Notes</label>
-                                            <textarea class="form-control" id="notes" name="notes" rows="2" 
-                                                      placeholder="Any additional information..."><?php echo htmlspecialchars($notes ?? ''); ?></textarea>
-                                        </div>
-                                        
-                                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                            <button type="reset" class="btn btn-outline-secondary me-md-2">
-                                                <i class="fas fa-undo me-2"></i> Reset Form
-                                            </button>
-                                            <button type="submit" class="btn btn-primary">
-                                                <i class="fas fa-paper-plane me-2"></i> Submit Application
-                                            </button>
-                                        </div>
-                                    </form>
+                                    <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                                        <button type="reset" class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                                            <i class="fas fa-undo mr-2"></i> Reset Form
+                                        </button>
+                                        <button type="submit" class="inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                                            <i class="fas fa-paper-plane mr-2"></i> Submit Application
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                        
+                    <div class="lg:col-span-1">
+                        <!-- Loan Calculator -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                                    <i class="fas fa-calculator mr-2 text-primary-600"></i> Loan Calculator
+                                </h5>
+                            </div>
+                            <div class="p-6">
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount: ₦<span id="calc-amount">0</span></label>
+                                    <div class="text-gray-500 text-sm">Term: <span id="calc-term">0</span> months</div>
+                                </div>
+                                <hr class="border-gray-200 my-4">
+                                <div class="mb-3">
+                                    <strong class="text-gray-900">Interest Rate: 5.0% per annum</strong>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-900">Monthly Payment: ₦<span id="calc-monthly">0</span></strong>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-900">Total Payment: ₦<span id="calc-total">0</span></strong>
+                                </div>
+                                <div class="text-gray-500 text-sm">
+                                    Total Interest: ₦<span id="calc-interest">0</span>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="col-lg-4">
-                            <!-- Loan Calculator -->
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6 class="card-title mb-0">Loan Calculator</h6>
-                                </div>
-                                <div class="card-body loan-calculator">
-                                    <div class="mb-3">
-                                        <label class="form-label">Amount: ₦<span id="calc-amount">0</span></label>
-                                        <div class="text-muted small">Term: <span id="calc-term">0</span> months</div>
-                                    </div>
-                                    <hr>
-                                    <div class="mb-2">
-                                        <strong>Interest Rate: 5.0% per annum</strong>
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Monthly Payment: ₦<span id="calc-monthly">0</span></strong>
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Total Payment: ₦<span id="calc-total">0</span></strong>
-                                    </div>
-                                    <div class="text-muted small">
-                                        Total Interest: ₦<span id="calc-interest">0</span>
-                                    </div>
-                                </div>
+                        <!-- Loan Requirements -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                                    <i class="fas fa-clipboard-list mr-2 text-primary-600"></i> Loan Requirements
+                                </h5>
                             </div>
-                            
-                            <!-- Loan Requirements -->
-                            <div class="card mt-3">
-                                <div class="card-header">
-                                    <h6 class="card-title mb-0">Loan Requirements</h6>
-                                </div>
-                                <div class="card-body">
-                                    <ul class="list-unstyled mb-0">
-                                        <li class="mb-2">
-                                            <i class="fas fa-check-circle text-success me-2"></i>
-                                            Active membership status
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-check-circle text-success me-2"></i>
-                                            Valid collateral
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-check-circle text-success me-2"></i>
-                                            Reliable guarantor
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-check-circle text-success me-2"></i>
-                                            Clear loan purpose
-                                        </li>
-                                        <li class="mb-0">
-                                            <i class="fas fa-check-circle text-success me-2"></i>
-                                            No outstanding defaults
-                                        </li>
-                                    </ul>
-                                </div>
+                            <div class="p-6">
+                                <ul class="space-y-3">
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                        <span class="text-gray-700">Active membership status</span>
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                        <span class="text-gray-700">Valid collateral</span>
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                        <span class="text-gray-700">Reliable guarantor</span>
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                        <span class="text-gray-700">Clear loan purpose</span>
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                        <span class="text-gray-700">No outstanding defaults</span>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
         function calculateLoan() {
             const amount = parseFloat(document.getElementById('amount').value) || 0;
@@ -347,9 +383,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 document.getElementById('calc-amount').textContent = amount.toLocaleString();
                 document.getElementById('calc-term').textContent = termMonths;
-                document.getElementById('calc-monthly').textContent = monthlyPayment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                document.getElementById('calc-total').textContent = totalPayment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                document.getElementById('calc-interest').textContent = totalInterest.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('calc-monthly').textContent = monthlyPayment.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('calc-total').textContent = totalPayment.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('calc-interest').textContent = totalInterest.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             } else {
                 document.getElementById('calc-amount').textContent = '0';
                 document.getElementById('calc-term').textContent = '0';
@@ -360,11 +396,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Update calculator when amount or term changes
-        document.getElementById('amount').addEventListener('input', calculateLoan);
-        document.getElementById('term_months').addEventListener('change', calculateLoan);
-        
-        // Initial calculation
-        calculateLoan();
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('amount').addEventListener('input', calculateLoan);
+            document.getElementById('term_months').addEventListener('change', calculateLoan);
+            
+            // Initial calculation
+            calculateLoan();
+        });
     </script>
 </body>
 </html>

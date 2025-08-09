@@ -3,7 +3,9 @@
     "description": "CSIMS Notification System with automated triggers",
     "type": "project",
     "require": {
-        "php": ">=7.4"
+        "php": ">=7.4",
+        "phpmailer/phpmailer": "^6.10",
+        "phpoffice/phpspreadsheet": "^1.29"
     },
     "suggest": {
         "phpmailer/phpmailer": "^6.0 - For advanced email features and SMTP support",

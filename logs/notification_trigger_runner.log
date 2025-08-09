@@ -1,0 +1,66 @@
+[2025-08-02 18:00:11] [INFO] Performing health check
+[2025-08-02 18:00:11] [INFO] Database connection: OK
+[2025-08-02 18:00:11] [INFO] Trigger stats - Total: 0, Active: 0, Due: 0
+[2025-08-02 18:00:11] [INFO] Email service: Enabled
+[2025-08-02 18:00:11] [INFO] SMS service: Enabled
+[2025-08-02 18:00:11] [INFO] Starting notification trigger runner
+[2025-08-02 18:00:11] [INFO] No triggers due for execution
+[2025-08-02 18:00:11] [INFO] Daily status report generated
+[2025-08-02 18:00:11] [INFO] Resource usage - Memory: 2 MB (Peak: 2 MB, Limit: 256M)
+[2025-08-02 18:00:11] [INFO] Notification trigger runner completed successfully
+[2025-08-02 18:09:24] [INFO] Performing health check
+[2025-08-02 18:09:24] [INFO] Database connection: OK
+[2025-08-02 18:09:24] [INFO] Trigger stats - Total: 0, Active: 0, Due: 0
+[2025-08-02 18:09:24] [INFO] Email service: Enabled
+[2025-08-02 18:09:24] [INFO] SMS service: Enabled
+[2025-08-02 18:09:24] [INFO] Starting notification trigger runner
+[2025-08-02 18:09:24] [INFO] No triggers due for execution
+[2025-08-02 18:09:24] [INFO] Resource usage - Memory: 2 MB (Peak: 2 MB, Limit: 256M)
+[2025-08-02 18:09:24] [INFO] Notification trigger runner completed successfully
+[2025-08-02 18:09:31] [INFO] Performing health check
+[2025-08-02 18:09:31] [INFO] Database connection: OK
+[2025-08-02 18:09:31] [INFO] Trigger stats - Total: 0, Active: 0, Due: 0
+[2025-08-02 18:09:31] [INFO] Email service: Enabled
+[2025-08-02 18:09:31] [INFO] SMS service: Enabled
+[2025-08-02 18:09:31] [INFO] Starting notification trigger runner
+[2025-08-02 18:09:31] [INFO] No triggers due for execution
+[2025-08-02 18:09:31] [INFO] Resource usage - Memory: 2 MB (Peak: 2 MB, Limit: 256M)
+[2025-08-02 18:09:31] [INFO] Notification trigger runner completed successfully
+[2025-08-03 06:29:44] [INFO] Performing health check
+[2025-08-03 06:29:44] [INFO] Database connection: OK
+[2025-08-03 06:29:44] [INFO] Trigger stats - Total: 26, Active: 26, Due: 12
+[2025-08-03 06:29:44] [INFO] Email service: Enabled
+[2025-08-03 06:29:44] [INFO] SMS service: Enabled
+[2025-08-03 06:29:44] [INFO] Starting notification trigger runner
+[2025-08-03 06:29:44] [INFO] Found 12 triggers due for execution
+[2025-08-03 06:29:44] [INFO] Processing batch 1 of 2 (10 triggers)
+[2025-08-03 06:29:44] [INFO] Executing trigger: Membership Expiry - 30 Days (ID: 8)
+[2025-08-03 06:29:44] [INFO] Trigger executed successfully in 0.008 seconds
+[2025-08-03 06:29:44] [INFO] Executing trigger: Membership Expiry - 7 Days (ID: 9)
+[2025-08-03 06:29:44] [INFO] Trigger executed successfully in 0.006 seconds
+[2025-08-03 06:29:45] [INFO] Executing trigger: Payment Overdue Reminder (ID: 10)
+[2025-08-03 06:29:45] [INFO] Trigger executed successfully in 0.005 seconds
+[2025-08-03 06:29:46] [INFO] Executing trigger: Welcome New Members (ID: 11)
+[2025-08-03 06:29:46] [INFO] Trigger executed successfully in 0.014 seconds
+[2025-08-03 06:29:46] [INFO] Executing trigger: Membership Expiry - 30 Days (ID: 19)
+[2025-08-03 06:29:46] [INFO] Trigger executed successfully in 0.005 seconds
+[2025-08-03 06:29:47] [INFO] Executing trigger: Membership Expiry - 7 Days (ID: 20)
+[2025-08-03 06:29:47] [INFO] Trigger executed successfully in 0.005 seconds
+[2025-08-03 06:29:47] [INFO] Executing trigger: Payment Overdue Reminder (ID: 21)
+[2025-08-03 06:29:47] [INFO] Trigger executed successfully in 0.008 seconds
+[2025-08-03 06:29:48] [INFO] Executing trigger: Welcome New Members (ID: 22)
+[2025-08-03 06:29:48] [INFO] Trigger executed successfully in 0.008 seconds
+[2025-08-03 06:29:48] [INFO] Executing trigger: Membership Expiry - 30 Days (ID: 23)
+[2025-08-03 06:29:48] [INFO] Trigger executed successfully in 0.006 seconds
+[2025-08-03 06:29:49] [INFO] Executing trigger: Membership Expiry - 7 Days (ID: 24)
+[2025-08-03 06:29:49] [INFO] Trigger executed successfully in 0.007 seconds
+[2025-08-03 06:29:49] [INFO] Waiting 5 seconds before next batch
+[2025-08-03 06:29:54] [INFO] Processing batch 2 of 2 (2 triggers)
+[2025-08-03 06:29:54] [INFO] Executing trigger: Payment Overdue Reminder (ID: 25)
+[2025-08-03 06:29:54] [INFO] Trigger executed successfully in 0.006 seconds
+[2025-08-03 06:29:55] [INFO] Executing trigger: Welcome New Members (ID: 26)
+[2025-08-03 06:29:55] [INFO] Trigger executed successfully in 0.008 seconds
+[2025-08-03 06:29:55] [INFO] Notification trigger runner completed. Success: 12, Errors: 0
+[2025-08-03 06:29:55] [INFO] Daily status report generated
+[2025-08-03 06:29:55] [INFO] Resource usage - Memory: 2 MB (Peak: 2 MB, Limit: 256M)
+[2025-08-03 06:29:55] [INFO] Notification trigger runner completed successfully

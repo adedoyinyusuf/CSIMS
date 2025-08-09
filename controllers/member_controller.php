@@ -161,36 +161,176 @@ class MemberController {
     
     // Update member profile (member self-update)
     public function updateMemberProfile($member_id, $data) {
-        // Sanitize inputs
-        $first_name = Utilities::sanitizeInput($data['first_name']);
-        $last_name = Utilities::sanitizeInput($data['last_name']);
-        $dob = Utilities::sanitizeInput($data['dob']);
-        $gender = Utilities::sanitizeInput($data['gender']);
-        $address = Utilities::sanitizeInput($data['address']);
-        $phone = Utilities::sanitizeInput($data['phone']);
-        $email = Utilities::sanitizeInput($data['email']);
-        $occupation = Utilities::sanitizeInput($data['occupation']);
+        // Sanitize basic inputs
+        $updates = [];
+        $types = "";
+        $values = [];
         
-        // Validate email
-        if (!empty($email) && !Utilities::validateEmail($email)) {
-            return ['success' => false, 'message' => 'Invalid email format'];
+        // Basic profile fields
+        if (isset($data['first_name'])) {
+            $updates[] = "first_name = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['first_name']);
         }
-        
-        // Check if email already exists for another member
-        if (!empty($email)) {
-            $checkStmt = $this->conn->prepare("SELECT member_id FROM members WHERE email = ? AND member_id != ?");
-            $checkStmt->bind_param("si", $email, $member_id);
-            $checkStmt->execute();
-            $checkResult = $checkStmt->get_result();
-            
-            if ($checkResult->num_rows > 0) {
-                return ['success' => false, 'message' => 'Email already exists for another member'];
+        if (isset($data['last_name'])) {
+            $updates[] = "last_name = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['last_name']);
+        }
+        if (isset($data['dob'])) {
+            $updates[] = "dob = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['dob']);
+        }
+        if (isset($data['gender'])) {
+            $updates[] = "gender = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['gender']);
+        }
+        if (isset($data['address'])) {
+            $updates[] = "address = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['address']);
+        }
+        if (isset($data['phone'])) {
+            $updates[] = "phone = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['phone']);
+        }
+        if (isset($data['email'])) {
+            $email = Utilities::sanitizeInput($data['email']);
+            // Validate email
+            if (!empty($email) && !Utilities::validateEmail($email)) {
+                return ['success' => false, 'message' => 'Invalid email format'];
             }
+            
+            // Check if email already exists for another member
+            if (!empty($email)) {
+                $checkStmt = $this->conn->prepare("SELECT member_id FROM members WHERE email = ? AND member_id != ?");
+                $checkStmt->bind_param("si", $email, $member_id);
+                $checkStmt->execute();
+                $checkResult = $checkStmt->get_result();
+                
+                if ($checkResult->num_rows > 0) {
+                    return ['success' => false, 'message' => 'Email already exists for another member'];
+                }
+            }
+            
+            $updates[] = "email = ?";
+            $types .= "s";
+            $values[] = $email;
+        }
+        if (isset($data['occupation'])) {
+            $updates[] = "occupation = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['occupation']);
         }
         
-        // Update member profile
-        $stmt = $this->conn->prepare("UPDATE members SET first_name = ?, last_name = ?, dob = ?, gender = ?, address = ?, phone = ?, email = ?, occupation = ? WHERE member_id = ?");
-        $stmt->bind_param("ssssssssi", $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $member_id);
+        // Extended profile fields
+        if (isset($data['middle_name'])) {
+            $updates[] = "middle_name = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['middle_name']);
+        }
+        if (isset($data['marital_status'])) {
+            $updates[] = "marital_status = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['marital_status']);
+        }
+        if (isset($data['highest_qualification'])) {
+            $updates[] = "highest_qualification = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['highest_qualification']);
+        }
+        if (isset($data['years_of_residence'])) {
+            $updates[] = "years_of_residence = ?";
+            $types .= "i";
+            $values[] = (int)$data['years_of_residence'];
+        }
+        
+        // Employment fields
+        if (isset($data['employee_rank'])) {
+            $updates[] = "employee_rank = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['employee_rank']);
+        }
+        if (isset($data['grade_level'])) {
+            $updates[] = "grade_level = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['grade_level']);
+        }
+        if (isset($data['position'])) {
+            $updates[] = "position = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['position']);
+        }
+        if (isset($data['department'])) {
+            $updates[] = "department = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['department']);
+        }
+        if (isset($data['date_of_first_appointment'])) {
+            $updates[] = "date_of_first_appointment = ?";
+            $types .= "s";
+            $values[] = $data['date_of_first_appointment'] ?: null;
+        }
+        if (isset($data['date_of_retirement'])) {
+            $updates[] = "date_of_retirement = ?";
+            $types .= "s";
+            $values[] = $data['date_of_retirement'] ?: null;
+        }
+        
+        // Banking fields
+        if (isset($data['bank_name'])) {
+            $updates[] = "bank_name = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['bank_name']);
+        }
+        if (isset($data['account_number'])) {
+            $updates[] = "account_number = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['account_number']);
+        }
+        if (isset($data['account_name'])) {
+            $updates[] = "account_name = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['account_name']);
+        }
+        
+        // Next of kin fields
+        if (isset($data['next_of_kin_name'])) {
+            $updates[] = "next_of_kin_name = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['next_of_kin_name']);
+        }
+        if (isset($data['next_of_kin_relationship'])) {
+            $updates[] = "next_of_kin_relationship = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['next_of_kin_relationship']);
+        }
+        if (isset($data['next_of_kin_phone'])) {
+            $updates[] = "next_of_kin_phone = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['next_of_kin_phone']);
+        }
+        if (isset($data['next_of_kin_address'])) {
+            $updates[] = "next_of_kin_address = ?";
+            $types .= "s";
+            $values[] = Utilities::sanitizeInput($data['next_of_kin_address']);
+        }
+        
+        if (empty($updates)) {
+            return ['success' => false, 'message' => 'No fields to update'];
+        }
+        
+        // Add member_id to the end
+        $types .= "i";
+        $values[] = $member_id;
+        
+        // Build and execute the query
+        $sql = "UPDATE members SET " . implode(", ", $updates) . " WHERE member_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param($types, ...$values);
         
         if ($stmt->execute()) {
             return ['success' => true, 'message' => 'Profile updated successfully'];
@@ -230,6 +370,57 @@ class MemberController {
         } else {
             return ['success' => false, 'message' => 'Failed to change password: ' . $updateStmt->error];
         }
+    }
+
+    // Admin reset member password (no current password required)
+    public function adminResetPassword($member_id, $new_password) {
+        // Verify member exists
+        $stmt = $this->conn->prepare("SELECT member_id, first_name, last_name, email FROM members WHERE member_id = ?");
+        $stmt->bind_param("i", $member_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows !== 1) {
+            return ['success' => false, 'message' => 'Member not found'];
+        }
+        
+        $member = $result->fetch_assoc();
+        
+        // Hash new password
+        $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+        
+        // Update password
+        $updateStmt = $this->conn->prepare("UPDATE members SET password = ?, updated_at = NOW() WHERE member_id = ?");
+        $updateStmt->bind_param("si", $new_password_hash, $member_id);
+        
+        if ($updateStmt->execute()) {
+            // Log the password reset action
+            $this->logPasswordReset($member_id, $member['first_name'] . ' ' . $member['last_name']);
+            
+            return [
+                'success' => true, 
+                'message' => 'Password reset successfully for ' . $member['first_name'] . ' ' . $member['last_name'],
+                'member_name' => $member['first_name'] . ' ' . $member['last_name'],
+                'member_email' => $member['email']
+            ];
+        } else {
+            return ['success' => false, 'message' => 'Failed to reset password: ' . $updateStmt->error];
+        }
+    }
+    
+    // Log password reset action for audit trail
+    private function logPasswordReset($member_id, $member_name) {
+        $admin_id = $this->session->get('user_id');
+        $admin_name = $this->session->get('first_name') . ' ' . $this->session->get('last_name');
+        
+        $log_message = "Password reset by admin {$admin_name} (ID: {$admin_id}) for member {$member_name} (ID: {$member_id})";
+        
+        // Log to security log file
+        $log_file = __DIR__ . '/../logs/security.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $log_entry = "[{$timestamp}] PASSWORD_RESET: {$log_message}" . PHP_EOL;
+        
+        file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
     }
 
     // Add new member (admin function)
@@ -293,7 +484,7 @@ class MemberController {
         // Insert member
         $stmt = $this->conn->prepare("INSERT INTO members (first_name, last_name, dob, gender, address, phone, email, occupation, photo, membership_type_id, join_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
-        $stmt->bind_param("sssssssssis", $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $photo_path, $membership_type_id, $join_date, $expiry_date);
+        $stmt->bind_param("sssssssssiss", $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $photo_path, $membership_type_id, $join_date, $expiry_date);
         
         if ($stmt->execute()) {
             $member_id = $this->conn->insert_id;

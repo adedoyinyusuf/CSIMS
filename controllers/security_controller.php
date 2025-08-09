@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
+// Remove this line: require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/utilities.php';
 
@@ -491,6 +491,168 @@ class SecurityController {
         }
     }
     
+    /**
+     * Get security statistics
+     */
+    public function getSecurityStats() {
+        try {
+            $stats = [];
+            
+            // Total events in last 24 hours
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as total_events_24h 
+                FROM security_logs 
+                WHERE created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ");
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            $stats['total_events_24h'] = $result['total_events_24h'];
+            
+            // Critical events in last week
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as critical_events_week 
+                FROM security_logs 
+                WHERE severity = 'critical' 
+                AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ");
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            $stats['critical_events_week'] = $result['critical_events_week'];
+            
+            // Locked accounts
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as locked_accounts 
+                FROM users 
+                WHERE account_locked = 1
+            ");
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            $stats['locked_accounts'] = $result['locked_accounts'];
+            
+            // Users with 2FA
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as users_with_2fa 
+                FROM users 
+                WHERE two_factor_enabled = 1
+            ");
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            $stats['users_with_2fa'] = $result['users_with_2fa'];
+            
+            return $stats;
+            
+        } catch (Exception $e) {
+            error_log("Error getting security stats: " . $e->getMessage());
+            return [
+                'total_events_24h' => 0,
+                'critical_events_week' => 0,
+                'locked_accounts' => 0,
+                'users_with_2fa' => 0
+            ];
+        }
+    }
+    
+    /**
+     * Get recent security events
+     */
+    public function getRecentSecurityEvents($limit = 50) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT sl.*, u.username 
+                FROM security_logs sl
+                LEFT JOIN users u ON sl.user_id = u.id
+                ORDER BY sl.created_at DESC 
+                LIMIT ?
+            ");
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting recent security events: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Get locked accounts
+     */
+    public function getLockedAccounts() {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT username, locked_at, lock_reason, failed_login_attempts 
+                FROM users 
+                WHERE account_locked = 1 
+                ORDER BY locked_at DESC
+            ");
+            $stmt->execute();
+            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting locked accounts: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Get suspicious IP addresses
+     */
+    public function getSuspiciousIPs() {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT 
+                    ip_address,
+                    COUNT(*) as attempt_count,
+                    MAX(created_at) as last_attempt,
+                    'Unknown' as country
+                FROM security_logs 
+                WHERE event_type IN ('failed_login', 'suspicious_activity') 
+                AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                GROUP BY ip_address 
+                HAVING attempt_count >= 5
+                ORDER BY attempt_count DESC, last_attempt DESC
+                LIMIT 20
+            ");
+            $stmt->execute();
+            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error getting suspicious IPs: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Clear old security logs
+     */
+    public function clearOldLogs($days = 30) {
+        try {
+            $stmt = $this->db->prepare("
+                DELETE FROM security_logs 
+                WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)
+                AND severity NOT IN ('critical', 'high')
+            ");
+            $stmt->bind_param('i', $days);
+            $stmt->execute();
+            
+            $deleted_count = $stmt->affected_rows;
+            
+            $this->logSecurityEvent('logs_cleared', "Cleared {$deleted_count} old security logs (older than {$days} days)", null, null, 'low');
+            
+            return [
+                'success' => true,
+                'message' => "Successfully cleared {$deleted_count} old security logs."
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Error clearing old logs: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Failed to clear old logs.'
+            ];
+        }
+    }
+
     /**
      * Helper methods
      */

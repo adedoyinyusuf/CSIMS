@@ -1,0 +1,21 @@
+{
+  "name": "csims",
+  "version": "1.0.0",
+  "description": "Cooperative Society Information Management System",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "tailwindcss -i ./assets/css/input.css -o ./assets/css/tailwind.css --watch",
+    "build-css-prod": "tailwindcss -i ./assets/css/input.css -o ./assets/css/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  },
+  "keywords": [
+    "cooperative",
+    "management",
+    "php",
+    "mysql"
+  ],
+  "author": "CSIMS Team",
+  "license": "MIT"
+}

@@ -11,11 +11,25 @@
  * Should be run daily via cron job
  */
 
-require_once __DIR__ . '/../config/database.php';
+// Include required files
+require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../controllers/notification_controller.php';
 require_once __DIR__ . '/../controllers/member_controller.php';
 require_once __DIR__ . '/../includes/email_service.php';
 require_once __DIR__ . '/../includes/sms_service.php';
+
+// Load notification config only if constants aren't already defined
+if (!defined('EMAIL_ENABLED')) {
+    require_once __DIR__ . '/../config/notification_config.php';
+}
+
+// Initialize database connection
+$database = Database::getInstance();
+$db = $database->getConnection();
+
+if (!$db) {
+    die('Failed to connect to database');
+}
 
 // Initialize services
 $notificationController = new NotificationController();
@@ -95,9 +109,9 @@ function checkMembershipExpiryReminders() {
                 
                 foreach ($expiringMembers as $member) {
                     // Check if reminder already sent for this period
-                    if (!hasReminderBeenSent($member['id'], 'membership_expiry', $days)) {
+                    if (!hasReminderBeenSent($member['member_id'], 'membership_expiry', $days)) {
                         sendMembershipExpiryReminder($member, $days);
-                        markReminderSent($member['id'], 'membership_expiry', $days);
+                        markReminderSent($member['member_id'], 'membership_expiry', $days);
                     }
                 }
             } else {
@@ -114,22 +128,113 @@ function checkMembershipExpiryReminders() {
  * Get members expiring in specified days
  */
 function getExpiringMembers($days) {
-    global $pdo;
+    global $db;
     
     $targetDate = date('Y-m-d', strtotime("+$days days"));
     
-    $stmt = $pdo->prepare("
-        SELECT m.*, ms.expiry_date 
-        FROM members m 
-        JOIN memberships ms ON m.id = ms.member_id 
-        WHERE DATE(ms.expiry_date) = ? 
-        AND m.status = 'Active'
-        AND m.email IS NOT NULL
-        ORDER BY m.first_name, m.last_name
+    $stmt = $db->prepare("
+        SELECT * 
+        FROM members 
+        WHERE DATE(expiry_date) = ? 
+        AND status = 'Active'
+        AND email IS NOT NULL
+        ORDER BY first_name, last_name
     ");
     
-    $stmt->execute([$targetDate]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->bind_param('s', $targetDate);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+/**
+ * Check and send payment due reminders
+ */
+function checkPaymentDueReminders() {
+    logMessage('Checking payment due reminders');
+    
+    try {
+        $overdueMembers = getOverduePayments();
+        
+        if (!empty($overdueMembers)) {
+            logMessage("Found " . count($overdueMembers) . " members with overdue payments");
+            
+            foreach ($overdueMembers as $member) {
+                if (!hasReminderBeenSent($member['member_id'], 'payment_overdue', 0)) {
+                    sendPaymentDueReminder($member);
+                    markReminderSent($member['member_id'], 'payment_overdue', 0);
+                }
+            }
+        } else {
+            logMessage("No overdue payments found");
+        }
+        
+    } catch (Exception $e) {
+        logMessage("Error checking payment due reminders: " . $e->getMessage(), 'ERROR');
+    }
+}
+
+/**
+ * Get members with overdue payments
+ */
+function getOverduePayments() {
+    global $db;
+    
+    $stmt = $db->prepare("
+        SELECT * 
+        FROM members 
+        WHERE expiry_date < CURDATE() 
+        AND status = 'Expired'
+        AND email IS NOT NULL
+        ORDER BY expiry_date ASC
+    ");
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+/**
+ * Send payment due reminder
+ */
+function sendPaymentDueReminder($member) {
+    global $emailService, $smsService;
+    
+    try {
+        // Email reminder
+        $emailSubject = "Payment Overdue - Immediate Action Required";
+        $emailMessage = getPaymentDueEmailTemplate($member);
+        
+        if ($member['email']) {
+            $emailSent = $emailService->send(
+                $member['email'],
+                $emailSubject,
+                $emailMessage,
+                $member['first_name'] . ' ' . $member['last_name']
+            );
+            
+            if ($emailSent) {
+                logMessage("Payment due email sent to {$member['first_name']} {$member['last_name']} ({$member['email']})");
+            } else {
+                logMessage("Failed to send payment due email to {$member['email']}", 'ERROR');
+            }
+        }
+        
+        // SMS reminder (if phone number available)
+        if ($member['phone']) {
+            $smsMessage = getPaymentDueSMSTemplate($member);
+            $smsSent = $smsService->send($member['phone'], $smsMessage);
+            
+            if ($smsSent) {
+                logMessage("Payment due SMS sent to {$member['first_name']} {$member['last_name']} ({$member['phone']})");
+            } else {
+                logMessage("Failed to send payment due SMS to {$member['phone']}", 'ERROR');
+            }
+        }
+        
+    } catch (Exception $e) {
+        logMessage("Error sending payment due reminder to member {$member['member_id']}: " . $e->getMessage(), 'ERROR');
+    }
 }
 
 /**
@@ -171,244 +276,12 @@ function sendMembershipExpiryReminder($member, $days) {
         }
         
     } catch (Exception $e) {
-        logMessage("Error sending expiry reminder to member {$member['id']}: " . $e->getMessage(), 'ERROR');
+        logMessage("Error sending expiry reminder to member {$member['member_id']}: " . $e->getMessage(), 'ERROR');
     }
 }
 
 /**
- * Get membership expiry email template
- */
-function getMembershipExpiryEmailTemplate($member, $days) {
-    $memberName = $member['first_name'] . ' ' . $member['last_name'];
-    $expiryDate = date('F j, Y', strtotime($member['expiry_date']));
-    
-    $template = "
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #007bff; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f8f9fa; }
-            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-            .alert { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .btn { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h1>CSIMS - Membership Expiry Reminder</h1>
-            </div>
-            <div class='content'>
-                <h2>Dear $memberName,</h2>
-                
-                <div class='alert'>
-                    <strong>Important Notice:</strong> Your membership will expire in <strong>$days days</strong> on <strong>$expiryDate</strong>.
-                </div>
-                
-                <p>To ensure uninterrupted access to our services, please renew your membership before the expiry date.</p>
-                
-                <h3>Membership Details:</h3>
-                <ul>
-                    <li><strong>Member ID:</strong> {$member['member_id']}</li>
-                    <li><strong>Current Status:</strong> {$member['status']}</li>
-                    <li><strong>Expiry Date:</strong> $expiryDate</li>
-                </ul>
-                
-                <h3>How to Renew:</h3>
-                <ol>
-                    <li>Visit our office during business hours</li>
-                    <li>Contact us at [PHONE_NUMBER] or [EMAIL]</li>
-                    <li>Use our online renewal system (if available)</li>
-                </ol>
-                
-                <p style='text-align: center; margin: 30px 0;'>
-                    <a href='#' class='btn'>Renew Membership</a>
-                </p>
-                
-                <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
-                
-                <p>Thank you for being a valued member!</p>
-            </div>
-            <div class='footer'>
-                <p>This is an automated message from CSIMS. Please do not reply to this email.</p>
-                <p>&copy; " . date('Y') . " CSIMS. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    ";
-    
-    return $template;
-}
-
-/**
- * Get membership expiry SMS template
- */
-function getMembershipExpirySMSTemplate($member, $days) {
-    $memberName = $member['first_name'];
-    $expiryDate = date('M j, Y', strtotime($member['expiry_date']));
-    
-    return "CSIMS Alert: Hi $memberName, your membership expires in $days days ($expiryDate). Please renew to continue services. Contact us for assistance.";
-}
-
-/**
- * Check payment due reminders
- */
-function checkPaymentDueReminders() {
-    logMessage('Checking payment due reminders');
-    
-    try {
-        // Get members with overdue payments
-        $overdueMembers = getOverduePayments();
-        
-        if (!empty($overdueMembers)) {
-            logMessage("Found " . count($overdueMembers) . " members with overdue payments");
-            
-            foreach ($overdueMembers as $member) {
-                if (!hasReminderBeenSent($member['id'], 'payment_overdue', 0)) {
-                    sendPaymentDueReminder($member);
-                    markReminderSent($member['id'], 'payment_overdue', 0);
-                }
-            }
-        } else {
-            logMessage("No overdue payments found");
-        }
-        
-    } catch (Exception $e) {
-        logMessage("Error checking payment due reminders: " . $e->getMessage(), 'ERROR');
-    }
-}
-
-/**
- * Get members with overdue payments
- */
-function getOverduePayments() {
-    global $pdo;
-    
-    // This is a simplified query - adjust based on your payment system
-    $stmt = $pdo->prepare("
-        SELECT DISTINCT m.*, ms.expiry_date
-        FROM members m 
-        JOIN memberships ms ON m.id = ms.member_id 
-        WHERE ms.expiry_date < CURDATE()
-        AND m.status = 'Expired'
-        AND m.email IS NOT NULL
-        ORDER BY ms.expiry_date DESC
-        LIMIT 50
-    ");
-    
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-/**
- * Send payment due reminder
- */
-function sendPaymentDueReminder($member) {
-    global $emailService, $smsService;
-    
-    try {
-        $memberName = $member['first_name'] . ' ' . $member['last_name'];
-        
-        // Email reminder
-        $emailSubject = "Payment Overdue - Immediate Action Required";
-        $emailMessage = getPaymentDueEmailTemplate($member);
-        
-        if ($member['email']) {
-            $emailSent = $emailService->send(
-                $member['email'],
-                $emailSubject,
-                $emailMessage,
-                $memberName
-            );
-            
-            if ($emailSent) {
-                logMessage("Payment due email sent to $memberName ({$member['email']})");
-            }
-        }
-        
-        // SMS reminder
-        if ($member['phone']) {
-            $smsMessage = "CSIMS: Hi {$member['first_name']}, your membership payment is overdue. Please contact us immediately to avoid service interruption.";
-            $smsSent = $smsService->send($member['phone'], $smsMessage);
-            
-            if ($smsSent) {
-                logMessage("Payment due SMS sent to $memberName ({$member['phone']})");
-            }
-        }
-        
-    } catch (Exception $e) {
-        logMessage("Error sending payment due reminder to member {$member['id']}: " . $e->getMessage(), 'ERROR');
-    }
-}
-
-/**
- * Get payment due email template
- */
-function getPaymentDueEmailTemplate($member) {
-    $memberName = $member['first_name'] . ' ' . $member['last_name'];
-    $expiredDate = date('F j, Y', strtotime($member['expiry_date']));
-    
-    return "
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #dc3545; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f8f9fa; }
-            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-            .alert { background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .btn { display: inline-block; padding: 10px 20px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h1>CSIMS - Payment Overdue Notice</h1>
-            </div>
-            <div class='content'>
-                <h2>Dear $memberName,</h2>
-                
-                <div class='alert'>
-                    <strong>URGENT:</strong> Your membership payment is overdue. Your membership expired on <strong>$expiredDate</strong>.
-                </div>
-                
-                <p>Your membership services have been suspended due to non-payment. To restore your membership and avoid further complications, please make your payment immediately.</p>
-                
-                <h3>Account Details:</h3>
-                <ul>
-                    <li><strong>Member ID:</strong> {$member['member_id']}</li>
-                    <li><strong>Current Status:</strong> {$member['status']}</li>
-                    <li><strong>Expired Date:</strong> $expiredDate</li>
-                </ul>
-                
-                <h3>Payment Options:</h3>
-                <ol>
-                    <li>Visit our office immediately</li>
-                    <li>Call us at [PHONE_NUMBER]</li>
-                    <li>Online payment (if available)</li>
-                </ol>
-                
-                <p style='text-align: center; margin: 30px 0;'>
-                    <a href='#' class='btn'>Make Payment Now</a>
-                </p>
-                
-                <p><strong>Note:</strong> Continued non-payment may result in additional fees and permanent suspension of membership privileges.</p>
-            </div>
-            <div class='footer'>
-                <p>This is an automated message from CSIMS. Please contact us immediately.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    ";
-}
-
-/**
- * Send welcome messages to new members
+ * Send welcome messages
  */
 function sendWelcomeMessages() {
     logMessage('Checking for new members to send welcome messages');
@@ -420,9 +293,9 @@ function sendWelcomeMessages() {
             logMessage("Found " . count($newMembers) . " new members for welcome messages");
             
             foreach ($newMembers as $member) {
-                if (!hasReminderBeenSent($member['id'], 'welcome', 0)) {
+                if (!hasReminderBeenSent($member['member_id'], 'welcome_message', 0)) {
                     sendWelcomeMessage($member);
-                    markReminderSent($member['id'], 'welcome', 0);
+                    markReminderSent($member['member_id'], 'welcome_message', 0);
                 }
             }
         } else {
@@ -438,18 +311,19 @@ function sendWelcomeMessages() {
  * Get new members (joined in last 24 hours)
  */
 function getNewMembers() {
-    global $pdo;
+    global $db;
     
-    $stmt = $pdo->prepare("
-        SELECT m.* 
-        FROM members m 
-        WHERE m.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-        AND m.email IS NOT NULL
-        ORDER BY m.created_at DESC
+    $stmt = $db->prepare("
+        SELECT * FROM members 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+        AND status = 'Active'
+        AND email IS NOT NULL
+        ORDER BY created_at DESC
     ");
     
     $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
 }
 
 /**
@@ -459,10 +333,8 @@ function sendWelcomeMessage($member) {
     global $emailService, $smsService;
     
     try {
-        $memberName = $member['first_name'] . ' ' . $member['last_name'];
-        
         // Welcome email
-        $emailSubject = "Welcome to CSIMS - Your Membership is Active!";
+        $emailSubject = "Welcome to CSIMS!";
         $emailMessage = getWelcomeEmailTemplate($member);
         
         if ($member['email']) {
@@ -470,26 +342,30 @@ function sendWelcomeMessage($member) {
                 $member['email'],
                 $emailSubject,
                 $emailMessage,
-                $memberName
+                $member['first_name'] . ' ' . $member['last_name']
             );
             
             if ($emailSent) {
-                logMessage("Welcome email sent to $memberName ({$member['email']})");
+                logMessage("Welcome email sent to {$member['first_name']} {$member['last_name']} ({$member['email']})");
+            } else {
+                logMessage("Failed to send welcome email to {$member['email']}", 'ERROR');
             }
         }
         
-        // Welcome SMS
+        // Welcome SMS (if phone number available)
         if ($member['phone']) {
-            $smsMessage = "Welcome to CSIMS, {$member['first_name']}! Your membership is now active. We're excited to have you as part of our community!";
+            $smsMessage = getWelcomeSMSTemplate($member);
             $smsSent = $smsService->send($member['phone'], $smsMessage);
             
             if ($smsSent) {
-                logMessage("Welcome SMS sent to $memberName ({$member['phone']})");
+                logMessage("Welcome SMS sent to {$member['first_name']} {$member['last_name']} ({$member['phone']})");
+            } else {
+                logMessage("Failed to send welcome SMS to {$member['phone']}", 'ERROR');
             }
         }
         
     } catch (Exception $e) {
-        logMessage("Error sending welcome message to member {$member['id']}: " . $e->getMessage(), 'ERROR');
+        logMessage("Error sending welcome message to member {$member['member_id']}: " . $e->getMessage(), 'ERROR');
     }
 }
 
@@ -501,62 +377,34 @@ function getWelcomeEmailTemplate($member) {
     
     return "
     <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #28a745; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f8f9fa; }
-            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-            .highlight { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .btn { display: inline-block; padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h1>Welcome to CSIMS!</h1>
-            </div>
-            <div class='content'>
-                <h2>Dear $memberName,</h2>
-                
-                <div class='highlight'>
-                    <strong>Congratulations!</strong> Your membership application has been approved and your account is now active.
-                </div>
-                
-                <p>We're thrilled to welcome you to our community! As a member, you now have access to all our services and benefits.</p>
-                
-                <h3>Your Membership Details:</h3>
-                <ul>
-                    <li><strong>Member ID:</strong> {$member['member_id']}</li>
-                    <li><strong>Status:</strong> Active</li>
-                    <li><strong>Join Date:</strong> " . date('F j, Y', strtotime($member['created_at'])) . "</li>
-                </ul>
-                
-                <h3>What's Next?</h3>
-                <ol>
-                    <li>Familiarize yourself with our services</li>
-                    <li>Contact us if you have any questions</li>
-                    <li>Keep your contact information updated</li>
-                    <li>Enjoy your membership benefits!</li>
-                </ol>
-                
-                <p style='text-align: center; margin: 30px 0;'>
-                    <a href='#' class='btn'>Access Member Portal</a>
-                </p>
-                
-                <p>If you have any questions or need assistance, please don't hesitate to contact us. We're here to help!</p>
-                
-                <p>Welcome aboard!</p>
-            </div>
-            <div class='footer'>
-                <p>Thank you for choosing CSIMS!</p>
-                <p>&copy; " . date('Y') . " CSIMS. All rights reserved.</p>
-            </div>
-        </div>
+    <body style='font-family: Arial, sans-serif;'>
+        <h2>Welcome to CSIMS!</h2>
+        <p>Dear $memberName,</p>
+        
+        <p>Welcome to our cooperative society! We're excited to have you as a member.</p>
+        
+        <p>Your membership details:</p>
+        <ul>
+            <li>Member ID: {$member['member_id']}</li>
+            <li>Join Date: " . date('F j, Y', strtotime($member['created_at'])) . "</li>
+        </ul>
+        
+        <p>You can now access all member services and benefits.</p>
+        
+        <p>If you have any questions, please don't hesitate to contact us.</p>
+        
+        <p>Welcome aboard!<br>CSIMS Team</p>
     </body>
     </html>
     ";
+}
+
+/**
+ * Get welcome SMS template
+ */
+function getWelcomeSMSTemplate($member) {
+    $memberName = $member['first_name'];
+    return "CSIMS: Welcome $memberName! Your membership is now active. Member ID: {$member['member_id']}. Contact us for any assistance.";
 }
 
 /**
@@ -631,47 +479,50 @@ function sendMonthlyReports() {
  * Get admin emails
  */
 function getAdminEmails() {
-    global $pdo;
+    global $db;
     
-    $stmt = $pdo->prepare("
+    $stmt = $db->prepare("
         SELECT email, CONCAT(first_name, ' ', last_name) as name
-        FROM users 
-        WHERE role = 'admin' 
-        AND email IS NOT NULL
-        AND status = 'active'
+        FROM admins 
+        WHERE email IS NOT NULL
+        AND status = 'Active'
     ");
     
     $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
 }
 
 /**
  * Generate weekly report data
  */
 function generateWeeklyReportData() {
-    global $pdo;
+    global $db;
     
     $data = [];
     
     // New members this week
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM members WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)");
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM members WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)");
     $stmt->execute();
-    $data['new_members'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $result = $stmt->get_result();
+    $data['new_members'] = $result->fetch_assoc()['count'];
     
     // Expired members this week
-    $stmt = $pdo->prepare("
+    $stmt = $db->prepare("
         SELECT COUNT(*) as count 
-        FROM memberships 
+        FROM members 
         WHERE expiry_date >= DATE_SUB(NOW(), INTERVAL 1 WEEK) 
         AND expiry_date < NOW()
     ");
     $stmt->execute();
-    $data['expired_members'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $result = $stmt->get_result();
+    $data['expired_members'] = $result->fetch_assoc()['count'];
     
     // Total active members
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM members WHERE status = 'Active'");
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM members WHERE status = 'Active'");
     $stmt->execute();
-    $data['active_members'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $result = $stmt->get_result();
+    $data['active_members'] = $result->fetch_assoc()['count'];
     
     return $data;
 }
@@ -680,27 +531,29 @@ function generateWeeklyReportData() {
  * Generate monthly report data
  */
 function generateMonthlyReportData() {
-    global $pdo;
+    global $db;
     
     $data = [];
     
     // New members this month
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM members WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM members WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
     $stmt->execute();
-    $data['new_members'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $result = $stmt->get_result();
+    $data['new_members'] = $result->fetch_assoc()['count'];
     
     // Expired members this month
-    $stmt = $pdo->prepare("
+    $stmt = $db->prepare("
         SELECT COUNT(*) as count 
-        FROM memberships 
+        FROM members 
         WHERE expiry_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) 
         AND expiry_date < NOW()
     ");
     $stmt->execute();
-    $data['expired_members'] = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $result = $stmt->get_result();
+    $data['expired_members'] = $result->fetch_assoc()['count'];
     
-    // Revenue this month (if you have payment tracking)
-    $data['revenue'] = 0; // Placeholder
+    // Revenue this month (placeholder)
+    $data['revenue'] = 0;
     
     return $data;
 }
@@ -760,9 +613,23 @@ function generateMonthlyReportEmail($data) {
  * Check if reminder has been sent
  */
 function hasReminderBeenSent($memberId, $type, $days) {
-    global $pdo;
+    global $db;
     
-    $stmt = $pdo->prepare("
+    // Create notification_log table if it doesn't exist
+    $createTable = "
+        CREATE TABLE IF NOT EXISTS notification_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            member_id INT NOT NULL,
+            notification_type VARCHAR(50) NOT NULL,
+            reminder_days INT DEFAULT 0,
+            status ENUM('sent', 'failed') DEFAULT 'sent',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_member_type_date (member_id, notification_type, created_at)
+        )
+    ";
+    $db->query($createTable);
+    
+    $stmt = $db->prepare("
         SELECT COUNT(*) as count 
         FROM notification_log 
         WHERE member_id = ? 
@@ -771,26 +638,117 @@ function hasReminderBeenSent($memberId, $type, $days) {
         AND DATE(created_at) = CURDATE()
     ");
     
-    $stmt->execute([$memberId, $type, $days]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bind_param('isi', $memberId, $type, $days);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
     
-    return $result['count'] > 0;
+    return $row['count'] > 0;
 }
 
 /**
  * Mark reminder as sent
  */
 function markReminderSent($memberId, $type, $days) {
-    global $pdo;
+    global $db;
     
-    $stmt = $pdo->prepare("
+    $stmt = $db->prepare("
         INSERT INTO notification_log 
         (member_id, notification_type, reminder_days, status, created_at) 
         VALUES (?, ?, ?, 'sent', NOW())
     ");
     
-    $stmt->execute([$memberId, $type, $days]);
+    $stmt->bind_param('isi', $memberId, $type, $days);
+    $stmt->execute();
 }
+
+/**
+ * Get membership expiry email template
+ */
+function getMembershipExpiryEmailTemplate($member, $days) {
+    $memberName = $member['first_name'] . ' ' . $member['last_name'];
+    $expiryDate = date('F j, Y', strtotime($member['expiry_date']));
+    
+    return "
+    <html>
+    <body style='font-family: Arial, sans-serif;'>
+        <h2>Membership Expiry Reminder</h2>
+        <p>Dear $memberName,</p>
+        
+        <p>Your membership will expire in <strong>$days days</strong> on <strong>$expiryDate</strong>.</p>
+        
+        <p>Please renew your membership to continue enjoying our services.</p>
+        
+        <h3>Membership Details:</h3>
+        <ul>
+            <li>Member ID: {$member['member_id']}</li>
+            <li>Current Status: {$member['status']}</li>
+            <li>Expiry Date: $expiryDate</li>
+        </ul>
+        
+        <p>Contact us for renewal assistance.</p>
+        
+        <p>Thank you!<br>CSIMS Team</p>
+    </body>
+    </html>
+    ";
+}
+
+/**
+ * Get membership expiry SMS template
+ */
+function getMembershipExpirySMSTemplate($member, $days) {
+    $firstName = $member['first_name'];
+    $expiryDate = date('M j, Y', strtotime($member['expiry_date']));
+    return "CSIMS Alert: Hi $firstName, your membership expires in $days days ($expiryDate). Please renew to continue services.";
+}
+
+/**
+ * Get payment due email template
+ */
+function getPaymentDueEmailTemplate($member) {
+    $memberName = $member['first_name'] . ' ' . $member['last_name'];
+    $expiryDate = date('F j, Y', strtotime($member['expiry_date']));
+    
+    return "
+    <html>
+    <body style='font-family: Arial, sans-serif;'>
+        <h2>Payment Overdue Notice</h2>
+        <p>Dear $memberName,</p>
+        
+        <p><strong>URGENT:</strong> Your membership payment is overdue.</p>
+        
+        <p>Your membership expired on <strong>$expiryDate</strong>.</p>
+        
+        <p>Please make your payment immediately to restore your membership.</p>
+        
+        <h3>Account Details:</h3>
+        <ul>
+            <li>Member ID: {$member['member_id']}</li>
+            <li>Current Status: {$member['status']}</li>
+            <li>Expired Date: $expiryDate</li>
+        </ul>
+        
+        <p>Contact us immediately to resolve this issue.</p>
+        
+        <p>CSIMS Team</p>
+    </body>
+    </html>
+    ";
+}
+
+/**
+ * Get payment due SMS template
+ */
+function getPaymentDueSMSTemplate($member) {
+    $firstName = $member['first_name'];
+    return "CSIMS: Hi $firstName, your membership payment is overdue. Contact us immediately to avoid service interruption.";
+}
+
+/**
+ * Get welcome email template
+ */
+// ... existing code up to line 750 ...
 
 // Run the automated notifications
 runAutomatedNotifications();

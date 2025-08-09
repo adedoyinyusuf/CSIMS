@@ -82,15 +82,15 @@ class ReportController {
         // Age distribution
         $age_sql = "SELECT 
                       CASE 
-                        WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 25 THEN 'Under 25'
-                        WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 25 AND 35 THEN '25-35'
-                        WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 36 AND 50 THEN '36-50'
-                        WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 51 AND 65 THEN '51-65'
+                        WHEN TIMESTAMPDIFF(YEAR, dob, CURDATE()) < 25 THEN 'Under 25'
+                        WHEN TIMESTAMPDIFF(YEAR, dob, CURDATE()) BETWEEN 25 AND 35 THEN '25-35'
+                        WHEN TIMESTAMPDIFF(YEAR, dob, CURDATE()) BETWEEN 36 AND 50 THEN '36-50'
+                        WHEN TIMESTAMPDIFF(YEAR, dob, CURDATE()) BETWEEN 51 AND 65 THEN '51-65'
                         ELSE 'Over 65'
                       END as age_group,
                       COUNT(*) as count
                     FROM members m
-                    $where_clause AND date_of_birth IS NOT NULL
+                    $where_clause AND dob IS NOT NULL
                     GROUP BY age_group
                     ORDER BY 
                       CASE age_group

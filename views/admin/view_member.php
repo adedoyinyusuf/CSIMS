@@ -1,5 +1,6 @@
 <?php
 require_once '../../config/config.php';
+require_once '../../config/security.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
 
@@ -7,7 +8,7 @@ require_once '../../controllers/member_controller.php';
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access this page');
-    header("Location: <?php echo BASE_URL; ?>/index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -150,6 +151,7 @@ $is_expired = $now > $expiry_date;
                                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-sync-alt me-2"></i> Renew Membership</a></li>
                                         <?php endif; ?>
                                         <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Add Contribution</a></li>
+                                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#resetPasswordModal"><i class="fas fa-key me-2"></i> Reset Password</a></li>
                                         <li><a class="dropdown-item" href="#" onclick="window.print();"><i class="fas fa-print me-2"></i> Print Profile</a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item text-danger btn-delete" href="<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-trash me-2"></i> Delete Member</a></li>
@@ -496,10 +498,156 @@ $is_expired = $now > $expiry_date;
         </div>
     </div>
     
+    <!-- Password Reset Modal -->
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resetPasswordModalLabel">Reset Member Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="<?php echo BASE_URL; ?>/views/admin/reset_member_password.php" method="POST" id="resetPasswordForm">
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="<?php echo CSRFProtection::generateToken(); ?>">
+                        <input type="hidden" name="member_id" value="<?php echo $member['member_id']; ?>">
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            You are about to reset the password for <strong><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></strong>.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="generate_password" name="generate_password" value="1" checked>
+                                <label class="form-check-label" for="generate_password">
+                                    <strong>Auto-generate secure password</strong> (Recommended)
+                                </label>
+                            </div>
+                            <div class="form-text">When enabled, a secure random password will be generated and displayed to you.</div>
+                        </div>
+                        
+                        <div id="manual_password_section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="new_password" class="form-label">New Password</label>
+                                <input type="password" class="form-control" id="new_password" name="new_password" minlength="8">
+                                <div class="form-text">Password must be at least 8 characters long.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Important:</strong> The new password will be displayed on the next page. Please copy it securely and share it with the member through a secure channel.
+                        </div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="send_email" name="send_email" value="1" checked>
+                            <label class="form-check-label" for="send_email">
+                                <i class="fas fa-envelope me-1"></i> Send new password to member via email
+                            </label>
+                            <div class="form-text">Member's email: <strong><?php echo htmlspecialchars($member['email'] ?? 'No email on file'); ?></strong></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="resetPasswordBtn">Reset Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="<?php echo BASE_URL; ?>/assets/js/script.js"></script>
+    
+    <script>
+        // Toggle between auto-generate and manual password
+        document.getElementById('generate_password').addEventListener('change', function() {
+            const manualSection = document.getElementById('manual_password_section');
+            const newPasswordField = document.getElementById('new_password');
+            const confirmPasswordField = document.getElementById('confirm_password');
+            
+            if (this.checked) {
+                manualSection.style.display = 'none';
+                newPasswordField.required = false;
+                confirmPasswordField.required = false;
+            } else {
+                manualSection.style.display = 'block';
+                newPasswordField.required = true;
+                confirmPasswordField.required = true;
+            }
+        });
+        
+        // Password confirmation validation
+        document.getElementById('confirm_password').addEventListener('input', function() {
+            const password = document.getElementById('new_password').value;
+            const confirmPassword = this.value;
+            
+            if (password !== confirmPassword) {
+                this.setCustomValidity('Passwords do not match');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+        
+        // Form submission validation and loading state management
+        document.getElementById('resetPasswordForm').addEventListener('submit', function(e) {
+            console.log('Form submission started');
+            console.log('Form element:', this);
+            console.log('Form action:', this.action);
+            console.log('Form method:', this.method);
+            
+            const generatePassword = document.getElementById('generate_password').checked;
+            console.log('Generate password mode:', generatePassword);
+            
+            const submitButton = document.getElementById('resetPasswordBtn');
+            console.log('Submit button found:', submitButton);
+            
+            if (!submitButton) {
+                console.error('Submit button not found!');
+                return;
+            }
+            
+            const originalText = submitButton.innerHTML;
+            
+            // Validate manual password if not auto-generating
+            if (!generatePassword) {
+                const password = document.getElementById('new_password').value;
+                const confirmPassword = document.getElementById('confirm_password').value;
+                
+                if (!password || !confirmPassword) {
+                    e.preventDefault();
+                    alert('Please enter and confirm the password.');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    e.preventDefault();
+                    alert('Passwords do not match.');
+                    return;
+                }
+                
+                if (password.length < 8) {
+                    e.preventDefault();
+                    alert('Password must be at least 8 characters long.');
+                    return;
+                }
+            }
+            
+            // Show loading state
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+            
+            console.log('Form validation passed, submitting...');
+            // Form will submit normally after this
+        });
+    </script>
     
     <style>
         /* Timeline styling */

@@ -1,0 +1,2 @@
+# Deny access to temp files
+Deny from all

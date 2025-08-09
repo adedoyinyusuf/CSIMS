@@ -3,126 +3,248 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
-<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse" style="background: #f8f9fa; border-right: 1px solid #e0e0e0; box-shadow: 2px 0 4px rgba(0,0,0,0.1);">
-    <div class="position-sticky pt-3">
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link <?php echo ($current_page == 'dashboard.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/dashboard.php">
-                    <i class="fas fa-tachometer-alt fa-fw me-2"></i>
-                    Dashboard
+<nav id="sidebarMenu" class="fixed left-0 top-16 h-full w-64 bg-white border-r border-gray-200 transform -translate-x-full md:translate-x-0 transition-all duration-300 ease-in-out z-40 overflow-y-auto sidebar-nav">
+    <div class="p-4">
+        <!-- Main Navigation -->
+        <div class="mb-6">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 sidebar-section-title">Main Navigation</h3>
+            <div class="space-y-1">
+                <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'dashboard.php') ? 'bg-primary-50 text-primary-700 border-l-4 border-primary-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'dashboard.php') ? 'bg-primary-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-tachometer-alt <?php echo ($current_page == 'dashboard.php') ? 'text-primary-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Dashboard</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/members.php">
-                    <i class="fas fa-users fa-fw me-2"></i>
-                    Members
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'bg-blue-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-users <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'text-blue-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Members</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo ($current_page == 'member_approvals.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/member_approvals.php">
-                    <i class="fas fa-user-check fa-fw me-2"></i>
-                    Member Approvals
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/member_approvals.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'member_approvals.php') ? 'bg-green-50 text-green-700 border-l-4 border-green-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'member_approvals.php') ? 'bg-green-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-user-check <?php echo ($current_page == 'member_approvals.php') ? 'text-green-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Member Approvals</span>
                     <?php
                     // Show pending count badge
                     if (isset($memberController)) {
                         $pendingCount = count($memberController->getPendingMembers());
                         if ($pendingCount > 0) {
-                            echo '<span class="badge bg-warning ms-2">' . $pendingCount . '</span>';
+                            echo '<span class="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full sidebar-text">' . $pendingCount . '</span>';
                         }
                     }
                     ?>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['memberships.php', 'add_membership_type.php', 'edit_membership_type.php', 'view_membership_type.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/memberships.php">
-                    <i class="fas fa-id-card fa-fw me-2"></i>
-                    Memberships
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['memberships.php', 'add_membership_type.php', 'edit_membership_type.php', 'view_membership_type.php'])) ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['memberships.php', 'add_membership_type.php', 'edit_membership_type.php', 'view_membership_type.php'])) ? 'bg-purple-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-id-card <?php echo (in_array($current_page, ['memberships.php', 'add_membership_type.php', 'edit_membership_type.php', 'view_membership_type.php'])) ? 'text-purple-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Memberships</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['contributions.php', 'add_contribution.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/contributions.php">
-                    <i class="fas fa-money-bill-wave fa-fw me-2"></i>
-                    Contributions
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['loans.php', 'loan_applications.php', 'view_loan.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/loans.php">
-                    <i class="fas fa-hand-holding-usd fa-fw me-2"></i>
-                    Loans
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['investments.php', 'add_investment.php', 'view_investment.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/investments.php">
-                    <i class="fas fa-chart-line fa-fw me-2"></i>
-                    Investments
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['messages.php', 'send_message.php', 'view_message.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/messages.php">
-                    <i class="fas fa-envelope fa-fw me-2"></i>
-                    Messages
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['notifications.php', 'send_notification.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/notifications.php">
-                    <i class="fas fa-bell fa-fw me-2"></i>
-                    Notifications
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['reports.php', 'generate_report.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/reports.php">
-                    <i class="fas fa-file-alt fa-fw me-2"></i>
-                    Reports
-                </a>
-            </li>
-        </ul>
+            </div>
+        </div>
 
-        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1" style="color: #6c757d; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
-            <span>Analytics & Security</span>
-        </h6>
-        <ul class="nav flex-column mb-2">
-            <li class="nav-item">
-                <a class="nav-link <?php echo ($current_page == 'financial_dashboard.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/financial_dashboard.php">
-                    <i class="fas fa-chart-pie fa-fw me-2"></i>
-                    Financial Analytics
+        <!-- Financial Management -->
+        <div class="mb-6">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 sidebar-section-title">Financial Management</h3>
+            <div class="space-y-1">
+                <a href="<?php echo BASE_URL; ?>/views/admin/contributions.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['contributions.php', 'add_contribution.php'])) ? 'bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['contributions.php', 'add_contribution.php'])) ? 'bg-emerald-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-money-bill-wave <?php echo (in_array($current_page, ['contributions.php', 'add_contribution.php'])) ? 'text-emerald-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Contributions</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo ($current_page == 'security_dashboard.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/security_dashboard.php">
-                    <i class="fas fa-shield-alt fa-fw me-2"></i>
-                    Security Dashboard
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/loans.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['loans.php', 'loan_applications.php', 'view_loan.php'])) ? 'bg-orange-50 text-orange-700 border-l-4 border-orange-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['loans.php', 'loan_applications.php', 'view_loan.php'])) ? 'bg-orange-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-hand-holding-usd <?php echo (in_array($current_page, ['loans.php', 'loan_applications.php', 'view_loan.php'])) ? 'text-orange-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Loans</span>
                 </a>
-            </li>
-        </ul>
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/investments.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['investments.php', 'add_investment.php', 'view_investment.php'])) ? 'bg-teal-50 text-teal-700 border-l-4 border-teal-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['investments.php', 'add_investment.php', 'view_investment.php'])) ? 'bg-teal-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-chart-line <?php echo (in_array($current_page, ['investments.php', 'add_investment.php', 'view_investment.php'])) ? 'text-teal-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Investments</span>
+                </a>
+            </div>
+        </div>
 
-        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1" style="color: #6c757d; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
-            <span>Administration</span>
-        </h6>
-        <ul class="nav flex-column mb-2">
-            <li class="nav-item">
-                <a class="nav-link <?php echo (in_array($current_page, ['users.php', 'add_user.php', 'edit_user.php'])) ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/users.php">
-                    <i class="fas fa-user-shield fa-fw me-2"></i>
-                    Users
+        <!-- Communication -->
+        <div class="mb-6">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 sidebar-section-title">Communication</h3>
+            <div class="space-y-1">
+                <a href="<?php echo BASE_URL; ?>/views/admin/messages.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['messages.php', 'send_message.php', 'view_message.php'])) ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['messages.php', 'send_message.php', 'view_message.php'])) ? 'bg-indigo-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-envelope <?php echo (in_array($current_page, ['messages.php', 'send_message.php', 'view_message.php'])) ? 'text-indigo-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Messages</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo ($current_page == 'settings.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/settings.php">
-                    <i class="fas fa-cog fa-fw me-2"></i>
-                    Settings
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/notifications.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['notifications.php', 'send_notification.php'])) ? 'bg-pink-50 text-pink-700 border-l-4 border-pink-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['notifications.php', 'send_notification.php'])) ? 'bg-pink-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-bell <?php echo (in_array($current_page, ['notifications.php', 'send_notification.php'])) ? 'text-pink-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Notifications</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?php echo ($current_page == 'two_factor_setup.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/views/admin/two_factor_setup.php">
-                    <i class="fas fa-mobile-alt fa-fw me-2"></i>
-                    Two-Factor Auth
+                
+                <a href="<?php echo BASE_URL; ?>/views/admin/reports.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['reports.php', 'generate_report.php'])) ? 'bg-cyan-50 text-cyan-700 border-l-4 border-cyan-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['reports.php', 'generate_report.php'])) ? 'bg-cyan-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-file-alt <?php echo (in_array($current_page, ['reports.php', 'generate_report.php'])) ? 'text-cyan-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Reports</span>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="<?php echo BASE_URL; ?>/views/auth/logout.php">
-                    <i class="fas fa-sign-out-alt fa-fw me-2"></i>
-                    Logout
+            </div>
+        </div>
+
+        <!-- Analytics & Security -->
+        <div class="mb-6">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 sidebar-section-title">Analytics & Security</h3>
+            <div class="space-y-1">
+                <?php if (isset($auth) && $auth->hasPermission('view_financial_analytics')): ?>
+                <a href="<?php echo BASE_URL; ?>/views/admin/financial_dashboard.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'financial_dashboard.php') ? 'bg-amber-50 text-amber-700 border-l-4 border-amber-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'financial_dashboard.php') ? 'bg-amber-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-chart-pie <?php echo ($current_page == 'financial_dashboard.php') ? 'text-amber-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Financial Analytics</span>
                 </a>
-            </li>
-        </ul>
+                <?php endif; ?>
+                
+                <?php if (isset($auth) && $auth->hasPermission('view_security_dashboard')): ?>
+                <a href="<?php echo BASE_URL; ?>/views/admin/security_dashboard.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'security_dashboard.php') ? 'bg-red-50 text-red-700 border-l-4 border-red-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'security_dashboard.php') ? 'bg-red-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-shield-alt <?php echo ($current_page == 'security_dashboard.php') ? 'text-red-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Security Dashboard</span>
+                </a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Administration -->
+        <div class="mb-6">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 sidebar-section-title">Administration</h3>
+            <div class="space-y-1">
+                <!-- Profile Management - Available to all admins -->
+                <a href="<?php echo BASE_URL; ?>/views/admin/admin_profile.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'admin_profile.php') ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'admin_profile.php') ? 'bg-blue-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-user-edit <?php echo ($current_page == 'admin_profile.php') ? 'text-blue-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">My Profile</span>
+                </a>
+                
+
+                
+                <!-- System Administration - Super Admin Only -->
+                <?php if (isset($auth) && $auth->hasPermission('manage_users')): ?>
+                <a href="<?php echo BASE_URL; ?>/views/admin/users.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['users.php', 'add_user.php', 'edit_user.php'])) ? 'bg-violet-50 text-violet-700 border-l-4 border-violet-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['users.php', 'add_user.php', 'edit_user.php'])) ? 'bg-violet-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-user-shield <?php echo (in_array($current_page, ['users.php', 'add_user.php', 'edit_user.php'])) ? 'text-violet-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Users</span>
+                </a>
+                <?php endif; ?>
+                
+                <?php if (isset($auth) && $auth->hasPermission('manage_settings')): ?>
+                <a href="<?php echo BASE_URL; ?>/views/admin/settings.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'settings.php') ? 'bg-slate-50 text-slate-700 border-l-4 border-slate-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'settings.php') ? 'bg-slate-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-cog <?php echo ($current_page == 'settings.php') ? 'text-slate-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Settings</span>
+                </a>
+                <?php endif; ?>
+                
+                <?php if (isset($auth) && $auth->hasPermission('manage_two_factor')): ?>
+                <a href="<?php echo BASE_URL; ?>/views/admin/two_factor_setup.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'two_factor_setup.php') ? 'bg-yellow-50 text-yellow-700 border-l-4 border-yellow-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'two_factor_setup.php') ? 'bg-yellow-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-mobile-alt <?php echo ($current_page == 'two_factor_setup.php') ? 'text-yellow-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Two-Factor Auth</span>
+                </a>
+                <?php endif; ?>
+                
+                <a href="<?php echo BASE_URL; ?>/views/auth/logout.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link text-gray-700 hover:bg-red-50 hover:text-red-700">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 group-hover:bg-red-100 sidebar-icon">
+                        <i class="fas fa-sign-out-alt text-gray-600 group-hover:text-red-600"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Logout</span>
+                </a>
+            </div>
+        </div>
     </div>
 </nav>
+
+<!-- Mobile sidebar overlay -->
+<div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden hidden" onclick="toggleMobileSidebar()"></div>
+
+<style>
+/* Sidebar collapse styles */
+.sidebar-nav.sidebar-collapsed {
+    width: 4rem;
+}
+
+.sidebar-nav.sidebar-collapsed .sidebar-text {
+    display: none;
+}
+
+.sidebar-nav.sidebar-collapsed .sidebar-section-title {
+    display: none;
+}
+
+.sidebar-nav.sidebar-collapsed .sidebar-link {
+    justify-content: center;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.sidebar-nav.sidebar-collapsed .sidebar-icon {
+    margin-right: 0;
+}
+
+/* Main content adjustment */
+.main-content {
+    margin-left: 16rem; /* 64 * 0.25rem = 16rem for w-64 */
+    transition: margin-left 0.3s ease-in-out;
+}
+
+.main-content.sidebar-collapsed {
+    margin-left: 4rem;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .main-content.sidebar-collapsed {
+        margin-left: 0;
+    }
+}
+</style>
+
+<script>
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebarMenu');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (sidebar && overlay) {
+        sidebar.classList.toggle('-translate-x-full');
+        overlay.classList.toggle('hidden');
+    }
+}
+
+// Close sidebar when clicking overlay
+document.addEventListener('DOMContentLoaded', function() {
+    const overlay = document.getElementById('sidebarOverlay');
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            toggleMobileSidebar();
+        });
+    }
+});
+</script>

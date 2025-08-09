@@ -7,7 +7,7 @@ require_once '../../controllers/member_controller.php';
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access this page');
-    header("Location: <?php echo BASE_URL; ?>/index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 

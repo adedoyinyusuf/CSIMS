@@ -7,7 +7,7 @@ require_once '../../controllers/member_controller.php';
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access this page');
-    header("Location: <?php echo BASE_URL; ?>/index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -152,7 +152,18 @@ if ($confirmed) {
                             <div class="col-md-4">
                                 <div class="text-center mb-4">
                                     <?php if (!empty($member['photo'])): ?>
-                                        <img src="../../assets/images/members/<?php echo $member['photo']; ?>" alt="Profile" class="img-thumbnail" style="max-width: 150px;">
+                                        <?php 
+                                        // Handle different photo path formats
+                                        $photo_url = $member['photo'];
+                                        if (strpos($photo_url, 'assets/') === 0) {
+                                            // Photo path already includes assets/ directory
+                                            $photo_url = BASE_URL . '/' . $photo_url;
+                                        } else {
+                                            // Photo path is just filename, use default directory
+                                            $photo_url = BASE_URL . '/assets/images/members/' . $photo_url;
+                                        }
+                                        ?>
+                                        <img src="<?php echo $photo_url; ?>" alt="Profile" class="img-thumbnail" style="max-width: 150px;">
                                     <?php else: ?>
                                         <div class="profile-img bg-secondary d-flex align-items-center justify-content-center" style="width: 150px; height: 150px; margin: 0 auto;">
                                             <i class="fas fa-user fa-5x text-white"></i>

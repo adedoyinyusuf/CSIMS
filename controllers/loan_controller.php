@@ -42,15 +42,14 @@ class LoanController {
             // Calculate monthly payment (principal + interest)
             $monthly_payment = $this->calculateMonthlyPayment($amount, $interest_rate, $term_months);
             
-            // Prepare SQL statement
+            // Prepare SQL statement - using actual table columns
             $stmt = $this->db->prepare("INSERT INTO loans 
-                (member_id, amount, purpose, term_months, interest_rate, monthly_payment, 
-                application_date, status, collateral, guarantor, notes, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+                (member_id, amount, purpose, term, interest_rate, 
+                application_date, status, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
             
-            $stmt->bind_param("idsifdssss", $member_id, $amount, $purpose, $term_months, 
-                            $interest_rate, $monthly_payment, $application_date, $status, 
-                            $collateral, $guarantor, $notes);
+            $stmt->bind_param("idsidss", $member_id, $amount, $purpose, $term_months, 
+                            $interest_rate, $application_date, $status);
             
             if ($stmt->execute()) {
                 return $stmt->insert_id;

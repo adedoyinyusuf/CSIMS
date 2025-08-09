@@ -197,7 +197,7 @@ $membership_types = $memberController->getMembershipTypes();
                                     <select class="form-select" id="membership_type" name="membership_type">
                                         <option value="">All Types</option>
                                         <?php foreach ($membership_types as $type): ?>
-                                            <option value="<?php echo $type['id']; ?>" <?php echo ($membership_type == $type['id']) ? 'selected' : ''; ?>>
+                                            <option value="<?php echo $type['membership_type_id']; ?>" <?php echo ($membership_type == $type['membership_type_id']) ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($type['name']); ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -349,7 +349,18 @@ $membership_types = $memberController->getMembershipTypes();
                                                 <td><?php echo $member['member_id']; ?></td>
                                                 <td>
                                                     <?php if (!empty($member['photo'])): ?>
-                                                        <img src="<?php echo BASE_URL; ?>/assets/images/members/<?php echo $member['photo']; ?>" alt="Photo" class="rounded-circle" width="40" height="40">
+                                                        <?php 
+                                                        // Handle different photo path formats
+                                                        $photo_url = $member['photo'];
+                                                        if (strpos($photo_url, 'assets/') === 0) {
+                                                            // Photo path already includes assets/ directory
+                                                            $photo_url = BASE_URL . '/' . $photo_url;
+                                                        } else {
+                                                            // Photo path is just filename, use default directory
+                                                            $photo_url = BASE_URL . '/assets/images/members/' . $photo_url;
+                                                        }
+                                                        ?>
+                                                        <img src="<?php echo $photo_url; ?>" alt="Photo" class="rounded-circle" width="40" height="40">
                                                     <?php else: ?>
                                                         <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                                             <i class="fas fa-user text-white"></i>

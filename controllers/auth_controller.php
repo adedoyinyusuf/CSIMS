@@ -17,12 +17,41 @@ class AuthController {
     
     // Login user with enhanced security
     public function login($username, $password, $two_factor_code = null) {
+        // Rate limiting check
+        $clientId = $_SERVER['REMOTE_ADDR'] . '_' . $username;
+        if (!RateLimiter::checkLimit($clientId, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_TIME)) {
+            SecurityLogger::logSuspiciousActivity('Rate limit exceeded for login attempts', [
+                'username' => $username,
+                'ip' => $_SERVER['REMOTE_ADDR'],
+                'attempts' => MAX_LOGIN_ATTEMPTS
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Too many login attempts. Please try again later.',
+                'locked' => true
+            ];
+        }
+        
         // Sanitize inputs
-        $username = Utilities::sanitizeInput($username);
+        $username = SecurityValidator::sanitizeInput($username);
+        $password = trim($password);
         $ip_address = $this->getClientIP();
         
-        // Check for suspicious activity
+        // Enhanced suspicious activity check
         $security_check = $this->securityController->checkSuspiciousActivity($username, $ip_address);
+        
+        // Additional security checks
+        if ($this->isAccountLocked($username)) {
+            SecurityLogger::logSecurityEvent('Login attempt on locked account', [
+                'username' => $username,
+                'ip' => $_SERVER['REMOTE_ADDR']
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Account is locked. Please contact administrator.',
+                'locked' => true
+            ];
+        }
         
         if ($security_check['status'] === 'locked') {
             $this->logLoginAttempt($username, $ip_address, false, 'Account locked');
@@ -64,9 +93,23 @@ class AuthController {
                 $this->resetFailedAttempts($admin['admin_id']);
                 $this->session->login($admin);
                 
-                // Log successful login
+                // Log successful login with enhanced details
                 $this->logLoginAttempt($username, $ip_address, true);
                 $this->securityController->logSecurityEvent('successful_login', "User {$username} logged in successfully", $admin['admin_id'], $ip_address, 'low');
+                
+                SecurityLogger::logSecurityEvent('Successful login', [
+                    'username' => $username,
+                    'user_id' => $admin['admin_id'],
+                    'ip' => $_SERVER['REMOTE_ADDR'],
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
+                    'two_factor_used' => !empty($two_factor_code)
+                ]);
+                
+                // Reset failed attempts counter
+                $this->resetFailedAttempts($username);
+                
+                // Update last login timestamp
+                $this->updateLastLogin($admin['admin_id']);
                 
                 return ['success' => true, 'message' => 'Login successful'];
             } else {
@@ -74,6 +117,16 @@ class AuthController {
                 $this->incrementFailedAttempts($admin['admin_id']);
                 $this->logLoginAttempt($username, $ip_address, false, 'Invalid password');
                 $this->securityController->logSecurityEvent('failed_login', "Failed login attempt for user {$username}", $admin['admin_id'], $ip_address, 'medium');
+                
+                SecurityLogger::logSuspiciousActivity('Failed login attempt', [
+                    'username' => $username,
+                    'ip' => $_SERVER['REMOTE_ADDR'],
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]);
+                
+                // Increment failed attempts counter
+                $this->incrementFailedAttempts($username);
                 
                 return ['success' => false, 'message' => 'Invalid password'];
             }
@@ -277,15 +330,26 @@ class AuthController {
     }
     
     private function resetFailedAttempts($admin_id) {
-        // Failed attempts tracking not implemented in basic table structure
-        // This method is kept for compatibility but does nothing
-        return true;
+        $stmt = $this->conn->prepare("UPDATE admins SET failed_login_attempts = 0, last_failed_login = NULL WHERE admin_id = ?");
+        $stmt->bind_param("i", $admin_id);
+        $stmt->execute();
     }
     
     private function incrementFailedAttempts($admin_id) {
-        // Failed attempts tracking not implemented in basic table structure
-        // This method is kept for compatibility but does nothing
-        return true;
+        $stmt = $this->conn->prepare("UPDATE admins SET failed_login_attempts = failed_login_attempts + 1, last_failed_login = NOW() WHERE admin_id = ?");
+        $stmt->bind_param("i", $admin_id);
+        $stmt->execute();
+        
+        // Check if we need to lock the account
+        $stmt = $this->conn->prepare("SELECT failed_login_attempts, username FROM admins WHERE admin_id = ?");
+        $stmt->bind_param("i", $admin_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        
+        if ($user && $user['failed_login_attempts'] >= MAX_LOGIN_ATTEMPTS) {
+            $this->lockAccount($user['username'], 'Too many failed login attempts');
+        }
     }
     
     private function verifyTwoFactorCode($admin_id, $code) {
@@ -367,6 +431,96 @@ class AuthController {
         
         // Add other role checks as needed
         return false;
+    }
+    
+    // Check if user is Super Admin
+    public function isSuperAdmin() {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        $user = $this->getCurrentUser();
+        return $user && $user['role'] === 'Super Admin';
+    }
+    
+    // Check if user has permission for specific feature
+    public function hasPermission($permission) {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return false;
+        }
+        
+        // Super Admin has all permissions
+        if ($user['role'] === 'Super Admin') {
+            return true;
+        }
+        
+        // Define permissions for regular Admin
+        $adminPermissions = [
+            'view_dashboard',
+            'manage_members',
+            'manage_contributions',
+            'manage_loans',
+            'manage_investments',
+            'send_messages',
+            'send_notifications',
+            'view_reports',
+            'view_financial_analytics',
+            'manage_profile'
+        ];
+        
+        // Define Super Admin only permissions
+        $superAdminOnlyPermissions = [
+            'manage_users',
+            'manage_settings',
+            'view_security_dashboard',
+            'manage_two_factor',
+            'system_administration'
+        ];
+        
+        // Check if permission is allowed for current user role
+        if ($user['role'] === 'Admin') {
+            return in_array($permission, $adminPermissions);
+        }
+        
+        return false;
+    }
+    
+    // Check if account is locked
+    private function isAccountLocked($username) {
+        $stmt = $this->conn->prepare("SELECT account_locked, locked_at FROM admins WHERE username = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        
+        if (!$user) {
+            return false;
+        }
+        
+        // Check if account is permanently locked
+        if ($user['account_locked'] == 1) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Lock user account
+    private function lockAccount($username, $reason) {
+        $stmt = $this->conn->prepare("UPDATE admins SET account_locked = 1, locked_at = NOW(), lock_reason = ? WHERE username = ?");
+        $stmt->bind_param("ss", $reason, $username);
+        $stmt->execute();
+        
+        SecurityLogger::logCriticalSecurity('Account locked', [
+            'username' => $username,
+            'reason' => $reason,
+            'ip' => $_SERVER['REMOTE_ADDR']
+        ]);
     }
 }
 

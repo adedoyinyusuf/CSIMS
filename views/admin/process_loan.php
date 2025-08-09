@@ -223,9 +223,9 @@ include_once __DIR__ . '/../includes/header.php';
                         <div class="col-md-6">
                             <p><strong>Loan ID:</strong> <?php echo $loan['loan_id']; ?></p>
                             <p><strong>Amount:</strong> $<?php echo number_format($loan['amount'], 2); ?></p>
-                            <p><strong>Term:</strong> <?php echo $loan['term_months']; ?> months</p>
+                            <p><strong>Term:</strong> <?php echo $loan['term']; ?> months</p>
                             <p><strong>Interest Rate:</strong> <?php echo $loan['interest_rate']; ?>%</p>
-                            <p><strong>Monthly Payment:</strong> $<?php echo number_format($loanController->calculateMonthlyPayment($loan['amount'], $loan['interest_rate'], $loan['term_months']), 2); ?></p>
+                            <p><strong>Monthly Payment:</strong> $<?php echo number_format($loanController->calculateMonthlyPayment($loan['amount'], $loan['interest_rate'], $loan['term']), 2); ?></p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Status:</strong> <span class="badge bg-<?php echo $loanController->getStatusBadgeClass($loan['status']); ?>"><?php echo ucfirst($loan['status']); ?></span></p>

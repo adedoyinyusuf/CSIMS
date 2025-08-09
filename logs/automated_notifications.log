@@ -1,0 +1,341 @@
+[2025-08-02 17:38:09] [INFO] Starting automated notifications cron job
+[2025-08-02 17:38:09] [INFO] Checking membership expiry reminders
+[2025-08-02 17:41:59] [INFO] Starting automated notifications cron job
+[2025-08-02 17:41:59] [INFO] Checking membership expiry reminders
+[2025-08-02 17:41:59] [INFO] Starting automated notifications cron job
+[2025-08-02 17:41:59] [INFO] Checking membership expiry reminders
+[2025-08-02 17:49:33] [INFO] Starting automated notifications cron job
+[2025-08-02 17:49:33] [INFO] Checking membership expiry reminders
+[2025-08-02 17:49:33] [ERROR] Error checking 30 day expiry reminders: Table 'csims_db.memberships' doesn't exist
+[2025-08-02 17:49:33] [ERROR] Error checking 15 day expiry reminders: Table 'csims_db.memberships' doesn't exist
+[2025-08-02 17:49:33] [ERROR] Error checking 7 day expiry reminders: Table 'csims_db.memberships' doesn't exist
+[2025-08-02 17:49:33] [INFO] Checking payment due reminders
+[2025-08-02 17:49:33] [ERROR] Error checking payment due reminders: Table 'csims_db.memberships' doesn't exist
+[2025-08-02 17:49:33] [INFO] Checking for new members to send welcome messages
+[2025-08-02 17:49:33] [INFO] Found 3 new members for welcome messages
+[2025-08-02 17:49:33] [ERROR] Error sending welcome messages: Table 'csims_db.notification_log' doesn't exist
+[2025-08-02 17:49:33] [INFO] Automated notifications cron job completed successfully
+[2025-08-02 18:06:30] [INFO] Starting automated notifications cron job
+[2025-08-02 18:06:30] [INFO] Checking membership expiry reminders
+[2025-08-02 18:06:30] [INFO] No members expiring in 30 days
+[2025-08-02 18:06:30] [INFO] No members expiring in 15 days
+[2025-08-02 18:06:30] [INFO] No members expiring in 7 days
+[2025-08-02 18:06:30] [INFO] Checking payment due reminders
+[2025-08-02 18:06:30] [INFO] No overdue payments found
+[2025-08-02 18:06:30] [INFO] Checking for new members to send welcome messages
+[2025-08-02 18:06:30] [INFO] Found 3 new members for welcome messages
+[2025-08-02 18:06:32] [ERROR] Failed to send welcome email to hballykiss@gmail.com
+[2025-08-02 18:06:32] [ERROR] Failed to send welcome SMS to 08036832952
+[2025-08-02 18:06:34] [ERROR] Failed to send welcome email to adedoyin.yusuf@nationalpopulation.gov.ng
+[2025-08-02 18:06:34] [ERROR] Failed to send welcome SMS to 08036589889
+[2025-08-02 18:06:36] [ERROR] Failed to send welcome email to ibrahym.yusuf@yahoo.com
+[2025-08-02 18:06:36] [ERROR] Failed to send welcome SMS to 08036589889
+[2025-08-02 18:06:36] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:33:20] [INFO] Starting automated notifications cron job
+[2025-08-04 18:33:20] [INFO] Checking membership expiry reminders
+[2025-08-04 18:33:20] [INFO] No members expiring in 30 days
+[2025-08-04 18:33:20] [INFO] No members expiring in 15 days
+[2025-08-04 18:33:20] [INFO] No members expiring in 7 days
+[2025-08-04 18:33:20] [INFO] Checking payment due reminders
+[2025-08-04 18:33:20] [INFO] No overdue payments found
+[2025-08-04 18:33:20] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:33:20] [INFO] No new members found for welcome messages
+[2025-08-04 18:33:20] [INFO] Sending weekly reports
+[2025-08-04 18:33:25] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:33:56] [INFO] Starting automated notifications cron job
+[2025-08-04 18:33:56] [INFO] Checking membership expiry reminders
+[2025-08-04 18:33:56] [INFO] No members expiring in 30 days
+[2025-08-04 18:33:56] [INFO] No members expiring in 15 days
+[2025-08-04 18:33:56] [INFO] No members expiring in 7 days
+[2025-08-04 18:33:56] [INFO] Checking payment due reminders
+[2025-08-04 18:33:56] [INFO] No overdue payments found
+[2025-08-04 18:33:56] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:33:56] [INFO] No new members found for welcome messages
+[2025-08-04 18:33:56] [INFO] Sending weekly reports
+[2025-08-04 18:34:00] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:41:17] [INFO] Starting automated notifications cron job
+[2025-08-04 18:41:17] [INFO] Checking membership expiry reminders
+[2025-08-04 18:41:17] [INFO] No members expiring in 30 days
+[2025-08-04 18:41:17] [INFO] No members expiring in 15 days
+[2025-08-04 18:41:17] [INFO] No members expiring in 7 days
+[2025-08-04 18:41:17] [INFO] Checking payment due reminders
+[2025-08-04 18:41:17] [INFO] No overdue payments found
+[2025-08-04 18:41:17] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:41:17] [INFO] No new members found for welcome messages
+[2025-08-04 18:41:17] [INFO] Sending weekly reports
+[2025-08-04 18:41:21] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:47:35] [INFO] Starting automated notifications cron job
+[2025-08-04 18:47:35] [INFO] Checking membership expiry reminders
+[2025-08-04 18:47:35] [INFO] No members expiring in 30 days
+[2025-08-04 18:47:35] [INFO] No members expiring in 15 days
+[2025-08-04 18:47:35] [INFO] No members expiring in 7 days
+[2025-08-04 18:47:35] [INFO] Checking payment due reminders
+[2025-08-04 18:47:35] [INFO] No overdue payments found
+[2025-08-04 18:47:35] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:47:35] [INFO] No new members found for welcome messages
+[2025-08-04 18:47:35] [INFO] Sending weekly reports
+[2025-08-04 18:47:39] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:47:43] [INFO] Starting automated notifications cron job
+[2025-08-04 18:47:43] [INFO] Checking membership expiry reminders
+[2025-08-04 18:47:43] [INFO] No members expiring in 30 days
+[2025-08-04 18:47:43] [INFO] No members expiring in 15 days
+[2025-08-04 18:47:43] [INFO] No members expiring in 7 days
+[2025-08-04 18:47:43] [INFO] Checking payment due reminders
+[2025-08-04 18:47:43] [INFO] No overdue payments found
+[2025-08-04 18:47:43] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:47:43] [INFO] No new members found for welcome messages
+[2025-08-04 18:47:43] [INFO] Sending weekly reports
+[2025-08-04 18:47:47] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:47:52] [INFO] Starting automated notifications cron job
+[2025-08-04 18:47:52] [INFO] Checking membership expiry reminders
+[2025-08-04 18:47:52] [INFO] No members expiring in 30 days
+[2025-08-04 18:47:52] [INFO] No members expiring in 15 days
+[2025-08-04 18:47:52] [INFO] No members expiring in 7 days
+[2025-08-04 18:47:52] [INFO] Checking payment due reminders
+[2025-08-04 18:47:52] [INFO] No overdue payments found
+[2025-08-04 18:47:52] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:47:52] [INFO] No new members found for welcome messages
+[2025-08-04 18:47:52] [INFO] Sending weekly reports
+[2025-08-04 18:47:56] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 18:48:17] [INFO] Starting automated notifications cron job
+[2025-08-04 18:48:17] [INFO] Checking membership expiry reminders
+[2025-08-04 18:48:17] [INFO] No members expiring in 30 days
+[2025-08-04 18:48:17] [INFO] No members expiring in 15 days
+[2025-08-04 18:48:17] [INFO] No members expiring in 7 days
+[2025-08-04 18:48:17] [INFO] Checking payment due reminders
+[2025-08-04 18:48:17] [INFO] No overdue payments found
+[2025-08-04 18:48:17] [INFO] Checking for new members to send welcome messages
+[2025-08-04 18:48:17] [INFO] No new members found for welcome messages
+[2025-08-04 18:48:17] [INFO] Sending weekly reports
+[2025-08-04 18:48:21] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:08:23] [INFO] Starting automated notifications cron job
+[2025-08-04 19:08:23] [INFO] Checking membership expiry reminders
+[2025-08-04 19:08:23] [INFO] No members expiring in 30 days
+[2025-08-04 19:08:23] [INFO] No members expiring in 15 days
+[2025-08-04 19:08:23] [INFO] No members expiring in 7 days
+[2025-08-04 19:08:23] [INFO] Checking payment due reminders
+[2025-08-04 19:08:23] [INFO] No overdue payments found
+[2025-08-04 19:08:23] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:08:23] [INFO] No new members found for welcome messages
+[2025-08-04 19:08:23] [INFO] Sending weekly reports
+[2025-08-04 19:08:27] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:08:27] [INFO] Starting automated notifications cron job
+[2025-08-04 19:08:27] [INFO] Checking membership expiry reminders
+[2025-08-04 19:08:27] [INFO] No members expiring in 30 days
+[2025-08-04 19:08:27] [INFO] No members expiring in 15 days
+[2025-08-04 19:08:27] [INFO] No members expiring in 7 days
+[2025-08-04 19:08:27] [INFO] Checking payment due reminders
+[2025-08-04 19:08:27] [INFO] No overdue payments found
+[2025-08-04 19:08:27] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:08:27] [INFO] No new members found for welcome messages
+[2025-08-04 19:08:27] [INFO] Sending weekly reports
+[2025-08-04 19:08:31] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:11:27] [INFO] Starting automated notifications cron job
+[2025-08-04 19:11:27] [INFO] Checking membership expiry reminders
+[2025-08-04 19:11:27] [INFO] No members expiring in 30 days
+[2025-08-04 19:11:27] [INFO] No members expiring in 15 days
+[2025-08-04 19:11:27] [INFO] No members expiring in 7 days
+[2025-08-04 19:11:27] [INFO] Checking payment due reminders
+[2025-08-04 19:11:27] [INFO] No overdue payments found
+[2025-08-04 19:11:27] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:11:27] [INFO] No new members found for welcome messages
+[2025-08-04 19:11:27] [INFO] Sending weekly reports
+[2025-08-04 19:11:31] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:12:58] [INFO] Starting automated notifications cron job
+[2025-08-04 19:12:58] [INFO] Checking membership expiry reminders
+[2025-08-04 19:12:58] [INFO] No members expiring in 30 days
+[2025-08-04 19:12:58] [INFO] No members expiring in 15 days
+[2025-08-04 19:12:58] [INFO] No members expiring in 7 days
+[2025-08-04 19:12:58] [INFO] Checking payment due reminders
+[2025-08-04 19:12:58] [INFO] No overdue payments found
+[2025-08-04 19:12:58] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:12:58] [INFO] No new members found for welcome messages
+[2025-08-04 19:12:58] [INFO] Sending weekly reports
+[2025-08-04 19:12:59] [INFO] Starting automated notifications cron job
+[2025-08-04 19:12:59] [INFO] Checking membership expiry reminders
+[2025-08-04 19:12:59] [INFO] No members expiring in 30 days
+[2025-08-04 19:12:59] [INFO] No members expiring in 15 days
+[2025-08-04 19:12:59] [INFO] No members expiring in 7 days
+[2025-08-04 19:12:59] [INFO] Checking payment due reminders
+[2025-08-04 19:12:59] [INFO] No overdue payments found
+[2025-08-04 19:12:59] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:12:59] [INFO] No new members found for welcome messages
+[2025-08-04 19:12:59] [INFO] Sending weekly reports
+[2025-08-04 19:13:02] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:13:02] [INFO] Starting automated notifications cron job
+[2025-08-04 19:13:02] [INFO] Checking membership expiry reminders
+[2025-08-04 19:13:02] [INFO] No members expiring in 30 days
+[2025-08-04 19:13:02] [INFO] No members expiring in 15 days
+[2025-08-04 19:13:02] [INFO] No members expiring in 7 days
+[2025-08-04 19:13:02] [INFO] Checking payment due reminders
+[2025-08-04 19:13:02] [INFO] No overdue payments found
+[2025-08-04 19:13:02] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:13:02] [INFO] No new members found for welcome messages
+[2025-08-04 19:13:02] [INFO] Sending weekly reports
+[2025-08-04 19:13:03] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:13:06] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:13:06] [INFO] Starting automated notifications cron job
+[2025-08-04 19:13:06] [INFO] Checking membership expiry reminders
+[2025-08-04 19:13:06] [INFO] No members expiring in 30 days
+[2025-08-04 19:13:06] [INFO] No members expiring in 15 days
+[2025-08-04 19:13:06] [INFO] No members expiring in 7 days
+[2025-08-04 19:13:06] [INFO] Checking payment due reminders
+[2025-08-04 19:13:06] [INFO] No overdue payments found
+[2025-08-04 19:13:06] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:13:06] [INFO] No new members found for welcome messages
+[2025-08-04 19:13:06] [INFO] Sending weekly reports
+[2025-08-04 19:13:10] [INFO] Starting automated notifications cron job
+[2025-08-04 19:13:10] [INFO] Checking membership expiry reminders
+[2025-08-04 19:13:10] [INFO] No members expiring in 30 days
+[2025-08-04 19:13:10] [INFO] No members expiring in 15 days
+[2025-08-04 19:13:10] [INFO] No members expiring in 7 days
+[2025-08-04 19:13:10] [INFO] Checking payment due reminders
+[2025-08-04 19:13:10] [INFO] No overdue payments found
+[2025-08-04 19:13:10] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:13:10] [INFO] No new members found for welcome messages
+[2025-08-04 19:13:10] [INFO] Sending weekly reports
+[2025-08-04 19:13:10] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:13:10] [INFO] Starting automated notifications cron job
+[2025-08-04 19:13:10] [INFO] Checking membership expiry reminders
+[2025-08-04 19:13:10] [INFO] No members expiring in 30 days
+[2025-08-04 19:13:10] [INFO] No members expiring in 15 days
+[2025-08-04 19:13:10] [INFO] No members expiring in 7 days
+[2025-08-04 19:13:10] [INFO] Checking payment due reminders
+[2025-08-04 19:13:10] [INFO] No overdue payments found
+[2025-08-04 19:13:10] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:13:10] [INFO] No new members found for welcome messages
+[2025-08-04 19:13:10] [INFO] Sending weekly reports
+[2025-08-04 19:13:14] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:13:14] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:15:29] [INFO] Starting automated notifications cron job
+[2025-08-04 19:15:29] [INFO] Checking membership expiry reminders
+[2025-08-04 19:15:29] [INFO] No members expiring in 30 days
+[2025-08-04 19:15:29] [INFO] No members expiring in 15 days
+[2025-08-04 19:15:29] [INFO] No members expiring in 7 days
+[2025-08-04 19:15:29] [INFO] Checking payment due reminders
+[2025-08-04 19:15:29] [INFO] No overdue payments found
+[2025-08-04 19:15:29] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:15:29] [INFO] No new members found for welcome messages
+[2025-08-04 19:15:29] [INFO] Sending weekly reports
+[2025-08-04 19:15:33] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:17:49] [INFO] Starting automated notifications cron job
+[2025-08-04 19:17:49] [INFO] Checking membership expiry reminders
+[2025-08-04 19:17:49] [INFO] No members expiring in 30 days
+[2025-08-04 19:17:49] [INFO] No members expiring in 15 days
+[2025-08-04 19:17:49] [INFO] No members expiring in 7 days
+[2025-08-04 19:17:49] [INFO] Checking payment due reminders
+[2025-08-04 19:17:49] [INFO] No overdue payments found
+[2025-08-04 19:17:49] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:17:49] [INFO] No new members found for welcome messages
+[2025-08-04 19:17:49] [INFO] Sending weekly reports
+[2025-08-04 19:17:53] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:18:53] [INFO] Starting automated notifications cron job
+[2025-08-04 19:18:53] [INFO] Checking membership expiry reminders
+[2025-08-04 19:18:53] [INFO] No members expiring in 30 days
+[2025-08-04 19:18:53] [INFO] No members expiring in 15 days
+[2025-08-04 19:18:53] [INFO] No members expiring in 7 days
+[2025-08-04 19:18:53] [INFO] Checking payment due reminders
+[2025-08-04 19:18:53] [INFO] No overdue payments found
+[2025-08-04 19:18:53] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:18:53] [INFO] No new members found for welcome messages
+[2025-08-04 19:18:53] [INFO] Sending weekly reports
+[2025-08-04 19:18:58] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:20:38] [INFO] Starting automated notifications cron job
+[2025-08-04 19:20:38] [INFO] Checking membership expiry reminders
+[2025-08-04 19:20:38] [INFO] No members expiring in 30 days
+[2025-08-04 19:20:38] [INFO] No members expiring in 15 days
+[2025-08-04 19:20:38] [INFO] No members expiring in 7 days
+[2025-08-04 19:20:38] [INFO] Checking payment due reminders
+[2025-08-04 19:20:38] [INFO] No overdue payments found
+[2025-08-04 19:20:38] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:20:38] [INFO] No new members found for welcome messages
+[2025-08-04 19:20:38] [INFO] Sending weekly reports
+[2025-08-04 19:20:42] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:20:59] [INFO] Starting automated notifications cron job
+[2025-08-04 19:20:59] [INFO] Checking membership expiry reminders
+[2025-08-04 19:20:59] [INFO] No members expiring in 30 days
+[2025-08-04 19:20:59] [INFO] No members expiring in 15 days
+[2025-08-04 19:20:59] [INFO] No members expiring in 7 days
+[2025-08-04 19:20:59] [INFO] Checking payment due reminders
+[2025-08-04 19:20:59] [INFO] No overdue payments found
+[2025-08-04 19:20:59] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:20:59] [INFO] No new members found for welcome messages
+[2025-08-04 19:20:59] [INFO] Sending weekly reports
+[2025-08-04 19:21:04] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:21:49] [INFO] Starting automated notifications cron job
+[2025-08-04 19:21:49] [INFO] Checking membership expiry reminders
+[2025-08-04 19:21:49] [INFO] No members expiring in 30 days
+[2025-08-04 19:21:49] [INFO] No members expiring in 15 days
+[2025-08-04 19:21:49] [INFO] No members expiring in 7 days
+[2025-08-04 19:21:49] [INFO] Checking payment due reminders
+[2025-08-04 19:21:49] [INFO] No overdue payments found
+[2025-08-04 19:21:49] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:21:49] [INFO] No new members found for welcome messages
+[2025-08-04 19:21:49] [INFO] Sending weekly reports
+[2025-08-04 19:21:53] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:22:53] [INFO] Starting automated notifications cron job
+[2025-08-04 19:22:53] [INFO] Checking membership expiry reminders
+[2025-08-04 19:22:53] [INFO] No members expiring in 30 days
+[2025-08-04 19:22:53] [INFO] No members expiring in 15 days
+[2025-08-04 19:22:53] [INFO] No members expiring in 7 days
+[2025-08-04 19:22:53] [INFO] Checking payment due reminders
+[2025-08-04 19:22:53] [INFO] No overdue payments found
+[2025-08-04 19:22:53] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:22:53] [INFO] No new members found for welcome messages
+[2025-08-04 19:22:53] [INFO] Sending weekly reports
+[2025-08-04 19:22:57] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:26:15] [INFO] Starting automated notifications cron job
+[2025-08-04 19:26:15] [INFO] Checking membership expiry reminders
+[2025-08-04 19:26:15] [INFO] No members expiring in 30 days
+[2025-08-04 19:26:15] [INFO] No members expiring in 15 days
+[2025-08-04 19:26:15] [INFO] No members expiring in 7 days
+[2025-08-04 19:26:15] [INFO] Checking payment due reminders
+[2025-08-04 19:26:15] [INFO] No overdue payments found
+[2025-08-04 19:26:15] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:26:15] [INFO] No new members found for welcome messages
+[2025-08-04 19:26:15] [INFO] Sending weekly reports
+[2025-08-04 19:26:19] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:38:41] [INFO] Starting automated notifications cron job
+[2025-08-04 19:38:41] [INFO] Checking membership expiry reminders
+[2025-08-04 19:38:41] [INFO] No members expiring in 30 days
+[2025-08-04 19:38:41] [INFO] No members expiring in 15 days
+[2025-08-04 19:38:41] [INFO] No members expiring in 7 days
+[2025-08-04 19:38:41] [INFO] Checking payment due reminders
+[2025-08-04 19:38:41] [INFO] No overdue payments found
+[2025-08-04 19:38:41] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:38:41] [INFO] No new members found for welcome messages
+[2025-08-04 19:38:41] [INFO] Sending weekly reports
+[2025-08-04 19:38:45] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:44:56] [INFO] Starting automated notifications cron job
+[2025-08-04 19:44:56] [INFO] Checking membership expiry reminders
+[2025-08-04 19:44:56] [INFO] No members expiring in 30 days
+[2025-08-04 19:44:56] [INFO] No members expiring in 15 days
+[2025-08-04 19:44:56] [INFO] No members expiring in 7 days
+[2025-08-04 19:44:56] [INFO] Checking payment due reminders
+[2025-08-04 19:44:56] [INFO] No overdue payments found
+[2025-08-04 19:44:56] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:44:56] [INFO] No new members found for welcome messages
+[2025-08-04 19:44:56] [INFO] Sending weekly reports
+[2025-08-04 19:45:00] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:45:11] [INFO] Starting automated notifications cron job
+[2025-08-04 19:45:11] [INFO] Checking membership expiry reminders
+[2025-08-04 19:45:11] [INFO] No members expiring in 30 days
+[2025-08-04 19:45:11] [INFO] No members expiring in 15 days
+[2025-08-04 19:45:11] [INFO] No members expiring in 7 days
+[2025-08-04 19:45:11] [INFO] Checking payment due reminders
+[2025-08-04 19:45:11] [INFO] No overdue payments found
+[2025-08-04 19:45:11] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:45:11] [INFO] No new members found for welcome messages
+[2025-08-04 19:45:11] [INFO] Sending weekly reports
+[2025-08-04 19:45:15] [INFO] Automated notifications cron job completed successfully
+[2025-08-04 19:49:56] [INFO] Starting automated notifications cron job
+[2025-08-04 19:49:56] [INFO] Checking membership expiry reminders
+[2025-08-04 19:49:56] [INFO] No members expiring in 30 days
+[2025-08-04 19:49:56] [INFO] No members expiring in 15 days
+[2025-08-04 19:49:56] [INFO] No members expiring in 7 days
+[2025-08-04 19:49:56] [INFO] Checking payment due reminders
+[2025-08-04 19:49:56] [INFO] No overdue payments found
+[2025-08-04 19:49:56] [INFO] Checking for new members to send welcome messages
+[2025-08-04 19:49:56] [INFO] No new members found for welcome messages
+[2025-08-04 19:49:56] [INFO] Sending weekly reports
+[2025-08-04 19:50:00] [INFO] Automated notifications cron job completed successfully

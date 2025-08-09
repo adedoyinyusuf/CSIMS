@@ -8,9 +8,9 @@
 
 // Require authentication and controllers
 require_once '../../config/config.php';
-require_once __DIR__ . '/../controllers/auth_controller.php';
-require_once __DIR__ . '/../controllers/loan_controller.php';
-require_once __DIR__ . '/../controllers/member_controller.php';
+require_once __DIR__ . '/../../controllers/auth_controller.php';
+require_once __DIR__ . '/../../controllers/loan_controller.php';
+require_once __DIR__ . '/../../controllers/member_controller.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $loanData = [
             'amount' => $_POST['amount'],
             'purpose' => $_POST['purpose'],
-            'term_months' => $_POST['term_months'],
+            'term' => $_POST['term_months'],
             'interest_rate' => $_POST['interest_rate'],
             'application_date' => $_POST['application_date'],
             'status' => 'pending',
@@ -217,7 +217,7 @@ include_once __DIR__ . '/../includes/header.php';
                             <div class="col-md-4">
                                 <label for="term_months" class="form-label">Loan Term (Months) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="term_months" name="term_months" min="1" max="120" 
-                                       value="<?php echo isset($_POST['term_months']) ? $_POST['term_months'] : $loan['term_months']; ?>" required>
+                                       value="<?php echo isset($_POST['term_months']) ? $_POST['term_months'] : $loan['term']; ?>" required>
                                 <div class="invalid-feedback">Please provide a valid loan term</div>
                             </div>
                             <div class="col-md-4">

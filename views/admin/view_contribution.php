@@ -18,7 +18,7 @@ $memberController = new MemberController();
 
 // Check if user is logged in
 if (!$authController->isLoggedIn()) {
-    header('Location: <?php echo BASE_URL; ?>/index.php');
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 

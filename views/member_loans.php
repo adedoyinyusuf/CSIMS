@@ -196,13 +196,31 @@ foreach ($loans as $loan) {
                                         </thead>
                                         <tbody>
                                             <?php foreach ($loans as $loan): ?>
+                                                <?php
+                                                // Calculate monthly payment
+                                                $amount = floatval($loan['amount']);
+                                                $termMonths = intval($loan['term']);
+                                                $interestRate = floatval($loan['interest_rate']);
+                                                
+                                                if ($amount > 0 && $termMonths > 0 && $interestRate >= 0) {
+                                                    $monthlyRate = $interestRate / 100 / 12;
+                                                    if ($monthlyRate == 0) {
+                                                        $monthlyPayment = $amount / $termMonths;
+                                                    } else {
+                                                        $monthlyPayment = ($amount * $monthlyRate * pow(1 + $monthlyRate, $termMonths)) / 
+                                                                         (pow(1 + $monthlyRate, $termMonths) - 1);
+                                                    }
+                                                } else {
+                                                    $monthlyPayment = 0;
+                                                }
+                                                ?>
                                                 <tr>
                                                     <td><?php echo date('M d, Y', strtotime($loan['application_date'])); ?></td>
                                                     <td>₦<?php echo number_format($loan['amount'], 2); ?></td>
                                                     <td><?php echo htmlspecialchars($loan['purpose']); ?></td>
-                                                    <td><?php echo $loan['term_months']; ?> months</td>
+                                                    <td><?php echo $loan['term']; ?> months</td>
                                                     <td><?php echo $loan['interest_rate']; ?>%</td>
-                                                    <td>₦<?php echo number_format($loan['monthly_payment'], 2); ?></td>
+                                                    <td>₦<?php echo number_format($monthlyPayment, 2); ?></td>
                                                     <td>
                                                         <span class="loan-status status-<?php echo strtolower($loan['status']); ?>">
                                                             <?php echo $loan['status']; ?>

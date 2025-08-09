@@ -7,7 +7,7 @@ require_once '../../controllers/member_controller.php';
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access the dashboard');
-    header("Location: <?php echo BASE_URL; ?>/index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -28,249 +28,288 @@ $expiring_memberships = $memberController->getExpiringMemberships(30);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - <?php echo APP_NAME; ?></title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <!-- Tailwind CSS is loaded via header.php -->
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="bg-gray-50">
     <!-- Include Header/Navbar -->
     <?php include '../../views/includes/header.php'; ?>
     
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Include Sidebar -->
-            <?php include '../../views/includes/sidebar.php'; ?>
-            
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">Dashboard</h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary">Print</button>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle">
-                            <i class="fas fa-calendar"></i> This Month
+    <div class="flex">
+        <!-- Include Sidebar -->
+        <?php include '../../views/includes/sidebar.php'; ?>
+        
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-64 mt-16 p-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+                    <p class="text-gray-600">Welcome back, <?php echo $current_user['first_name']; ?>! Here's what's happening with your cooperative society.</p>
+                </div>
+                <div class="flex items-center space-x-3 mt-4 md:mt-0">
+                    <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-download mr-2"></i> Export
+                    </button>
+                    <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-print mr-2"></i> Print
+                    </button>
+                    <div class="relative">
+                        <button type="button" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-calendar mr-2"></i> This Month
+                            <i class="fas fa-chevron-down ml-2"></i>
                         </button>
                     </div>
                 </div>
+            </div>
                 
-                <!-- Flash Messages -->
-                <?php if ($session->hasFlash('success')): ?>
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <!-- Flash Messages -->
+            <?php if ($session->hasFlash('success')): ?>
+                <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-3 text-green-600"></i>
                         <?php echo $session->getFlash('success'); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
-                <?php endif; ?>
-                
-                <?php if ($session->hasFlash('error')): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <button type="button" class="text-green-600 hover:text-green-800" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($session->hasFlash('error')): ?>
+                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-3 text-red-600"></i>
                         <?php echo $session->getFlash('error'); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
-                <?php endif; ?>
+                    <button type="button" class="text-red-600 hover:text-red-800" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
                 
-                <!-- Statistics Cards -->
-                <div class="row mb-4">
-                    <div class="col-md-3 mb-3">
-                        <div class="dashboard-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">Total Members</h6>
-                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo $stats['total_members']; ?></h2>
-                                </div>
-                                <i class="fas fa-users fa-3x" style="color: rgba(255,255,255,0.6);"></i>
-                            </div>
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
-                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
-                            </div>
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium mb-2">Total Members</p>
+                            <p class="text-3xl font-bold mb-1"><?php echo $stats['total_members']; ?></p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-users text-xl"></i>
                         </div>
                     </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <div class="dashboard-card" style="background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">Active Members</h6>
-                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo $stats['active_members']; ?></h2>
-                                </div>
-                                <i class="fas fa-user-check fa-3x" style="color: rgba(255,255,255,0.6);"></i>
-                            </div>
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
-                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php?status=Active" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <div class="dashboard-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">Expiring Soon</h6>
-                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo count($expiring_memberships); ?></h2>
-                                </div>
-                                <i class="fas fa-clock fa-3x" style="color: rgba(255,255,255,0.6);"></i>
-                            </div>
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
-                                <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?filter=expiring" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <div class="dashboard-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 style="color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">New This Month</h6>
-                                    <h2 style="color: white; font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;"><?php echo $stats['new_members_this_month']; ?></h2>
-                                </div>
-                                <i class="fas fa-user-plus fa-3x" style="color: rgba(255,255,255,0.6);"></i>
-                            </div>
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
-                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php?filter=new" class="text-white text-decoration-none" style="font-weight: 500;">View Details <i class="fas fa-arrow-circle-right"></i></a>
-                            </div>
-                        </div>
+                    <div class="mt-4 pt-4 border-t border-white border-opacity-20">
+                        <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="text-white hover:text-blue-100 text-sm font-medium transition-colors">
+                            View Details <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
                     </div>
                 </div>
                 
-                <!-- Charts Row -->
-                <div class="row mb-4">
-                    <div class="col-md-6 mb-4">
-                        <div class="card h-100">
-                            <div class="card-header">
-                                <h5 class="card-title">Members by Gender</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="genderChart"></canvas>
-                            </div>
+                <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm font-medium mb-2">Active Members</p>
+                            <p class="text-3xl font-bold mb-1"><?php echo $stats['active_members']; ?></p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-user-check text-xl"></i>
                         </div>
                     </div>
-                    
-                    <div class="col-md-6 mb-4">
-                        <div class="card h-100">
-                            <div class="card-header">
-                                <h5 class="card-title">Members by Membership Type</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="membershipTypeChart"></canvas>
-                            </div>
-                        </div>
+                    <div class="mt-4 pt-4 border-t border-white border-opacity-20">
+                        <a href="<?php echo BASE_URL; ?>/views/admin/members.php?status=Active" class="text-white hover:text-green-100 text-sm font-medium transition-colors">
+                            View Details <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
                     </div>
                 </div>
                 
-                <!-- Recent Members and Expiring Memberships -->
-                <div class="row">
-                    <div class="col-md-6 mb-4">
-                        <div class="card h-100">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="card-title mb-0">Recent Members</h5>
-                                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="btn btn-sm btn-primary">View All</a>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Membership</th>
-                                                <th>Join Date</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php 
-                                            // Get recent members (this would be implemented in the MemberController)
-                                            $recentMembers = $memberController->getAllMembers(1, '', '', '');
-                                            $count = 0;
-                                            foreach ($recentMembers['members'] as $member): 
-                                                if ($count >= 5) break; // Show only 5 recent members
-                                                $count++;
-                                            ?>
-                                                <tr>
-                                                    <td><?php echo $member['first_name'] . ' ' . $member['last_name']; ?></td>
-                                                    <td><?php echo $member['membership_type']; ?></td>
-                                                    <td><?php echo date('M d, Y', strtotime($member['join_date'])); ?></td>
-                                                    <td>
-                                                        <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
-                                                    </td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                            
-                                            <?php if ($count == 0): ?>
-                                                <tr>
-                                                    <td colspan="4" class="text-center">No members found</td>
-                                                </tr>
-                                            <?php endif; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                <div class="bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-pink-100 text-sm font-medium mb-2">Expiring Soon</p>
+                            <p class="text-3xl font-bold mb-1"><?php echo count($expiring_memberships); ?></p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-clock text-xl"></i>
                         </div>
                     </div>
-                    
-                    <div class="col-md-6 mb-4">
-                        <div class="card h-100">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="card-title mb-0">Expiring Memberships</h5>
-                                <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?filter=expiring" class="btn btn-sm btn-warning">View All</a>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Membership</th>
-                                                <th>Expiry Date</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php 
-                                            $count = 0;
-                                            foreach ($expiring_memberships as $member): 
-                                                if ($count >= 5) break; // Show only 5 expiring memberships
-                                                $count++;
-                                            ?>
-                                                <tr>
-                                                    <td><?php echo $member['first_name'] . ' ' . $member['last_name']; ?></td>
-                                                    <td><?php echo $member['membership_type']; ?></td>
-                                                    <td><?php echo date('M d, Y', strtotime($member['expiry_date'])); ?></td>
-                                                    <td>
-                                                        <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?action=renew&id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-sync-alt"></i> Renew</a>
-                                                    </td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                            
-                                            <?php if ($count == 0): ?>
-                                                <tr>
-                                                    <td colspan="4" class="text-center">No expiring memberships found</td>
-                                                </tr>
-                                            <?php endif; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="mt-4 pt-4 border-t border-white border-opacity-20">
+                        <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?filter=expiring" class="text-white hover:text-pink-100 text-sm font-medium transition-colors">
+                            View Details <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
                     </div>
                 </div>
                 
-                <!-- Include Footer -->
-                <?php include '../../views/includes/footer.php'; ?>
-            </main>
-        </div>
+                <div class="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-cyan-100 text-sm font-medium mb-2">New This Month</p>
+                            <p class="text-3xl font-bold mb-1"><?php echo $stats['new_members_this_month']; ?></p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-user-plus text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-white border-opacity-20">
+                        <a href="<?php echo BASE_URL; ?>/views/admin/members.php?filter=new" class="text-white hover:text-cyan-100 text-sm font-medium transition-colors">
+                            View Details <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+                
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Members by Gender</h3>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="genderChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Members by Membership Type</h3>
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="membershipTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+                
+            <!-- Recent Members and Expiring Memberships -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Recent Members</h3>
+                        <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                            View All
+                        </a>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Membership</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <?php 
+                                // Get recent members (this would be implemented in the MemberController)
+                                $recentMembers = $memberController->getAllMembers(1, '', '', '');
+                                $count = 0;
+                                foreach ($recentMembers['members'] as $member): 
+                                    if ($count >= 5) break; // Show only 5 recent members
+                                    $count++;
+                                ?>
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <?php echo $member['first_name'] . ' ' . $member['last_name']; ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                <?php echo $member['membership_type']; ?>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <?php echo date('M d, Y', strtotime($member['join_date'])); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-2.5 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-200 transition-colors">
+                                                <i class="fas fa-eye mr-1"></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                
+                                <?php if ($count == 0): ?>
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                            <i class="fas fa-users text-3xl mb-2 text-gray-300"></i>
+                                            <p>No members found</p>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Expiring Memberships</h3>
+                        <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?filter=expiring" class="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors">
+                            View All
+                        </a>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Membership</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <?php 
+                                $count = 0;
+                                foreach ($expiring_memberships as $member): 
+                                    if ($count >= 5) break; // Show only 5 expiring memberships
+                                    $count++;
+                                ?>
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <?php echo $member['first_name'] . ' ' . $member['last_name']; ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                <?php echo $member['membership_type']; ?>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                <?php echo date('M d, Y', strtotime($member['expiry_date'])); ?>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            <a href="<?php echo BASE_URL; ?>/views/admin/memberships.php?action=renew&id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-2.5 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded-lg hover:bg-green-200 transition-colors">
+                                                <i class="fas fa-sync-alt mr-1"></i> Renew
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                
+                                <?php if ($count == 0): ?>
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                            <i class="fas fa-clock text-3xl mb-2 text-gray-300"></i>
+                                            <p>No expiring memberships found</p>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+                
+        </main>
     </div>
     
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="<?php echo BASE_URL; ?>/assets/js/script.js"></script>
+    <!-- Include Footer -->
+    <?php include '../../views/includes/footer.php'; ?>
     
     <script>
         // Gender Chart

@@ -20,6 +20,15 @@ $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_profile'])) {
+        // Handle extended profile fields
+        $extended_data = [
+            'middle_name' => trim($_POST['middle_name'] ?? ''),
+            'marital_status' => $_POST['marital_status'] ?? '',
+            'highest_qualification' => trim($_POST['highest_qualification'] ?? ''),
+            'years_of_residence' => $_POST['years_of_residence'] ?? null
+        ];
+        
+        // Update basic profile fields
         $data = [
             'first_name' => trim($_POST['first_name']),
             'last_name' => trim($_POST['last_name']),
@@ -29,19 +38,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'phone' => trim($_POST['phone']),
             'email' => trim($_POST['email']),
             'occupation' => trim($_POST['occupation']),
-            'membership_type_id' => $member['membership_type_id'], // Keep current membership
-            'status' => $member['status'] // Keep current status
+            'membership_type_id' => $member['membership_type_id'],
+            'status' => $member['status']
         ];
+        
+        // Merge extended data
+        $data = array_merge($data, $extended_data);
         
         $result = $memberController->updateMemberProfile($member_id, $data);
         if ($result['success']) {
             $success = $result['message'];
-            // Refresh member data
             $member = $memberController->getMemberById($member_id);
-            // Update session name
             $_SESSION['member_name'] = $member['first_name'] . ' ' . $member['last_name'];
         } else {
             $error = $result['message'];
+        }
+    } elseif (isset($_POST['upload_photo'])) {
+        if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = '../assets/uploads/profiles/';
+            
+            // Create directory if it doesn't exist
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            $file_info = pathinfo($_FILES['profile_photo']['name']);
+            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (!in_array(strtolower($file_info['extension']), $allowed_extensions)) {
+                $error = 'Only JPG, JPEG, PNG, and GIF files are allowed';
+            } else if ($_FILES['profile_photo']['size'] > 5 * 1024 * 1024) { // 5MB limit
+                $error = 'File size must be less than 5MB';
+            } else {
+                // Generate unique filename
+                $filename = 'member_' . $member_id . '_' . time() . '.' . $file_info['extension'];
+                $upload_path = $upload_dir . $filename;
+                
+                if (move_uploaded_file($_FILES['profile_photo']['tmp_name'], $upload_path)) {
+                    try {
+                        // Delete old profile photo if exists
+                        if (!empty($member['photo']) && file_exists('../' . $member['photo'])) {
+                            unlink('../' . $member['photo']);
+                        }
+                        
+                        // Update profile photo path in database
+                        $photo_path = 'assets/uploads/profiles/' . $filename;
+                        $stmt = $conn->prepare("UPDATE members SET photo = ? WHERE member_id = ?");
+                        $stmt->bind_param('si', $photo_path, $member_id);
+                        
+                        if ($stmt->execute()) {
+                            $success = 'Profile photo uploaded successfully!';
+                            
+                            // Refresh member data
+                            $member = $memberController->getMemberById($member_id);
+                        } else {
+                            $error = 'Error updating profile photo in database';
+                            // Delete uploaded file if database update fails
+                            if (file_exists($upload_path)) {
+                                unlink($upload_path);
+                            }
+                        }
+                        
+                    } catch (Exception $e) {
+                        $error = 'Error updating profile photo: ' . $e->getMessage();
+                        // Delete uploaded file if database update fails
+                        if (file_exists($upload_path)) {
+                            unlink($upload_path);
+                        }
+                    }
+                } else {
+                    $error = 'Failed to upload file';
+                }
+            }
+        } else {
+            $error = 'Please select a file to upload';
         }
     } elseif (isset($_POST['change_password'])) {
         $current_password = $_POST['current_password'];
@@ -61,6 +131,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = $result['message'];
             }
+        }
+    } elseif (isset($_POST['update_employment'])) {
+        $employment_data = [
+            'employee_rank' => trim($_POST['employee_rank'] ?? ''),
+            'grade_level' => trim($_POST['grade_level'] ?? ''),
+            'position' => trim($_POST['position'] ?? ''),
+            'department' => trim($_POST['department'] ?? ''),
+            'date_of_first_appointment' => $_POST['date_of_first_appointment'] ?? null,
+            'date_of_retirement' => $_POST['date_of_retirement'] ?? null
+        ];
+        
+        $result = $memberController->updateMemberProfile($member_id, $employment_data);
+        if ($result['success']) {
+            $success = 'Employment information updated successfully!';
+            $member = $memberController->getMemberById($member_id);
+        } else {
+            $error = $result['message'];
+        }
+    } elseif (isset($_POST['update_banking'])) {
+        $banking_data = [
+            'bank_name' => trim($_POST['bank_name'] ?? ''),
+            'account_number' => trim($_POST['account_number'] ?? ''),
+            'account_name' => trim($_POST['account_name'] ?? '')
+        ];
+        
+        $result = $memberController->updateMemberProfile($member_id, $banking_data);
+        if ($result['success']) {
+            $success = 'Banking information updated successfully!';
+            $member = $memberController->getMemberById($member_id);
+        } else {
+            $error = $result['message'];
+        }
+    } elseif (isset($_POST['update_next_of_kin'])) {
+        $next_of_kin_data = [
+            'next_of_kin_name' => trim($_POST['next_of_kin_name'] ?? ''),
+            'next_of_kin_relationship' => $_POST['next_of_kin_relationship'] ?? '',
+            'next_of_kin_phone' => trim($_POST['next_of_kin_phone'] ?? ''),
+            'next_of_kin_address' => trim($_POST['next_of_kin_address'] ?? '')
+        ];
+        
+        $result = $memberController->updateMemberProfile($member_id, $next_of_kin_data);
+        if ($result['success']) {
+            $success = 'Next of kin information updated successfully!';
+            $member = $memberController->getMemberById($member_id);
+        } else {
+            $error = $result['message'];
         }
     }
 }
@@ -198,7 +314,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="text-center">
-                                    <i class="fas fa-user-circle fa-4x mb-2"></i>
+                                    <?php if (!empty($member['photo']) && file_exists('../' . $member['photo'])): ?>
+                                        <img src="<?php echo '../' . $member['photo']; ?>" alt="Profile Photo" class="rounded-circle" style="width: 80px; height: 80px; object-fit: cover; border: 3px solid white;">
+                                    <?php else: ?>
+                                        <i class="fas fa-user-circle fa-4x mb-2"></i>
+                                    <?php endif; ?>
                                     <p class="mb-0">Member ID: <?php echo $member['member_id']; ?></p>
                                 </div>
                             </div>
@@ -218,6 +338,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php endif; ?>
 
                     <div class="row">
+                        <!-- Profile Photo Section -->
+                        <div class="col-md-4 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-camera"></i> Profile Photo</h5>
+                                </div>
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <?php if (!empty($member['photo']) && file_exists('../' . $member['photo'])): ?>
+                                            <img src="<?php echo '../' . $member['photo']; ?>" alt="Profile Photo" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover; border: 4px solid #f8f9fa;">
+                                        <?php else: ?>
+                                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 120px; height: 120px; border: 4px solid #f8f9fa;">
+                                                <i class="fas fa-user fa-3x text-muted"></i>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <form method="POST" enctype="multipart/form-data">
+                                        <div class="mb-3">
+                                            <input type="file" name="profile_photo" accept="image/*" class="form-control form-control-sm" required>
+                                            <small class="form-text text-muted">JPG, JPEG, PNG, or GIF. Max 5MB.</small>
+                                        </div>
+                                        
+                                        <button type="submit" name="upload_photo" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-upload"></i> Upload Photo
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Profile Information -->
                         <div class="col-md-8 mb-4">
                             <div class="card">
@@ -233,11 +384,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                        value="<?php echo htmlspecialchars($member['first_name']); ?>" required>
                                             </div>
                                             <div class="col-md-6 mb-3">
+                                                <label for="middle_name" class="form-label">Middle Name</label>
+                                                <input type="text" class="form-control" id="middle_name" name="middle_name" 
+                                                       value="<?php echo htmlspecialchars($member['middle_name'] ?? ''); ?>">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
                                                 <label for="last_name" class="form-label">Last Name</label>
                                                 <input type="text" class="form-control" id="last_name" name="last_name" 
                                                        value="<?php echo htmlspecialchars($member['last_name']); ?>" required>
                                             </div>
-                                        </div>
                                         
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
@@ -274,21 +432,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <label for="occupation" class="form-label">Occupation</label>
-                                            <input type="text" class="form-control" id="occupation" name="occupation" 
-                                                   value="<?php echo htmlspecialchars($member['occupation']); ?>">
-                                        </div>
-                                        
-                                        <button type="submit" name="update_profile" class="btn btn-primary">
-                                            <i class="fas fa-save"></i> Update Profile
-                                        </button>
+                            <label for="occupation" class="form-label">Occupation</label>
+                            <input type="text" class="form-control" id="occupation" name="occupation" 
+                                   value="<?php echo htmlspecialchars($member['occupation']); ?>">
+                        </div>
+                        
+                            <div class="col-md-6 mb-3">
+                                <label for="marital_status" class="form-label">Marital Status</label>
+                                <select class="form-control" id="marital_status" name="marital_status">
+                                    <option value="">Select Status</option>
+                                    <option value="Single" <?php echo ($member['marital_status'] ?? '') === 'Single' ? 'selected' : ''; ?>>Single</option>
+                                    <option value="Married" <?php echo ($member['marital_status'] ?? '') === 'Married' ? 'selected' : ''; ?>>Married</option>
+                                    <option value="Divorced" <?php echo ($member['marital_status'] ?? '') === 'Divorced' ? 'selected' : ''; ?>>Divorced</option>
+                                    <option value="Widowed" <?php echo ($member['marital_status'] ?? '') === 'Widowed' ? 'selected' : ''; ?>>Widowed</option>
+                                    <option value="Other" <?php echo ($member['marital_status'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="highest_qualification" class="form-label">Highest Qualification</label>
+                                <input type="text" class="form-control" id="highest_qualification" name="highest_qualification" 
+                                       value="<?php echo htmlspecialchars($member['highest_qualification'] ?? ''); ?>">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="years_of_residence" class="form-label">Years of Residence</label>
+                                <input type="number" class="form-control" id="years_of_residence" name="years_of_residence" 
+                                       value="<?php echo htmlspecialchars($member['years_of_residence'] ?? ''); ?>" min="0">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" name="update_profile" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Update Profile
+                        </button>
                                     </form>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Membership Info & Password Change -->
-                        <div class="col-md-4">
+                        <div class="col-md-12">
+                            <div class="row">
+                                <div class="col-md-6">
                             <!-- Membership Information -->
                             <div class="card mb-4">
                                 <div class="card-header">
@@ -306,7 +492,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <p><strong>Fee:</strong> $<?php echo number_format($member['membership_fee'], 2); ?></p>
                                 </div>
                             </div>
-
+                                </div>
+                                
+                                <div class="col-md-6">
                             <!-- Change Password -->
                             <div class="card">
                                 <div class="card-header">
@@ -329,6 +517,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         </div>
                                         <button type="submit" name="change_password" class="btn btn-warning btn-sm">
                                             <i class="fas fa-key"></i> Change Password
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Employment Information -->
+                        <div class="col-md-12 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-briefcase"></i> Employment Information</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" action="">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="employee_rank" class="form-label">Employee Rank</label>
+                                                <input type="text" class="form-control" id="employee_rank" name="employee_rank" 
+                                                       value="<?php echo htmlspecialchars($member['employee_rank'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="grade_level" class="form-label">Grade Level</label>
+                                                <input type="text" class="form-control" id="grade_level" name="grade_level" 
+                                                       value="<?php echo htmlspecialchars($member['grade_level'] ?? ''); ?>">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="position" class="form-label">Position</label>
+                                                <input type="text" class="form-control" id="position" name="position" 
+                                                       value="<?php echo htmlspecialchars($member['position'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="department" class="form-label">Department</label>
+                                                <input type="text" class="form-control" id="department" name="department" 
+                                                       value="<?php echo htmlspecialchars($member['department'] ?? ''); ?>">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="date_of_first_appointment" class="form-label">Date of First Appointment</label>
+                                                <input type="date" class="form-control" id="date_of_first_appointment" name="date_of_first_appointment" 
+                                                       value="<?php echo htmlspecialchars($member['date_of_first_appointment'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="date_of_retirement" class="form-label">Date of Retirement</label>
+                                                <input type="date" class="form-control" id="date_of_retirement" name="date_of_retirement" 
+                                                       value="<?php echo htmlspecialchars($member['date_of_retirement'] ?? ''); ?>">
+                                            </div>
+                                        </div>
+                                        
+                                        <button type="submit" name="update_employment" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Update Employment Info
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Banking Information -->
+                        <div class="col-md-12 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-university"></i> Banking Information</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" action="">
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label for="bank_name" class="form-label">Bank Name</label>
+                                                <input type="text" class="form-control" id="bank_name" name="bank_name" 
+                                                       value="<?php echo htmlspecialchars($member['bank_name'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label for="account_number" class="form-label">Account Number</label>
+                                                <input type="text" class="form-control" id="account_number" name="account_number" 
+                                                       value="<?php echo htmlspecialchars($member['account_number'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label for="account_name" class="form-label">Account Name</label>
+                                                <input type="text" class="form-control" id="account_name" name="account_name" 
+                                                       value="<?php echo htmlspecialchars($member['account_name'] ?? ''); ?>">
+                                            </div>
+                                        </div>
+                                        
+                                        <button type="submit" name="update_banking" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Update Banking Info
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Next of Kin Information -->
+                        <div class="col-md-12 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-users"></i> Next of Kin Information</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" action="">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="next_of_kin_name" class="form-label">Next of Kin Name</label>
+                                                <input type="text" class="form-control" id="next_of_kin_name" name="next_of_kin_name" 
+                                                       value="<?php echo htmlspecialchars($member['next_of_kin_name'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="next_of_kin_relationship" class="form-label">Relationship</label>
+                                                <select class="form-control" id="next_of_kin_relationship" name="next_of_kin_relationship">
+                                                    <option value="">Select Relationship</option>
+                                                    <option value="Spouse" <?php echo ($member['next_of_kin_relationship'] ?? '') === 'Spouse' ? 'selected' : ''; ?>>Spouse</option>
+                                                    <option value="Child" <?php echo ($member['next_of_kin_relationship'] ?? '') === 'Child' ? 'selected' : ''; ?>>Child</option>
+                                                    <option value="Parent" <?php echo ($member['next_of_kin_relationship'] ?? '') === 'Parent' ? 'selected' : ''; ?>>Parent</option>
+                                                    <option value="Sibling" <?php echo ($member['next_of_kin_relationship'] ?? '') === 'Sibling' ? 'selected' : ''; ?>>Sibling</option>
+                                                    <option value="Other" <?php echo ($member['next_of_kin_relationship'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="next_of_kin_phone" class="form-label">Next of Kin Phone</label>
+                                                <input type="tel" class="form-control" id="next_of_kin_phone" name="next_of_kin_phone" 
+                                                       value="<?php echo htmlspecialchars($member['next_of_kin_phone'] ?? ''); ?>">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="next_of_kin_address" class="form-label">Next of Kin Address</label>
+                                                <textarea class="form-control" id="next_of_kin_address" name="next_of_kin_address" rows="2"><?php echo htmlspecialchars($member['next_of_kin_address'] ?? ''); ?></textarea>
+                                            </div>
+                                        </div>
+                                        
+                                        <button type="submit" name="update_next_of_kin" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Update Next of Kin Info
                                         </button>
                                     </form>
                                 </div>

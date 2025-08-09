@@ -151,7 +151,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="row align-items-center">
                             <div class="col-md-2 text-center">
                                 <?php if (!empty($member['photo'])): ?>
-                                    <img src="<?php echo BASE_URL; ?>/assets/images/members/<?php echo $member['photo']; ?>" alt="Profile Photo" class="rounded-circle img-fluid" style="width: 120px; height: 120px; object-fit: cover;">
+                                    <?php 
+                                    // Handle different photo path formats
+                                    $photo_url = $member['photo'];
+                                    if (strpos($photo_url, 'assets/') === 0) {
+                                        // Photo path already includes assets/ directory
+                                        $photo_url = BASE_URL . '/' . $photo_url;
+                                    } else {
+                                        // Photo path is just filename, use default directory
+                                        $photo_url = BASE_URL . '/assets/images/members/' . $photo_url;
+                                    }
+                                    ?>
+                                    <img src="<?php echo $photo_url; ?>" alt="Profile Photo" class="rounded-circle img-fluid" style="width: 120px; height: 120px; object-fit: cover;">
                                 <?php else: ?>
                                     <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 120px; height: 120px;">
                                         <i class="fas fa-user fa-3x text-white"></i>

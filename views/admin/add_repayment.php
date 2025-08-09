@@ -63,8 +63,8 @@ foreach ($repayments as $repayment) {
     $totalPaid += $repayment['amount'];
 }
 
-$monthlyPayment = $loanController->calculateMonthlyPayment($loan['amount'], $loan['interest_rate'], $loan['term_months']);
-$totalLoanAmount = $monthlyPayment * $loan['term_months'];
+$monthlyPayment = $loanController->calculateMonthlyPayment($loan['amount'], $loan['interest_rate'], $loan['term']);
+$totalLoanAmount = $monthlyPayment * $loan['term'];
 $remainingBalance = $totalLoanAmount - $totalPaid;
 $paymentPercentage = ($totalPaid / $totalLoanAmount) * 100;
 
@@ -128,150 +128,222 @@ $pageTitle = "Add Repayment for Loan #" . $loan_id;
 include_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <!-- Sidebar -->
-        <?php include_once __DIR__ . '/../includes/sidebar.php'; ?>
+<!-- Main Content -->
+<div class="flex-1 ml-64 bg-gray-50">
+    <div class="p-8">
+        <!-- Page Heading -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900"><?php echo $pageTitle; ?></h1>
+                <p class="text-gray-600 mt-2">Record a new payment for this loan</p>
+            </div>
+            <a href="view_loan.php?id=<?php echo $loan_id; ?>" class="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Loan Details
+            </a>
+        </div>
         
-        <!-- Main content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2"><?php echo $pageTitle; ?></h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <a href="view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> Back to Loan Details
+        <!-- Breadcrumb -->
+        <nav class="flex mb-8" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="dashboard.php" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                        <i class="fas fa-home mr-2"></i> Dashboard
                     </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <a href="loans.php" class="text-sm font-medium text-gray-700 hover:text-blue-600">Loans</a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <a href="view_loan.php?id=<?php echo $loan_id; ?>" class="text-sm font-medium text-gray-700 hover:text-blue-600">View Loan #<?php echo $loan_id; ?></a>
+                    </div>
+                </li>
+                <li aria-current="page">
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <span class="text-sm font-medium text-gray-500">Add Repayment</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <!-- Error messages -->
+        <?php if (!empty($errors)): ?>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6" role="alert">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Error!</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <ul class="list-disc list-inside space-y-1">
+                                <?php foreach ($errors as $error): ?>
+                                    <li><?php echo $error; ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <div class="-mx-1.5 -my-1.5">
+                            <button type="button" class="inline-flex bg-red-50 rounded-md p-1.5 text-red-500 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-red-50 focus:ring-red-600" onclick="this.parentElement.parentElement.parentElement.parentElement.style.display='none'">
+                                <span class="sr-only">Dismiss</span>
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
+        <?php endif; ?>
             
-            <!-- Breadcrumb -->
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="dashboard.php">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="loans.php">Loans</a></li>
-                    <li class="breadcrumb-item"><a href="view_loan.php?id=<?php echo $loan_id; ?>">View Loan #<?php echo $loan_id; ?></a></li>
-                    <li class="breadcrumb-item active" aria-current="page">Add Repayment</li>
-                </ol>
-            </nav>
-            
-            <!-- Error messages -->
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Error!</strong>
-                    <ul class="mb-0">
-                        <?php foreach ($errors as $error): ?>
-                            <li><?php echo $error; ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
-            
-            <div class="row">
-                <div class="col-md-8">
-                    <!-- Loan Details Card -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Loan Details</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Loan ID:</strong> <?php echo $loan['loan_id']; ?></p>
-                                    <p><strong>Amount:</strong> $<?php echo number_format($loan['amount'], 2); ?></p>
-                                    <p><strong>Term:</strong> <?php echo $loan['term_months']; ?> months</p>
-                                    <p><strong>Interest Rate:</strong> <?php echo $loan['interest_rate']; ?>%</p>
-                                    <p><strong>Monthly Payment:</strong> $<?php echo number_format($monthlyPayment, 2); ?></p>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Loan Details Card -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Loan Details</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Loan ID:</span>
+                                    <span class="text-sm text-gray-900"><?php echo $loan['loan_id']; ?></span>
                                 </div>
-                                <div class="col-md-6">
-                                    <p><strong>Status:</strong> <span class="badge bg-<?php echo $loanController->getStatusBadgeClass($loan['status']); ?>"><?php echo ucfirst($loan['status']); ?></span></p>
-                                    <p><strong>Disbursement Date:</strong> <?php echo date('F j, Y', strtotime($loan['disbursement_date'])); ?></p>
-                                    <p><strong>Total Loan Amount:</strong> $<?php echo number_format($totalLoanAmount, 2); ?></p>
-                                    <p><strong>Total Paid:</strong> $<?php echo number_format($totalPaid, 2); ?></p>
-                                    <p><strong>Remaining Balance:</strong> $<?php echo number_format($remainingBalance, 2); ?></p>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Amount:</span>
+                                    <span class="text-sm text-gray-900">$<?php echo number_format($loan['amount'], 2); ?></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Term:</span>
+                                    <span class="text-sm text-gray-900"><?php echo $loan['term']; ?> months</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Interest Rate:</span>
+                                    <span class="text-sm text-gray-900"><?php echo $loan['interest_rate']; ?>%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Monthly Payment:</span>
+                                    <span class="text-sm text-gray-900">$<?php echo number_format($monthlyPayment, 2); ?></span>
                                 </div>
                             </div>
-                            
-                            <!-- Repayment Progress Bar -->
-                            <div class="mt-3">
-                                <h6>Repayment Progress</h6>
-                                <div class="progress" style="height: 20px;">
-                                    <div class="progress-bar bg-success" role="progressbar" 
-                                         style="width: <?php echo min(100, $paymentPercentage); ?>%;" 
-                                         aria-valuenow="<?php echo $paymentPercentage; ?>" 
-                                         aria-valuemin="0" aria-valuemax="100">
-                                        <?php echo round($paymentPercentage, 1); ?>%
-                                    </div>
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Status:</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <?php echo ucfirst($loan['status']); ?>
+                                    </span>
                                 </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Disbursement Date:</span>
+                                    <span class="text-sm text-gray-900"><?php echo date('F j, Y', strtotime($loan['disbursement_date'])); ?></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Total Loan Amount:</span>
+                                    <span class="text-sm text-gray-900">$<?php echo number_format($totalLoanAmount, 2); ?></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Total Paid:</span>
+                                    <span class="text-sm text-green-600 font-semibold">$<?php echo number_format($totalPaid, 2); ?></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-500">Remaining Balance:</span>
+                                    <span class="text-sm text-red-600 font-semibold">$<?php echo number_format($remainingBalance, 2); ?></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Repayment Progress Bar -->
+                        <div class="mt-6">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-sm font-medium text-gray-900">Repayment Progress</h4>
+                                <span class="text-sm text-gray-500"><?php echo round($paymentPercentage, 1); ?>%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-green-500 h-3 rounded-full transition-all duration-300" 
+                                     style="width: <?php echo min(100, $paymentPercentage); ?>%;"></div>
                             </div>
                         </div>
                     </div>
+                </div>
                     
-                    <!-- Member Information Card -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Member Information</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-2 text-center">
-                                    <?php if (!empty($member['photo'])): ?>
-                                        <img src="<?php echo '../../uploads/members/' . $member['photo']; ?>" 
-                                             alt="<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>" 
-                                             class="img-fluid rounded-circle mb-2" style="width: 80px; height: 80px; object-fit: cover;">
-                                    <?php else: ?>
-                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto mb-2" 
-                                             style="width: 80px; height: 80px;">
-                                            <span class="text-white fs-3">
-                                                <?php echo strtoupper(substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1)); ?>
-                                            </span>
-                                        </div>
-                                    <?php endif; ?>
+                <!-- Member Information Card -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Member Information</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                                <?php if (!empty($member['photo'])): ?>
+                                    <img src="<?php echo '../../uploads/members/' . $member['photo']; ?>" 
+                                         alt="<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>" 
+                                         class="w-20 h-20 rounded-full object-cover">
+                                <?php else: ?>
+                                    <div class="w-20 h-20 rounded-full bg-gray-500 flex items-center justify-content-center">
+                                        <span class="text-white text-xl font-semibold">
+                                            <?php echo strtoupper(substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1)); ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-lg font-semibold text-gray-900"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></h4>
+                                <div class="mt-2 space-y-1">
+                                    <p class="text-sm text-gray-600">Member ID: <?php echo $member['member_id']; ?></p>
+                                    <p class="text-sm text-gray-600">Email: <?php echo htmlspecialchars($member['email']); ?></p>
+                                    <p class="text-sm text-gray-600">Phone: <?php echo htmlspecialchars($member['phone']); ?></p>
                                 </div>
-                                <div class="col-md-10">
-                                    <h5><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></h5>
-                                    <p class="mb-0">Member ID: <?php echo $member['member_id']; ?></p>
-                                    <p class="mb-0">Email: <?php echo htmlspecialchars($member['email']); ?></p>
-                                    <p class="mb-0">Phone: <?php echo htmlspecialchars($member['phone']); ?></p>
-                                    <a href="view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-outline-primary mt-2">
-                                        View Full Profile
-                                    </a>
-                                </div>
+                                <a href="view_member.php?id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-3 py-1.5 mt-3 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200">
+                                    View Full Profile
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
                 
-                <div class="col-md-4">
-                    <!-- Add Repayment Form -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Add Repayment</h5>
-                        </div>
-                        <div class="card-body">
-                            <form action="" method="POST" id="repaymentForm" class="needs-validation" novalidate>
-                                <div class="mb-3">
-                                    <label for="amount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0.01" 
+            <div class="space-y-6">
+                <!-- Add Repayment Form -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Add Repayment</h3>
+                    </div>
+                    <div class="p-6">
+                        <form action="" method="POST" id="repaymentForm">
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Payment Amount <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">$</span>
+                                        </div>
+                                        <input type="number" class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" id="amount" name="amount" step="0.01" min="0.01" 
                                                max="<?php echo $remainingBalance; ?>" 
                                                value="<?php echo isset($_POST['amount']) ? $_POST['amount'] : $monthlyPayment; ?>" required>
-                                        <div class="invalid-feedback">Please provide a valid payment amount</div>
                                     </div>
-                                    <small class="text-muted">Regular monthly payment: $<?php echo number_format($monthlyPayment, 2); ?></small>
+                                    <p class="text-xs text-gray-500 mt-1">Regular monthly payment: $<?php echo number_format($monthlyPayment, 2); ?></p>
                                 </div>
                                 
-                                <div class="mb-3">
-                                    <label for="payment_date" class="form-label">Payment Date <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control" id="payment_date" name="payment_date" 
+                                <div>
+                                    <label for="payment_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Payment Date <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" id="payment_date" name="payment_date" 
                                            value="<?php echo isset($_POST['payment_date']) ? $_POST['payment_date'] : date('Y-m-d'); ?>" required>
-                                    <div class="invalid-feedback">Please provide a payment date</div>
                                 </div>
                                 
-                                <div class="mb-3">
-                                    <label for="payment_method" class="form-label">Payment Method <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="payment_method" name="payment_method" required>
+                                <div>
+                                    <label for="payment_method" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Payment Method <span class="text-red-500">*</span>
+                                    </label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" id="payment_method" name="payment_method" required>
                                         <option value="">Select Payment Method</option>
                                         <?php foreach ($loanController->getPaymentMethods() as $method): ?>
                                             <option value="<?php echo $method; ?>" <?php echo (isset($_POST['payment_method']) && $_POST['payment_method'] === $method) ? 'selected' : ''; ?>>
@@ -279,45 +351,69 @@ include_once __DIR__ . '/../includes/header.php';
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <div class="invalid-feedback">Please select a payment method</div>
                                 </div>
                                 
-                                <div class="mb-3">
-                                    <label for="receipt_number" class="form-label">Receipt Number</label>
-                                    <input type="text" class="form-control" id="receipt_number" name="receipt_number" 
+                                <div>
+                                    <label for="receipt_number" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Receipt Number
+                                    </label>
+                                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" id="receipt_number" name="receipt_number" 
                                            value="<?php echo isset($_POST['receipt_number']) ? $_POST['receipt_number'] : ''; ?>">
                                 </div>
                                 
-                                <div class="mb-3">
-                                    <label for="notes" class="form-label">Notes</label>
-                                    <textarea class="form-control" id="notes" name="notes" rows="3"><?php echo isset($_POST['notes']) ? $_POST['notes'] : ''; ?></textarea>
+                                <div>
+                                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Notes
+                                    </label>
+                                    <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" id="notes" name="notes" rows="3" placeholder="Additional notes..."><?php echo isset($_POST['notes']) ? $_POST['notes'] : ''; ?></textarea>
                                 </div>
                                 
-                                <div class="d-grid gap-2">
-                                    <button type="submit" class="btn btn-primary">Record Payment</button>
-                                    <a href="view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-outline-secondary">Cancel</a>
+                                <div class="flex flex-col space-y-3 pt-4">
+                                    <button type="submit" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center">
+                                        <i class="fas fa-credit-card mr-2"></i> Record Payment
+                                    </button>
+                                    <a href="view_loan.php?id=<?php echo $loan_id; ?>" class="w-full px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200 text-center">
+                                        Cancel
+                                    </a>
                                 </div>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     </div>
+                </div>
                     
-                    <!-- Payment Summary Card -->
-                    <div class="card mb-4">
-                        <div class="card-header bg-light">
-                            <h5 class="card-title mb-0">Payment Summary</h5>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>Total Loan Amount:</strong> $<?php echo number_format($totalLoanAmount, 2); ?></p>
-                            <p><strong>Already Paid:</strong> $<?php echo number_format($totalPaid, 2); ?></p>
-                            <p><strong>Remaining Balance:</strong> $<?php echo number_format($remainingBalance, 2); ?></p>
-                            <p><strong>Current Payment:</strong> $<span id="current-payment"><?php echo number_format(isset($_POST['amount']) ? $_POST['amount'] : $monthlyPayment, 2); ?></span></p>
-                            <hr>
-                            <p><strong>New Balance After Payment:</strong> $<span id="new-balance"><?php echo number_format($remainingBalance - (isset($_POST['amount']) ? $_POST['amount'] : $monthlyPayment), 2); ?></span></p>
+                <!-- Payment Summary Card -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h3 class="text-lg font-semibold text-gray-900">Payment Summary</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-500">Total Loan Amount:</span>
+                                <span class="text-sm text-gray-900">$<?php echo number_format($totalLoanAmount, 2); ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-500">Already Paid:</span>
+                                <span class="text-sm text-green-600">$<?php echo number_format($totalPaid, 2); ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-500">Remaining Balance:</span>
+                                <span class="text-sm text-red-600">$<?php echo number_format($remainingBalance, 2); ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-500">Current Payment:</span>
+                                <span class="text-sm text-blue-600 font-semibold">$<span id="current-payment"><?php echo number_format(isset($_POST['amount']) ? $_POST['amount'] : $monthlyPayment, 2); ?></span></span>
+                            </div>
+                            <hr class="border-gray-200">
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-900">New Balance After Payment:</span>
+                                <span class="text-sm text-gray-900 font-semibold">$<span id="new-balance"><?php echo number_format($remainingBalance - (isset($_POST['amount']) ? $_POST['amount'] : $monthlyPayment), 2); ?></span></span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 </div>
 
@@ -326,11 +422,44 @@ include_once __DIR__ . '/../includes/header.php';
         // Form validation
         const form = document.getElementById('repaymentForm');
         form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
+            let valid = true;
+            const amount = document.getElementById('amount').value;
+            const paymentDate = document.getElementById('payment_date').value;
+            const paymentMethod = document.getElementById('payment_method').value;
+            
+            // Reset previous error messages
+            document.querySelectorAll('.border-red-500').forEach(function(element) {
+                element.classList.remove('border-red-500', 'ring-red-500');
+                element.classList.add('border-gray-300');
+            });
+            
+            // Validate amount
+            if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+                const amountField = document.getElementById('amount');
+                amountField.classList.remove('border-gray-300');
+                amountField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
             }
-            form.classList.add('was-validated');
+            
+            // Validate payment date
+            if (!paymentDate) {
+                const dateField = document.getElementById('payment_date');
+                dateField.classList.remove('border-gray-300');
+                dateField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            // Validate payment method
+            if (!paymentMethod) {
+                const methodField = document.getElementById('payment_method');
+                methodField.classList.remove('border-gray-300');
+                methodField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            if (!valid) {
+                event.preventDefault();
+            }
         });
         
         // Update payment summary when amount changes
@@ -348,9 +477,11 @@ include_once __DIR__ . '/../includes/header.php';
             
             // Validate against remaining balance
             if (amount > remainingBalance) {
-                this.setCustomValidity('Payment amount cannot exceed the remaining balance');
+                this.classList.remove('border-gray-300');
+                this.classList.add('border-red-500', 'ring-red-500');
             } else {
-                this.setCustomValidity('');
+                this.classList.remove('border-red-500', 'ring-red-500');
+                this.classList.add('border-gray-300');
             }
         });
     });

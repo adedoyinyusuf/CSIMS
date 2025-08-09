@@ -1,0 +1,54 @@
+CSIMS Security Configuration Report
+Generated: 2025-08-03 12:47:03
+Security Score: 115/245 (46.9%)
+Security Level: POOR
+
+PASSED CHECKS (22):
+✓ CSRF token secret configured
+✓ Maximum login attempts configured
+✓ Login lockout time configured
+✓ Session timeout configured
+✓ Session regeneration interval configured
+✓ Minimum password length configured
+✓ HTTPS enforcement configured
+✓ Secure cookies configured
+✓ CSRF token secret has adequate length
+✓ Database connection successful
+✓ Password uppercase requirement enabled
+✓ Password lowercase requirement enabled
+✓ Password numbers requirement enabled
+✓ Log directory exists and is writable
+✓ SecurityLogger class available
+✓ Security logs table exists
+✓ SecurityValidator class available
+✓ Rate limiting constant MAX_LOGIN_ATTEMPTS defined
+✓ Rate limiting constant LOGIN_LOCKOUT_TIME defined
+✓ Security controller file exists
+✓ Security monitor file exists
+✓ Security documentation file exists
+
+WARNINGS (9):
+⚠ expose_php should be Off to hide PHP version
+⚠ Consider disabling dangerous functions: eval, exec, system, shell_exec, passthru
+⚠ Consider increasing minimum password length to 12+ characters
+⚠ Consider using custom session name instead of default PHPSESSID
+⚠ Consider enabling password symbols requirement
+⚠ Consider implementing security headers
+⚠ Two-factor authentication table not found
+⚠ Security functions file not found: /includes/security.php
+⚠ Security validator file not found: /includes/security_validator.php
+
+CRITICAL ISSUES (12):
+✗ Environment should be set to 'production' in production systems
+✗ display_errors should be Off in production
+✗ Database should not use default user accounts (root/admin)
+✗ Database password should be at least 12 characters
+✗ Session setting session.cookie_httponly should be '1', currently ''
+✗ Session setting session.cookie_secure should be '1', currently '0'
+✗ Session setting session.use_strict_mode should be '1', currently '0'
+✗ Session setting session.cookie_samesite should be 'Strict', currently ''
+✗ File permissions too permissive for C:\xampp\htdocs\CSIMS/config/config.php (666)
+✗ File permissions too permissive for C:\xampp\htdocs\CSIMS/config/database.php (666)
+✗ HTTPS should be enforced (FORCE_HTTPS = true)
+✗ Secure cookies should be enabled (SECURE_COOKIES = true)
+

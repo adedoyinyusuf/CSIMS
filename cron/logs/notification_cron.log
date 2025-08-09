@@ -1,0 +1,6 @@
+[2025-08-02 18:38:09] Starting notification processing cron job
+[2025-08-02 18:41:51] Starting notification processing
+[2025-08-02 18:41:51] Error processing email queue: Table 'csims_db.email_queue' doesn't exist
+[2025-08-02 18:41:51] Error processing SMS queue: Table 'csims_db.sms_queue' doesn't exist
+[2025-08-02 18:41:51] Notification processing completed successfully
+[2025-08-02 18:41:51] Notification processing cron job finished
