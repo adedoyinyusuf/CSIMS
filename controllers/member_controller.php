@@ -66,10 +66,21 @@ class MemberController {
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
-        
         return $result->num_rows > 0;
     }
-    
+
+    // Retrieve member by email
+    public function getMemberByEmail($email) {
+        $stmt = $this->conn->prepare("SELECT * FROM members WHERE email = ? LIMIT 1");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows === 1) {
+            return $result->fetch_assoc();
+        }
+        return false;
+    }
+
     // Check if username already exists
     public function checkExistingUsername($username) {
         $stmt = $this->conn->prepare("SELECT member_id FROM members WHERE username = ?");
@@ -476,7 +487,7 @@ class MemberController {
         }
         
         $membership = $membershipResult->fetch_assoc();
-        $duration = $membership['duration']; // Duration in months
+        $duration = $membership['duration'];
         
         $join_date = date('Y-m-d');
         $expiry_date = date('Y-m-d', strtotime("+$duration months"));
@@ -567,7 +578,7 @@ class MemberController {
             }
             
             $membership = $membershipResult->fetch_assoc();
-            $duration = $membership['duration']; // Duration in months
+            $duration = $membership['duration'];
             
             $join_date = date('Y-m-d');
             $expiry_date = date('Y-m-d', strtotime("+$duration months"));

@@ -157,6 +157,27 @@ The admin dashboard provides:
 
 ## Member Guide
 
+### User Story: Member Experience with Contributions and Loans
+
+As a registered member of CSIMS, I log in to my dashboard to manage my profile and financial activities. My dashboard provides a clear summary of my current contributions, outstanding loans, and notifications.
+
+#### Contributions
+- I can view my total contributions, which are calculated by summing all my approved payments made to the cooperative.
+- Each contribution entry displays the amount, date, and status (e.g., pending, approved, rejected).
+- The system automatically updates my contribution balance whenever a new payment is approved by an administrator.
+- I can download statements and track my contribution history for transparency.
+
+#### Loan Application and Calculation
+- I can apply for a loan directly from my dashboard by specifying the desired amount and repayment period.
+- The system calculates my loan eligibility based on my total contributions, membership type, and cooperative policies (e.g., maximum loan amount may be a multiple of my contributions).
+- When I submit a loan application, the system displays the calculated repayment schedule, including monthly installment amounts, interest rates, and due dates.
+- Administrators review my application, and upon approval, the loan amount is credited to my account and reflected in my dashboard.
+- I can track my loan balance, repayment history, and upcoming payments. The system automatically deducts repayments from my account and updates the loan status.
+
+#### Notifications and Communication
+- I receive notifications for important events, such as loan approval, contribution updates, and password resets.
+- I can send and receive messages with administrators and other members for support or inquiries.
+
 ### Member Dashboard
 The member dashboard shows:
 - Personal account summary
@@ -282,3 +303,14 @@ The member dashboard shows:
 ---
 
 *This manual is updated regularly. Please check for the latest version.*
+
+### Password Reset
+If you forget your password, you can reset it using the following steps:
+1. On the Member Login page, click the "Forgot Password?" link below the login form.
+2. Enter your registered email address and submit the request.
+3. If your email is found, you will receive a password reset link in your inbox.
+4. Click the link in your email to open the password reset page.
+5. Enter your new password and confirm it, then submit.
+6. You can now log in with your new password.
+
+If you do not receive the reset email, check your spam folder or contact the system administrator for assistance.

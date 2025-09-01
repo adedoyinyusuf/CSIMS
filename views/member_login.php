@@ -157,9 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="fas fa-sign-in-alt"></i> Login
             </button>
         </form>
-        
         <div class="links">
             <p class="mb-2">Don't have an account? <a href="member_register.php">Register here</a></p>
+            <p><a href="member_forgot_password.php">Forgot Password?</a></p>
             <p><a href="../index.php">Admin Login</a></p>
         </div>
     </div>
