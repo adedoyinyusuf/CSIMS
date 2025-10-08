@@ -415,3 +415,25 @@ define('ENVIRONMENT', 'production');
 ---
 
 *This technical documentation is maintained by the development team and updated with each system release.*
+
+#### Loan Interest Rate Calculation
+
+The interest rate for loans is now dynamically determined based on the loan amount and duration (term in months). The logic is implemented in the `LoanController::getInterestRate` method in `controllers/loan_controller.php`. The system applies tiered rates as follows:
+
+- Up to 50,000 and up to 12 months: 5.0%
+- Up to 50,000 and more than 12 months: 6.0%
+- Above 50,000 and up to 24 months: 7.0%
+- Above 50,000 and more than 24 months: 8.0%
+
+This ensures fair and scalable interest rates for different loan scenarios.
+
+#### Loan Application Fields
+
+The following fields are now included in the loan application process:
+- `savings`: Member's savings amount
+- `month_deduction_started`: Month deduction starts (YYYY-MM)
+- `month_deduction_should_end`: Month deduction ends (YYYY-MM)
+- `other_payment_plans`: Description of other payment plans
+- `remarks`: Additional remarks
+
+These fields are available in both the API and the user interface.

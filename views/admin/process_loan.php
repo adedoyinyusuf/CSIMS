@@ -47,9 +47,9 @@ if (!$loan) {
 $member = $memberController->getMemberById($loan['member_id']);
 
 // Check if loan can be processed
-$canBeApproved = ($loan['status'] === 'pending');
-$canBeRejected = ($loan['status'] === 'pending');
-$canBeDisbursed = ($loan['status'] === 'approved');
+$canBeApproved = ($loan['status'] === 'Pending');
+$canBeRejected = ($loan['status'] === 'Pending');
+$canBeDisbursed = ($loan['status'] === 'Approved');
 
 if (!$canBeApproved && !$canBeRejected && !$canBeDisbursed) {
     $_SESSION['flash_message'] = "This loan cannot be processed in its current status: " . ucfirst($loan['status']);
@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Set success message and redirect
                 $_SESSION['flash_message'] = $successMessage;
                 $_SESSION['flash_message_class'] = "alert-success";
-                header('Location: view_loan.php?id=' . $loan_id);
+                header('Location: ' . BASE_URL . '/views/admin/loans.php');
                 exit();
             } else {
                 $errors[] = "Failed to process loan. Please try again.";
@@ -150,7 +150,7 @@ include_once __DIR__ . '/../includes/header.php';
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2"><?php echo $pageTitle; ?></h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
-                    <a href="<?php echo BASE_URL; ?>/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-sm btn-outline-secondary">
+                    <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Back to Loan Details
                     </a>
                 </div>
@@ -161,7 +161,7 @@ include_once __DIR__ . '/../includes/header.php';
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/dashboard.php">Dashboard</a></li>
                     <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/loans.php">Loans</a></li>
-                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/view_loan.php?id=<?php echo $loan_id; ?>">View Loan #<?php echo $loan_id; ?></a></li>
+                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>">View Loan #<?php echo $loan_id; ?></a></li>
                     <li class="breadcrumb-item active" aria-current="page">Process</li>
                 </ol>
             </nav>
@@ -311,7 +311,7 @@ include_once __DIR__ . '/../includes/header.php';
                                         Disburse Loan
                                     <?php endif; ?>
                                 </button>
-                                <a href="<?php echo BASE_URL; ?>/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-secondary">Cancel</a>
+                                <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-secondary">Cancel</a>
                             </div>
                         </div>
                     </form>

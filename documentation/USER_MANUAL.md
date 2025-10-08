@@ -168,8 +168,9 @@ As a registered member of CSIMS, I log in to my dashboard to manage my profile a
 - I can download statements and track my contribution history for transparency.
 
 #### Loan Application and Calculation
-- I can apply for a loan directly from my dashboard by specifying the desired amount and repayment period.
+- I can apply for a loan directly from my dashboard by specifying the desired amount, repayment period, and additional details such as Savings, Month Deduction Started, Month Deduction Should End, Other Payment Plans, and Remarks.
 - The system calculates my loan eligibility based on my total contributions, membership type, and cooperative policies (e.g., maximum loan amount may be a multiple of my contributions).
+- The interest rate is dynamically determined based on the loan amount and duration, following a tiered structure (see admin or help for details).
 - When I submit a loan application, the system displays the calculated repayment schedule, including monthly installment amounts, interest rates, and due dates.
 - Administrators review my application, and upon approval, the loan amount is credited to my account and reflected in my dashboard.
 - I can track my loan balance, repayment history, and upcoming payments. The system automatically deducts repayments from my account and updates the loan status.

@@ -27,6 +27,7 @@ class MemberController {
         $email = Utilities::sanitizeInput($data['email']);
         $occupation = Utilities::sanitizeInput($data['occupation']);
         $membership_type_id = (int)$data['membership_type_id'];
+        $monthly_contribution = isset($data['monthly_contribution']) ? (int)$data['monthly_contribution'] : 0;
         
         // Validate email
         if (!Utilities::validateEmail($email)) {
@@ -53,10 +54,9 @@ class MemberController {
         $expiry_date = date('Y-m-d', strtotime("+$duration months"));
         
         // Insert member with pending approval status
-        $stmt = $this->conn->prepare("INSERT INTO members (ippis_no, username, password, first_name, last_name, dob, gender, address, phone, email, occupation, membership_type_id, join_date, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')");
+        $stmt = $this->conn->prepare("INSERT INTO members (ippis_no, username, password, first_name, last_name, dob, gender, address, phone, email, occupation, membership_type_id, monthly_contribution, join_date, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')");
         
-        $stmt->bind_param("ssssssssssssss", $ippis_no, $username, $password_hash, $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $membership_type_id, $join_date, $expiry_date);
-        
+        $stmt->bind_param("ssssssssssssssss", $ippis_no, $username, $password_hash, $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $membership_type_id, $monthly_contribution, $join_date, $expiry_date);
         return $stmt->execute();
     }
     
@@ -446,6 +446,7 @@ class MemberController {
         $email = Utilities::sanitizeInput($data['email']);
         $occupation = Utilities::sanitizeInput($data['occupation']);
         $membership_type_id = (int)$data['membership_type_id'];
+        $member_type = isset($data['member_type']) ? Utilities::sanitizeInput($data['member_type']) : 'member';
         
         // Validate email if provided
         if (!empty($email) && !Utilities::validateEmail($email)) {
@@ -493,9 +494,9 @@ class MemberController {
         $expiry_date = date('Y-m-d', strtotime("+$duration months"));
         
         // Insert member
-        $stmt = $this->conn->prepare("INSERT INTO members (first_name, last_name, dob, gender, address, phone, email, occupation, photo, membership_type_id, join_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $this->conn->prepare("INSERT INTO members (first_name, last_name, dob, gender, address, phone, email, occupation, photo, membership_type_id, member_type, join_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
-        $stmt->bind_param("sssssssssiss", $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $photo_path, $membership_type_id, $join_date, $expiry_date);
+        $stmt->bind_param("sssssssssisss", $first_name, $last_name, $dob, $gender, $address, $phone, $email, $occupation, $photo_path, $membership_type_id, $member_type, $join_date, $expiry_date);
         
         if ($stmt->execute()) {
             $member_id = $this->conn->insert_id;
@@ -1222,6 +1223,51 @@ class MemberController {
         $contributionController = new ContributionController();
         return $contributionController->getContributionsByMemberId($member_id, $limit);
     }
+
+    // Update monthly contribution for a member
+    public function updateMonthlyContribution($member_id, $new_contribution) {
+        $stmt = $this->conn->prepare("UPDATE members SET monthly_contribution = ? WHERE member_id = ?");
+        $stmt->bind_param("di", $new_contribution, $member_id);
+        return $stmt->execute();
+    }
     
-}
+    /**
+     * Get active members for guarantor selection (excluding specified member)
+     * 
+     * @param int $exclude_member_id Member ID to exclude from results
+     * @return array Active members data
+     */
+    public function getActiveMembers($exclude_member_id = null) {
+        $query = "SELECT member_id, first_name, last_name, email, phone 
+                 FROM members 
+                 WHERE status = 'Active'";
+        
+        $params = [];
+        $types = "";
+        
+        if ($exclude_member_id !== null) {
+            $query .= " AND member_id != ?";
+            $params[] = (int)$exclude_member_id;
+            $types .= "i";
+        }
+        
+        $query .= " ORDER BY first_name ASC, last_name ASC";
+        
+        $stmt = $this->conn->prepare($query);
+        
+        if (!empty($types)) {
+            $stmt->bind_param($types, ...$params);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $members = [];
+        while ($row = $result->fetch_assoc()) {
+            $members[] = $row;
+        }
+        
+        return $members;
+    }
+    }
 ?>

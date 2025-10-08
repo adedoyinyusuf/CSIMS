@@ -399,6 +399,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                     </span>
                                                 </td>
                                             </tr>
+                                            <!-- Member Type Display -->
+                                            <tr>
+                                                <th>Member Type</th>
+                                                <td><?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?></td>
+                                            </tr>
                                         </table>
                                     </div>
                                     <div class="col-md-6">

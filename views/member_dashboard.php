@@ -5,119 +5,65 @@ require_once '../controllers/member_controller.php';
 require_once '../controllers/loan_controller.php';
 require_once '../controllers/contribution_controller.php';
 require_once '../controllers/notification_controller.php';
-
 // Check if member is logged in
 if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
     header('Location: member_login.php');
     exit();
 }
-
 $memberController = new MemberController($conn);
 $loanController = new LoanController($conn);
-$contributionController = new ContributionController($conn);
+$contributionController = new ContributionController();
 $notificationController = new NotificationController($conn);
-
 $member_id = $_SESSION['member_id'];
-
 // Get member details
 $member = $memberController->getMemberById($member_id);
-
 // Get member statistics
 $member_loans = $loanController->getMemberLoans($member_id);
-$member_contributions = $contributionController->getContributionsByMember($member_id);
+if ($member_loans === false) {
+    $member_loans = []; // Handle error case
+}
+$member_contributions = $contributionController->getContributionsByMemberId($member_id);
+if ($member_contributions === false) {
+    $member_contributions = []; // Handle error case
+}
 $member_notifications = $notificationController->getMemberNotifications($member_id);
-
+if ($member_notifications === false) {
+    $member_notifications = []; // Handle error case
+}
 // Calculate totals
 $total_contributions = 0;
 $total_loan_amount = 0;
 $active_loans = 0;
-
 foreach ($member_contributions as $contribution) {
     $total_contributions += $contribution['amount'];
 }
-
 foreach ($member_loans as $loan) {
     $total_loan_amount += $loan['amount'];
     if (in_array($loan['status'], ['Approved', 'Disbursed'])) {
         $active_loans++;
     }
 }
-
 $unread_notifications = count(array_filter($member_notifications, function($n) { return !$n['is_read']; }));
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Member Dashboard - NPC CTLStaff Loan Society</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Member Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .navbar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            transition: transform 0.3s ease;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .stat-card-success {
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
-            color: white;
-        }
-        .stat-card-warning {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-        .stat-card-info {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 25px;
-        }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        .sidebar {
-            background: white;
-            min-height: calc(100vh - 76px);
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        .nav-link {
-            color: #333;
-            border-radius: 10px;
-            margin: 2px 0;
-        }
-        .nav-link:hover, .nav-link.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .welcome-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 15px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .stat-card { background: #f8f9fa; border-radius: 10px; }
+        .stat-card-success { background: #d4edda; border-radius: 10px; }
+        .stat-card-warning { background: #fff3cd; border-radius: 10px; }
+        .stat-card-info { background: #d1ecf1; border-radius: 10px; }
+        .welcome-section { background: #6c63ff; color: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .sidebar { background: #343a40; color: #fff; border-radius: 10px; }
+        .sidebar .nav-link { color: #fff; }
+        .sidebar .nav-link.active { background: #6c63ff; }
     </style>
 </head>
 <body>
@@ -253,18 +199,28 @@ $unread_notifications = count(array_filter($member_notifications, function($n) {
                                         <a href="loan_application.php" class="btn btn-primary">Apply for Loan</a>
                                     <?php else: ?>
                                         <?php foreach (array_slice($member_loans, 0, 3) as $loan): ?>
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <div>
-                                                    <strong>$<?php echo number_format($loan['amount'], 2); ?></strong>
-                                                    <br><small class="text-muted"><?php echo date('M d, Y', strtotime($loan['application_date'])); ?></small>
+                                            <div class="d-flex flex-column mb-3 p-2 border rounded">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <strong>$<?php echo number_format($loan['amount'], 2); ?></strong>
+                                                        <br><small class="text-muted">Applied: <?php echo date('M d, Y', strtotime($loan['application_date'])); ?></small>
+                                                    </div>
+                                                    <span class="badge bg-<?php 
+                                                        echo $loan['status'] === 'Approved' ? 'success' : 
+                                                            ($loan['status'] === 'Pending' ? 'warning' : 
+                                                            ($loan['status'] === 'Rejected' ? 'danger' : 'info')); 
+                                                    ?>">
+                                                        <?php echo $loan['status']; ?>
+                                                    </span>
                                                 </div>
-                                                <span class="badge bg-<?php 
-                                                    echo $loan['status'] === 'Approved' ? 'success' : 
-                                                        ($loan['status'] === 'Pending' ? 'warning' : 
-                                                        ($loan['status'] === 'Rejected' ? 'danger' : 'info')); 
-                                                ?>">
-                                                    <?php echo $loan['status']; ?>
-                                                </span>
+                                                <div class="mt-2">
+                                                    <small><strong>Interest Rate:</strong> <?php echo isset($loan['interest_rate']) ? number_format($loan['interest_rate'], 2) : 'N/A'; ?>%</small><br>
+                                                    <small><strong>Savings:</strong> $<?php echo isset($loan['savings']) ? number_format($loan['savings'] ?? 0, 2) : 'N/A'; ?></small><br>
+                                                    <small><strong>Deduction Started:</strong> <?php echo isset($loan['month_deduction_started']) ? htmlspecialchars($loan['month_deduction_started']) : 'N/A'; ?></small><br>
+                                                    <small><strong>Deduction Ends:</strong> <?php echo isset($loan['month_deduction_should_end']) ? htmlspecialchars($loan['month_deduction_should_end']) : 'N/A'; ?></small><br>
+                                                    <small><strong>Other Payment Plans:</strong> <?php echo isset($loan['other_payment_plans']) ? htmlspecialchars($loan['other_payment_plans']) : 'N/A'; ?></small><br>
+                                                    <small><strong>Remarks:</strong> <?php echo isset($loan['remarks']) ? htmlspecialchars($loan['remarks']) : 'N/A'; ?></small>
+                                                </div>
                                             </div>
                                         <?php endforeach; ?>
                                         <a href="member_loans.php" class="btn btn-outline-primary btn-sm">View All</a>

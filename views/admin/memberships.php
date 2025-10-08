@@ -86,7 +86,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
                                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                             Average Fee</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                            $<?php echo number_format($stats['average_fee'], 2); ?>
+                                            ₦<?php echo number_format($stats['average_fee'], 2); ?>
                                         </div>
                                     </div>
                                     <div class="col-auto">
@@ -105,7 +105,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
                                         <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
                                             Highest Fee</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                            $<?php echo number_format($stats['highest_fee'], 2); ?>
+                                            ₦<?php echo number_format($stats['highest_fee'], 2); ?>
                                         </div>
                                     </div>
                                     <div class="col-auto">
@@ -194,8 +194,9 @@ $expiring = $membershipController->getExpiringMemberships(30);
                                         <tr>
                                             <th>ID</th>
                                             <th>Name</th>
+<th>Monthly Contribution</th>
                                             <th>Duration</th>
-                                            <th>Fee</th>
+                                            <th>Fee (₦)</th>
                                             <th>Members</th>
                                             <th>Created</th>
                                             <th>Actions</th>
@@ -207,6 +208,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
                                                 <td><?php echo $type['membership_type_id']; ?></td>
                                                 <td>
                                                     <strong><?php echo htmlspecialchars($type['name']); ?></strong>
+<td><?php echo isset($type['monthly_contribution']) ? '₦' . number_format($type['monthly_contribution'], 2) : '-'; ?></td>
                                                     <?php if ($type['description']): ?>
                                                         <br><small class="text-muted"><?php echo htmlspecialchars(substr($type['description'], 0, 50)) . '...'; ?></small>
                                                     <?php endif; ?>
@@ -214,7 +216,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
                                                 <td>
                                                     <span class="badge bg-info"><?php echo $type['duration']; ?> months</span>
                                                 </td>
-                                                <td>$<?php echo number_format($type['fee'], 2); ?></td>
+                                                <td>₦<?php echo number_format($type['fee'], 2); ?></td>
                                                 <td>
                                                     <span class="badge bg-primary"><?php echo $type['member_count']; ?> members</span>
                                                 </td>

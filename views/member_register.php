@@ -214,15 +214,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <div class="mb-3">
-                    <label for="membership_type_id" class="form-label">Membership Type</label>
+                    <label for="membership_type_id" class="form-label">Membership Type <span class="required">*</span></label>
                     <select class="form-control" id="membership_type_id" name="membership_type_id" required>
                         <option value="">Select Membership Type</option>
-                        <?php foreach ($membership_types as $type): ?>
-                            <option value="<?php echo $type['membership_type_id']; ?>" 
-                                    <?php echo (isset($_POST['membership_type_id']) && $_POST['membership_type_id'] == $type['membership_type_id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($type['name']); ?> - $<?php echo number_format($type['fee'], 2); ?>
-                            </option>
-                        <?php endforeach; ?>
+                        <option value="1" ".concat((isset($_POST['membership_type_id']) && $_POST['membership_type_id'] == '1') ? 'selected' : '', ")>Member</option>
+                        <option value="2" ".concat((isset($_POST['membership_type_id']) && $_POST['membership_type_id'] == '2') ? 'selected' : '', ")>Non-Member</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="monthly_contribution" class="form-label">Monthly Contribution <span class="required">*</span></label>
+                    <select class="form-control" id="monthly_contribution" name="monthly_contribution" required>
+                        <option value="">Select Monthly Contribution</option>
+                        <option value="5000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '5000') ? 'selected' : '', ")>₦5,000</option>
+                        <option value="10000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '10000') ? 'selected' : '', ")>₦10,000</option>
+                        <option value="15000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '15000') ? 'selected' : '', ")>₦15,000</option>
+                        <option value="20000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '20000') ? 'selected' : '', ")>₦20,000</option>
+                        <option value="25000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '25000') ? 'selected' : '', ")>₦25,000</option>
+                        <option value="50000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '50000') ? 'selected' : '', ")>₦50,000</option>
+                        <option value="100000" ".concat((isset($_POST['monthly_contribution']) && $_POST['monthly_contribution'] == '100000') ? 'selected' : '', ")>₦100,000</option>
                     </select>
                 </div>
                 

@@ -337,9 +337,14 @@ Content-Type: application/json
 {
     "member_id": 1,
     "amount": 50000.00,
-    "interest_rate": 5.5,
+    "interest_rate": 5.5, // This value is now dynamically determined by the system based on loan amount and term
     "term": 12,
-    "purpose": "Business expansion"
+    "purpose": "Business expansion",
+    "savings": 10000.00, // New field: member's savings
+    "month_deduction_started": "2024-02", // New field: deduction start month
+    "month_deduction_should_end": "2025-01", // New field: deduction end month
+    "other_payment_plans": "Quarterly bonus repayment", // New field: other payment plans
+    "remarks": "Special conditions apply" // New field: remarks
 }
 ```
 

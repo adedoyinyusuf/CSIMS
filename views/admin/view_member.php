@@ -279,6 +279,10 @@ $is_expired = $now > $expiry_date;
                                             <td><?php echo $member['membership_type']; ?></td>
                                         </tr>
                                         <tr>
+                                            <th>Member Type</th>
+                                            <td><?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?></td>
+                                        </tr>
+                                        <tr>
                                             <th>Join Date</th>
                                             <td><?php echo date('M d, Y', strtotime($member['join_date'])); ?></td>
                                         </tr>
@@ -415,7 +419,7 @@ $is_expired = $now > $expiry_date;
                             <div class="tab-pane fade" id="loans" role="tabpanel" aria-labelledby="loans-tab">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">Loan History</h5>
-                                    <a href="<?php echo BASE_URL; ?>/admin/add_loan.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary">
+                                            <a href="<?php echo BASE_URL; ?>/views/admin/add_loan.php?member_id=<?php echo $member['member_id']; ?>"
                                         <i class="fas fa-plus"></i> Add Loan
                                     </a>
                                 </div>

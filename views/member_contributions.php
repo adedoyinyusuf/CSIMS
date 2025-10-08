@@ -16,8 +16,17 @@ $memberController = new MemberController();
 $member_id = $_SESSION['member_id'];
 $member = $memberController->getMemberById($member_id);
 
-// Get member's contributions
+if (!$member) {
+    header('Location: member_login.php');
+    exit();
+}
+
+// Get member's contributions with error handling
 $contributions = $contributionController->getContributionsByMemberId($member_id);
+if ($contributions === false) {
+    $contributions = [];
+}
+
 $total_contributions = $contributionController->getMemberTotalContributions($member_id);
 $contribution_count = $contributionController->getMemberContributionCount($member_id);
 $last_contribution = $contributionController->getMemberLastContribution($member_id);
@@ -27,6 +36,25 @@ $this_year_total = 0;
 foreach ($contributions as $contribution) {
     if (date('Y', strtotime($contribution['contribution_date'])) == date('Y')) {
         $this_year_total += $contribution['amount'];
+    }
+}
+$update_message = '';
+$update_error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_monthly_contribution'])) {
+    $new_contribution = floatval($_POST['new_monthly_contribution']);
+    // Validate range
+    if ($new_contribution >= 5000 && $new_contribution <= 100000) {
+        $result = $memberController->updateMonthlyContribution($member_id, $new_contribution);
+        if ($result) {
+            $update_message = 'Monthly contribution updated successfully to ₦' . number_format($new_contribution, 2) . '!';
+            // Refresh member data after update
+            $member = $memberController->getMemberById($member_id);
+        } else {
+            $update_error = 'Failed to update monthly contribution. Please try again.';
+        }
+    } else {
+        $update_error = 'Monthly contribution must be between ₦5,000 and ₦100,000.';
     }
 }
 ?>
@@ -63,7 +91,34 @@ foreach ($contributions as $contribution) {
         .stat-card {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.15);
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
         }
+        .stat-card:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 8px 32px rgba(40, 167, 69, 0.25);
+        }
+        .stat-card h4 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .stat-card p {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 0;
+        }
+        .stat-card i {
+            margin-bottom: 0.5rem;
+        }
+        @media (max-width: 767px) {
+            .stat-card {
+                margin-bottom: 1.5rem;
+            }
+        }
+    }
         .contribution-type {
             padding: 0.25rem 0.75rem;
             border-radius: 20px;
@@ -125,8 +180,32 @@ foreach ($contributions as $contribution) {
                         <h2><i class="fas fa-piggy-bank me-2"></i> My Contributions</h2>
                     </div>
                     
+                    <?php if (!empty($update_message)): ?>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($update_message); ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($update_error)): ?>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i><?php echo htmlspecialchars($update_error); ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
+                    
                     <!-- Contribution Statistics -->
                     <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card stat-card">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-coins fa-2x mb-2"></i>
+                                    <h4>₦<?php echo number_format($member['monthly_contribution'], 2); ?></h4>
+                                    <p class="mb-0">Monthly Contribution</p>
+                                    <button class="btn btn-light btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#updateContributionModal">Modify</button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-md-3">
                             <div class="card stat-card">
                                 <div class="card-body text-center">
@@ -271,3 +350,24 @@ foreach ($contributions as $contribution) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+<!-- Modal for updating monthly contribution -->
+<div class="modal fade" id="updateContributionModal" tabindex="-1" aria-labelledby="updateContributionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="member_contributions.php">
+        <div class="modal-header">
+          <h5 class="modal-title" id="updateContributionModalLabel">Update Monthly Contribution</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label for="new_monthly_contribution" class="form-label">New Monthly Contribution (₦)</label>
+          <input type="number" class="form-control" name="new_monthly_contribution" id="new_monthly_contribution" min="5000" max="100000" step="500" required value="<?php echo $member['monthly_contribution']; ?>">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

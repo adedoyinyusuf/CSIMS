@@ -25,10 +25,10 @@ This document provides a comprehensive matrix of all CSIMS features, their imple
 
 | Feature | Status | Admin Access | Member Access | Description |
 |---------|--------|--------------|---------------|-------------|
-| Contribution Tracking | ✅ Implemented | Full Management | View Own | Multiple contribution types |
+| Contribution Tracking | ✅ Implemented | Full Management | View Own | Multiple contribution types. Members can view their total contributions, calculated by summing all approved payments. Contribution history and statements are downloadable for transparency. |
 | Contribution Import/Export | ✅ Implemented | CSV Operations | Export Own | Bulk financial data management |
-| Loan Applications | ✅ Implemented | Process/Approve | Apply/Track | Complete loan workflow |
-| Loan Management | ✅ Implemented | Full Control | View Own Loans | Approval, disbursement, repayment |
+| Loan Applications | ✅ Implemented | Process/Approve | Apply/Track | Complete loan workflow. Members apply for loans, and eligibility is calculated based on total contributions, membership type, and cooperative policies. Repayment schedules, interest rates, and due dates are displayed before submission. |
+| Loan Management | ✅ Implemented | Full Control | View Own Loans | Approval, disbursement, repayment. Members can track loan balances, repayment history, and upcoming payments. The system automatically updates loan status and deducts repayments. |
 | Investment Tracking | ✅ Implemented | Portfolio Management | View Own | Investment portfolio management |
 | Financial Reports | ✅ Implemented | Generate All | Personal Reports | Comprehensive financial analytics |
 | Payment History | ✅ Implemented | View All | View Own | Complete transaction history |

@@ -39,17 +39,31 @@ class LoanController {
             $guarantor = Utilities::sanitizeInput($data['guarantor'] ?? '');
             $notes = Utilities::sanitizeInput($data['notes'] ?? '');
             
+            // Combine guarantor info with notes if guarantor is provided
+            if (!empty($guarantor)) {
+                $notes = "Guarantor: " . $guarantor . (!empty($notes) ? "\n\nNotes: " . $notes : "");
+            }
+            
             // Calculate monthly payment (principal + interest)
-            $monthly_payment = $this->calculateMonthlyPayment($amount, $interest_rate, $term_months);
+            $monthly_payment = isset($data['monthly_payment']) ? (float)$data['monthly_payment'] : $this->calculateMonthlyPayment($amount, $interest_rate, $term_months);
             
-            // Prepare SQL statement - using actual table columns
+            // Extract additional member-submitted fields
+            $savings = isset($data['savings']) ? (float)$data['savings'] : null;
+            $month_deduction_started = Utilities::sanitizeInput($data['month_deduction_started'] ?? '');
+            $month_deduction_end = Utilities::sanitizeInput($data['month_deduction_end'] ?? '');
+            $other_payment_plans = Utilities::sanitizeInput($data['other_payment_plans'] ?? '');
+            $remarks = Utilities::sanitizeInput($data['remarks'] ?? '');
+            
+            // Prepare SQL statement - using actual table columns including new fields
             $stmt = $this->db->prepare("INSERT INTO loans 
-                (member_id, amount, purpose, term, interest_rate, 
-                application_date, status, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
+                (member_id, amount, purpose, term, interest_rate, monthly_payment, 
+                application_date, status, collateral, notes, savings, month_deduction_started, 
+                month_deduction_end, other_payment_plans, remarks, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
             
-            $stmt->bind_param("idsidss", $member_id, $amount, $purpose, $term_months, 
-                            $interest_rate, $application_date, $status);
+            $stmt->bind_param("idsiddssssdssss", $member_id, $amount, $purpose, $term_months, 
+                            $interest_rate, $monthly_payment, $application_date, $status, $collateral, $notes,
+                            $savings, $month_deduction_started, $month_deduction_end, $other_payment_plans, $remarks);
             
             if ($stmt->execute()) {
                 return $stmt->insert_id;
@@ -84,19 +98,37 @@ class LoanController {
             $guarantor = Utilities::sanitizeInput($data['guarantor'] ?? '');
             $notes = Utilities::sanitizeInput($data['notes'] ?? '');
             
+            // Extract additional member-submitted fields for update
+            $savings = isset($data['savings']) && $data['savings'] !== '' ? (float)$data['savings'] : null;
+            $month_deduction_started = Utilities::sanitizeInput($data['month_deduction_started'] ?? '');
+            $month_deduction_end = Utilities::sanitizeInput($data['month_deduction_end'] ?? '');
+            $other_payment_plans = Utilities::sanitizeInput($data['other_payment_plans'] ?? '');
+            $remarks = Utilities::sanitizeInput($data['remarks'] ?? '');
+            
             // Calculate monthly payment (principal + interest)
             $monthly_payment = $this->calculateMonthlyPayment($amount, $interest_rate, $term_months);
             
-            // Prepare SQL statement
+            // Combine guarantor info with notes if guarantor is provided (for backward compatibility)
+            if (!empty($guarantor)) {
+                $combined_notes = "Guarantor: " . $guarantor;
+                if (!empty($notes)) {
+                    $combined_notes .= "\n\nAdmin Notes: " . $notes;
+                }
+                $notes = $combined_notes;
+            }
+            
+            // Prepare SQL statement - using actual table structure
             $stmt = $this->db->prepare("UPDATE loans 
-                SET amount = ?, purpose = ?, term_months = ?, interest_rate = ?, 
-                monthly_payment = ?, application_date = ?, status = ?, collateral = ?, 
-                guarantor = ?, notes = ?, updated_at = NOW() 
+                SET amount = ?, purpose = ?, term = ?, interest_rate = ?, 
+                application_date = ?, status = ?, collateral = ?, notes = ?,
+                savings = ?, month_deduction_started = ?, month_deduction_end = ?, 
+                other_payment_plans = ?, remarks = ?, monthly_payment = ?, updated_at = NOW() 
                 WHERE loan_id = ?");
             
-            $stmt->bind_param("dsidfssssi", $amount, $purpose, $term_months, $interest_rate, 
-                            $monthly_payment, $application_date, $status, $collateral, 
-                            $guarantor, $notes, $loan_id);
+            $stmt->bind_param("dsisssssdssssdi", $amount, $purpose, $term_months, $interest_rate, 
+                            $application_date, $status, $collateral, $notes,
+                            $savings, $month_deduction_started, $month_deduction_end, 
+                            $other_payment_plans, $remarks, $monthly_payment, $loan_id);
             
             return $stmt->execute();
         } catch (Exception $e) {
@@ -121,16 +153,16 @@ class LoanController {
             $notes = Utilities::sanitizeInput($notes);
             
             // If approving the loan, set approval date
-            $approval_date = ($status === 'approved') ? date('Y-m-d') : null;
-            $disbursement_date = ($status === 'disbursed') ? date('Y-m-d') : null;
+            $approval_date = ($status === 'Approved') ? date('Y-m-d') : null;
+            $disbursement_date = ($status === 'Disbursed') ? date('Y-m-d') : null;
             
             // Prepare SQL statement
-            if ($status === 'approved') {
+            if ($status === 'Approved') {
                 $stmt = $this->db->prepare("UPDATE loans 
                     SET status = ?, approval_date = ?, notes = CONCAT(notes, '\n', ?), updated_at = NOW() 
                     WHERE loan_id = ?");
                 $stmt->bind_param("sssi", $status, $approval_date, $notes, $loan_id);
-            } elseif ($status === 'disbursed') {
+            } elseif ($status === 'Disbursed') {
                 $stmt = $this->db->prepare("UPDATE loans 
                     SET status = ?, disbursement_date = ?, notes = CONCAT(notes, '\n', ?), updated_at = NOW() 
                     WHERE loan_id = ?");
@@ -342,6 +374,266 @@ class LoanController {
     }
     
     /**
+     * Add enhanced loan application with guarantors and collateral
+     * 
+     * @param array $data Enhanced loan application data including guarantors and collaterals
+     * @return int|bool The ID of the newly created loan or false on failure
+     */
+    public function addEnhancedLoanApplication($data) {
+        try {
+            // Begin transaction
+            $this->db->begin_transaction();
+            
+            // Sanitize basic loan data
+            $member_id = (int)$data['member_id'];
+            $amount = (float)$data['amount'];
+            $purpose = Utilities::sanitizeInput($data['purpose']);
+            $term_months = (int)$data['term_months'];
+            $interest_rate = (float)$data['interest_rate'];
+            $application_date = $data['application_date'] ?? date('Y-m-d');
+            $status = Utilities::sanitizeInput($data['status'] ?? 'Pending');
+            $notes = Utilities::sanitizeInput($data['notes'] ?? '');
+            
+            // Calculate monthly payment
+            $monthly_payment = $this->calculateMonthlyPayment($amount, $interest_rate, $term_months);
+            
+            // Insert main loan record
+            $stmt = $this->db->prepare("INSERT INTO loans 
+                (member_id, amount, purpose, term, interest_rate, monthly_payment,
+                application_date, status, notes, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+            
+            $stmt->bind_param("idsidfsss", $member_id, $amount, $purpose, $term_months, 
+                            $interest_rate, $monthly_payment, $application_date, $status, $notes);
+            
+            if (!$stmt->execute()) {
+                $this->db->rollback();
+                return false;
+            }
+            
+            $loan_id = $stmt->insert_id;
+            
+            // Insert guarantors
+            if (!empty($data['guarantors'])) {
+                $guarantor_stmt = $this->db->prepare("INSERT INTO loan_guarantors 
+                    (loan_id, guarantor_member_id, guarantee_amount, guarantee_percentage, 
+                    guarantee_type, relationship_to_borrower, guarantee_date, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW())");
+                
+                foreach ($data['guarantors'] as $guarantor) {
+                    $guarantor_member_id = (int)$guarantor['member_id'];
+                    $guarantee_amount = (float)$guarantor['guarantee_amount'];
+                    $guarantee_percentage = (float)($guarantor['guarantee_percentage'] ?? 100);
+                    $guarantee_type = $guarantor['guarantee_type'] ?? 'full';
+                    $relationship = Utilities::sanitizeInput($guarantor['relationship'] ?? '');
+                    $guarantee_date = $application_date;
+                    
+                    $guarantor_stmt->bind_param("iidfssss", $loan_id, $guarantor_member_id, 
+                                              $guarantee_amount, $guarantee_percentage, $guarantee_type, 
+                                              $relationship, $guarantee_date);
+                    
+                    if (!$guarantor_stmt->execute()) {
+                        $this->db->rollback();
+                        return false;
+                    }
+                }
+            }
+            
+            // Insert collaterals
+            if (!empty($data['collaterals'])) {
+                $collateral_stmt = $this->db->prepare("INSERT INTO loan_collateral 
+                    (loan_id, collateral_type, description, estimated_value, location, 
+                    document_reference, insurance_details, status, pledge_date, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pledged', ?, NOW())");
+                
+                foreach ($data['collaterals'] as $collateral) {
+                    $collateral_type = $collateral['type'];
+                    $description = Utilities::sanitizeInput($collateral['description']);
+                    $estimated_value = (float)$collateral['estimated_value'];
+                    $location = Utilities::sanitizeInput($collateral['location'] ?? '');
+                    $document_reference = Utilities::sanitizeInput($collateral['document_reference'] ?? '');
+                    $insurance_details = Utilities::sanitizeInput($collateral['insurance_details'] ?? '');
+                    $pledge_date = $application_date;
+                    
+                    $collateral_stmt->bind_param("issdssss", $loan_id, $collateral_type, 
+                                                $description, $estimated_value, $location, 
+                                                $document_reference, $insurance_details, $pledge_date);
+                    
+                    if (!$collateral_stmt->execute()) {
+                        $this->db->rollback();
+                        return false;
+                    }
+                }
+            }
+            
+            // Generate payment schedule if loan is approved
+            if (strtolower($status) === 'approved') {
+                $this->generatePaymentSchedule($loan_id, $amount, $interest_rate, $term_months, $application_date);
+            }
+            
+            // Commit transaction
+            $this->db->commit();
+            return $loan_id;
+            
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log("Error adding enhanced loan application: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Generate payment schedule for a loan
+     * 
+     * @param int $loan_id Loan ID
+     * @param float $amount Loan amount
+     * @param float $interest_rate Annual interest rate
+     * @param int $term_months Loan term in months
+     * @param string $start_date Start date for payments
+     * @return bool True on success, false on failure
+     */
+    public function generatePaymentSchedule($loan_id, $amount, $interest_rate, $term_months, $start_date) {
+        try {
+            $monthly_payment = $this->calculateMonthlyPayment($amount, $interest_rate, $term_months);
+            $monthly_interest_rate = $interest_rate / 100 / 12;
+            $remaining_balance = $amount;
+            $payment_date = new DateTime($start_date);
+            $payment_date->add(new DateInterval('P1M')); // First payment due next month
+            
+            $stmt = $this->db->prepare("INSERT INTO loan_payment_schedule 
+                (loan_id, payment_number, due_date, opening_balance, principal_amount, 
+                interest_amount, total_amount, closing_balance, payment_status, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())");
+            
+            for ($payment_num = 1; $payment_num <= $term_months; $payment_num++) {
+                $opening_balance = $remaining_balance;
+                $interest_amount = $remaining_balance * $monthly_interest_rate;
+                $principal_amount = $monthly_payment - $interest_amount;
+                $total_amount = $monthly_payment;
+                $closing_balance = max(0, $remaining_balance - $principal_amount);
+                
+                // Adjust last payment to ensure loan is fully paid
+                if ($payment_num === $term_months) {
+                    $principal_amount = $remaining_balance;
+                    $total_amount = $principal_amount + $interest_amount;
+                    $closing_balance = 0;
+                }
+                
+                $due_date = $payment_date->format('Y-m-d');
+                
+                $stmt->bind_param("iisddddds", $loan_id, $payment_num, $due_date, 
+                                $opening_balance, $principal_amount, $interest_amount, 
+                                $total_amount, $closing_balance);
+                
+                if (!$stmt->execute()) {
+                    return false;
+                }
+                
+                $remaining_balance = $closing_balance;
+                $payment_date->add(new DateInterval('P1M'));
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Error generating payment schedule: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get loan guarantors
+     * 
+     * @param int $loan_id Loan ID
+     * @return array|bool Guarantors data or false on failure
+     */
+    public function getLoanGuarantors($loan_id) {
+        try {
+            $loan_id = (int)$loan_id;
+            
+            $stmt = $this->db->prepare("SELECT lg.*, 
+                m.first_name, m.last_name, m.email, m.phone 
+                FROM loan_guarantors lg 
+                JOIN members m ON lg.guarantor_member_id = m.member_id 
+                WHERE lg.loan_id = ? 
+                ORDER BY lg.created_at ASC");
+            
+            $stmt->bind_param("i", $loan_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            $guarantors = [];
+            while ($row = $result->fetch_assoc()) {
+                $guarantors[] = $row;
+            }
+            
+            return $guarantors;
+        } catch (Exception $e) {
+            error_log("Error getting loan guarantors: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get loan collateral
+     * 
+     * @param int $loan_id Loan ID
+     * @return array|bool Collateral data or false on failure
+     */
+    public function getLoanCollateral($loan_id) {
+        try {
+            $loan_id = (int)$loan_id;
+            
+            $stmt = $this->db->prepare("SELECT * FROM loan_collateral 
+                WHERE loan_id = ? 
+                ORDER BY created_at ASC");
+            
+            $stmt->bind_param("i", $loan_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            $collaterals = [];
+            while ($row = $result->fetch_assoc()) {
+                $collaterals[] = $row;
+            }
+            
+            return $collaterals;
+        } catch (Exception $e) {
+            error_log("Error getting loan collateral: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get loan payment schedule
+     * 
+     * @param int $loan_id Loan ID
+     * @return array|bool Payment schedule data or false on failure
+     */
+    public function getLoanPaymentSchedule($loan_id) {
+        try {
+            $loan_id = (int)$loan_id;
+            
+            $stmt = $this->db->prepare("SELECT * FROM loan_payment_schedule 
+                WHERE loan_id = ? 
+                ORDER BY payment_number ASC");
+            
+            $stmt->bind_param("i", $loan_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            $schedule = [];
+            while ($row = $result->fetch_assoc()) {
+                $schedule[] = $row;
+            }
+            
+            return $schedule;
+        } catch (Exception $e) {
+            error_log("Error getting loan payment schedule: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * Record a loan repayment
      * 
      * @param array $data Repayment data
@@ -380,10 +672,10 @@ class LoanController {
                 SET amount_paid = amount_paid + ?, 
                 last_payment_date = ?, 
                 status = CASE 
-                    WHEN (amount_paid + ?) >= amount THEN 'paid' 
-                    WHEN status = 'disbursed' THEN 'active' 
+                    WHEN (amount_paid + ?) >= amount THEN 'Paid' 
+                    WHEN status = 'Disbursed' THEN 'Disbursed' 
                     ELSE status 
-                END, 
+                END,
                 updated_at = NOW() 
                 WHERE loan_id = ?");
             
@@ -461,7 +753,7 @@ class LoanController {
             
             $loan_status = $result->fetch_assoc()['status'];
             
-            if ($loan_status !== 'pending' && $loan_status !== 'rejected') {
+            if ($loan_status !== 'Pending' && $loan_status !== 'Rejected') {
                 return false; // Cannot delete loans that are approved, active, or paid
             }
             
@@ -487,21 +779,21 @@ class LoanController {
             // Total active loans amount
             $active_query = "SELECT COUNT(*) as active_count, SUM(amount) as active_amount 
                             FROM loans 
-                            WHERE status IN ('active', 'disbursed')"; 
+                            WHERE status IN ('Approved', 'Disbursed')"; 
             $active_result = $this->db->query($active_query);
             $active_stats = $active_result->fetch_assoc();
             
             // Total pending loans
             $pending_query = "SELECT COUNT(*) as pending_count, SUM(amount) as pending_amount 
                              FROM loans 
-                             WHERE status = 'pending'"; 
+                             WHERE status = 'Pending'"; 
             $pending_result = $this->db->query($pending_query);
             $pending_stats = $pending_result->fetch_assoc();
             
             // Total paid loans
             $paid_query = "SELECT COUNT(*) as paid_count, SUM(amount) as paid_amount 
                           FROM loans 
-                          WHERE status = 'paid'"; 
+                          WHERE status = 'Paid'";
             $paid_result = $this->db->query($paid_query);
             $paid_stats = $paid_result->fetch_assoc();
             
@@ -569,6 +861,43 @@ class LoanController {
     }
     
     /**
+     * Get interest rate based on loan amount and term
+     * 
+     * @param float $amount Loan amount
+     * @param int $term_months Loan term in months
+     * @return float Interest rate percentage
+     */
+    public function getInterestRate($amount, $term_months) {
+        // Default interest rate structure based on loan characteristics
+        $base_rate = 5.0; // 5% base rate
+        
+        // Adjust rate based on loan amount (higher amounts get better rates)
+        if ($amount >= 500000) {
+            $amount_adjustment = -0.5; // 0.5% discount for large loans
+        } elseif ($amount >= 100000) {
+            $amount_adjustment = 0; // No adjustment for medium loans
+        } else {
+            $amount_adjustment = 1.0; // 1% premium for small loans
+        }
+        
+        // Adjust rate based on term (longer terms have higher rates)
+        if ($term_months <= 6) {
+            $term_adjustment = 0; // No adjustment for short term
+        } elseif ($term_months <= 12) {
+            $term_adjustment = 0.5; // Small premium for medium term
+        } elseif ($term_months <= 24) {
+            $term_adjustment = 1.0; // Higher rate for longer term
+        } else {
+            $term_adjustment = 1.5; // Highest rate for very long term
+        }
+        
+        $final_rate = $base_rate + $amount_adjustment + $term_adjustment;
+        
+        // Ensure rate is within reasonable bounds (3% - 15%)
+        return max(3.0, min(15.0, $final_rate));
+    }
+    
+    /**
      * Calculate monthly payment for a loan
      * 
      * @param float $principal Loan amount
@@ -577,12 +906,17 @@ class LoanController {
      * @return float Monthly payment amount
      */
     public function calculateMonthlyPayment($principal, $annual_interest_rate, $term_months) {
+        // Validate inputs to prevent division by zero
+        if ($principal <= 0 || $term_months <= 0) {
+            return 0;
+        }
+        
         // Convert annual interest rate to monthly decimal rate
         $monthly_interest_rate = ($annual_interest_rate / 100) / 12;
         
         // If interest rate is 0, simple division
         if ($monthly_interest_rate == 0) {
-            return $principal / $term_months;
+            return round($principal / $term_months, 2);
         }
         
         // Calculate monthly payment using amortization formula
@@ -651,13 +985,13 @@ class LoanController {
             
             $loan_status = $result->fetch_assoc()['status'];
             
-            if ($loan_status !== 'pending') {
+            if ($loan_status !== 'Pending') {
                 return false; // Can only approve pending loans
             }
             
             // Update loan status to approved
             $approval_date = date('Y-m-d');
-            $status = 'approved';
+            $status = 'Approved';
             
             $stmt = $this->db->prepare("UPDATE loans 
                 SET status = ?, approval_date = ?, notes = CONCAT(IFNULL(notes, ''), '\n', ?), updated_at = NOW() 
@@ -696,12 +1030,12 @@ class LoanController {
             
             $loan_status = $result->fetch_assoc()['status'];
             
-            if ($loan_status !== 'pending') {
+            if ($loan_status !== 'Pending') {
                 return false; // Can only reject pending loans
             }
             
             // Update loan status to rejected
-            $status = 'rejected';
+            $status = 'Rejected';
             
             $stmt = $this->db->prepare("UPDATE loans 
                 SET status = ?, notes = CONCAT(IFNULL(notes, ''), '\n', ?), updated_at = NOW() 
@@ -742,12 +1076,12 @@ class LoanController {
             
             $loan_status = $result->fetch_assoc()['status'];
             
-            if ($loan_status !== 'approved') {
+            if ($loan_status !== 'Approved') {
                 return false; // Can only disburse approved loans
             }
             
             // Update loan status to disbursed
-            $status = 'disbursed';
+            $status = 'Disbursed';
             $disbursement_note = "Loan disbursed on $disbursement_date via $payment_method. " . $notes;
             
             $stmt = $this->db->prepare("UPDATE loans 
@@ -782,7 +1116,7 @@ class LoanController {
     public function markLoanAsPaid($loan_id) {
         try {
             $loan_id = (int)$loan_id;
-            $status = 'paid';
+            $status = 'Paid';
             $notes = "Loan marked as fully paid on " . date('Y-m-d');
             
             $stmt = $this->db->prepare("UPDATE loans 
@@ -806,13 +1140,11 @@ class LoanController {
      */
     public function getStatusBadgeClass($status) {
         $classes = [
-            'pending' => 'warning',
-            'approved' => 'info',
-            'rejected' => 'danger',
-            'disbursed' => 'primary',
-            'active' => 'success',
-            'defaulted' => 'danger',
-            'paid' => 'secondary'
+            'Pending' => 'warning',
+            'Approved' => 'info',
+            'Rejected' => 'danger',
+            'Disbursed' => 'primary',
+            'Paid' => 'secondary'
         ];
         
         return $classes[$status] ?? 'secondary';
@@ -838,5 +1170,53 @@ class LoanController {
     public function getMemberLoans($member_id, $limit = 0) {
         return $this->getLoansByMemberId($member_id, $limit);
     }
+}
+
+// Handle AJAX requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    
+    $loanController = new LoanController();
+    $response = ['success' => false, 'message' => ''];
+    
+    switch ($_POST['action']) {
+        case 'delete':
+            if (!isset($_POST['loan_id']) || empty($_POST['loan_id'])) {
+                $response['message'] = 'Loan ID is required';
+                break;
+            }
+            
+            $loan_id = (int)$_POST['loan_id'];
+            
+            // Get loan details first to check status
+            $loan = $loanController->getLoanById($loan_id);
+            if (!$loan) {
+                $response['message'] = 'Loan not found';
+                break;
+            }
+            
+            // Check if loan can be deleted (only pending or rejected)
+            if (!in_array($loan['status'], ['Pending', 'Rejected'])) {
+                $response['message'] = 'Only pending or rejected loans can be deleted';
+                break;
+            }
+            
+            // Attempt to delete
+            $result = $loanController->deleteLoan($loan_id);
+            if ($result) {
+                $response['success'] = true;
+                $response['message'] = 'Loan application deleted successfully';
+            } else {
+                $response['message'] = 'Failed to delete loan application';
+            }
+            break;
+            
+        default:
+            $response['message'] = 'Invalid action';
+            break;
+    }
+    
+    echo json_encode($response);
+    exit();
 }
 ?>

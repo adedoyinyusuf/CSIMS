@@ -144,19 +144,18 @@ $pageTitle = "Manage Contributions";
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 
-<body id="page-top">
-    <!-- Page Wrapper -->
-    <div id="wrapper">
+<body class="bg-gray-50 font-sans">
+    <div class="flex h-screen bg-gray-50">
+        <!-- Sidebar -->
         <?php include_once '../includes/sidebar.php'; ?>
         
         <!-- Content Wrapper -->
-        <div id="content-wrapper" class="d-flex flex-column">
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <?php include_once '../includes/header.php'; ?>
+            
             <!-- Main Content -->
-            <div id="content">
-                <?php include_once '../includes/header.php'; ?>
-
-                <!-- Begin Page Content -->
-<div id="main-content" class="p-6 bg-gray-50 min-h-screen transition-all duration-300 ml-64">
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6 pl-8">
+                <div class="max-w-5xl mx-auto ml-8">
     <!-- Page Heading -->
     <div class="bg-gradient-to-r from-primary-600 to-primary-800 text-white p-8 rounded-2xl shadow-lg mb-8">
         <div class="flex justify-between items-center">
@@ -299,7 +298,7 @@ $pageTitle = "Manage Contributions";
                     <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">
                         Total Amount
                     </p>
-                    <p class="text-2xl font-bold text-gray-800">₱<?php echo number_format($totalAmount, 2); ?></p>
+                    <p class="text-2xl font-bold text-gray-800">=N=<?php echo number_format($totalAmount, 2); ?></p>
                 </div>
                 <div class="bg-green-100 p-3 rounded-full">
                     <i class="fas fa-peso-sign text-2xl text-green-600"></i>
@@ -313,7 +312,7 @@ $pageTitle = "Manage Contributions";
                     <p class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
                         This Month
                     </p>
-                    <p class="text-2xl font-bold text-gray-800">₱<?php echo number_format($monthlyAmount, 2); ?></p>
+                    <p class="text-2xl font-bold text-gray-800">=N=<?php echo number_format($monthlyAmount, 2); ?></p>
                 </div>
                 <div class="bg-blue-100 p-3 rounded-full">
                     <i class="fas fa-calendar text-2xl text-blue-600"></i>
@@ -327,7 +326,7 @@ $pageTitle = "Manage Contributions";
                     <p class="text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">
                         Average Contribution
                     </p>
-                    <p class="text-2xl font-bold text-gray-800">₱<?php echo number_format($averageContribution, 2); ?></p>
+                    <p class="text-2xl font-bold text-gray-800">=N=<?php echo number_format($averageContribution, 2); ?></p>
                 </div>
                 <div class="bg-yellow-100 p-3 rounded-full">
                     <i class="fas fa-chart-line text-2xl text-yellow-600"></i>
@@ -390,7 +389,7 @@ $pageTitle = "Manage Contributions";
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-3 py-4 text-sm font-bold text-green-600 whitespace-nowrap">₱<?php echo htmlspecialchars(number_format($contribution['amount'], 2)); ?></td>
+                                    <td class="px-3 py-4 text-sm font-bold text-green-600 whitespace-nowrap">=N=<?php echo htmlspecialchars(number_format($contribution['amount'], 2)); ?></td>
                                     <td class="px-3 py-4 text-sm text-gray-900 whitespace-nowrap">
                                         <div><?php echo htmlspecialchars(date('M d, Y', strtotime($contribution['contribution_date']))); ?></div>
                                         <div class="lg:hidden text-xs text-gray-500 mt-1">
@@ -476,11 +475,8 @@ $pageTitle = "Manage Contributions";
         </div>
     </div>
                 </div>
-                <!-- End of Page Content -->
-            </div>
-            <!-- End of Main Content -->
-            
-            <?php include_once '../includes/footer.php'; ?>
+                <!-- End of Main Content -->
+            </main>
         </div>
         <!-- End of Content Wrapper -->
     </div>

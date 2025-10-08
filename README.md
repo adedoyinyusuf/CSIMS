@@ -2,64 +2,78 @@
 
 ## Overview
 
-CSIMS is a comprehensive web-based platform designed to manage cooperative society operations including member management, financial tracking, loan processing, communication systems, and advanced reporting capabilities.
+CSIMS is a modern, secure, and scalable web application for managing cooperative society operations. Built with clean architecture principles, it features comprehensive member management, loan processing, contribution tracking, and a robust RESTful API.
 
 ## 🚀 Quick Start
 
-### Access Information
-- **Application URL**: http://localhost:8000/
-- **Default Admin Username**: admin
-- **Default Admin Password**: admin123
-- **System Status**: ✅ Fully Operational
+### Setup Instructions
+1. **Database Setup**: Create MySQL database and configure `.env` file
+2. **Run Setup**: Execute `php setup/setup-database.php`
+3. **Default Credentials**: Username: `admin`, Password: `Admin123!`
+4. **API Access**: Available at `/api/` endpoint
+5. **Important**: Change default password after first login
 
-### First Steps
-1. Access the application at http://localhost:8000/
-2. Login with the default admin credentials
-3. **Important**: Change the default password immediately
-4. Configure system settings and notification preferences
-5. Start adding members and managing operations
+### Installation
+```bash
+# 1. Copy environment file
+cp .env.example .env
+
+# 2. Update database credentials in .env
+# 3. Run database setup
+php setup/setup-database.php
+
+# 4. Access API at: /api/health
+```
 
 ## 🎯 Key Features
 
 ### Core Management
-- **Member Management**: Complete lifecycle management with IPPIS integration
-- **Financial Tracking**: Contributions, loans, investments, and portfolio management
-- **Loan Processing**: Application workflow with approval system
-- **Investment Management**: Portfolio tracking and performance monitoring
+- ✅ **Member Management**: Complete CRUD operations with validation
+- ✅ **Loan Processing**: Application workflow with business logic
+- ✅ **Contribution Tracking**: Member payments and history
+- ✅ **Transaction Management**: Financial transaction processing
+- ✅ **User Management**: Multi-role user system with permissions
 
-### Communication & Notifications
-- **Internal Messaging**: Two-way communication between admins and members
-- **Notification System**: Automated alerts and announcements
-- **Email Integration**: SMTP support with fallback email service
-- **Bulk Operations**: Mass member operations and communications
+### Technical Architecture
+- ✅ **Clean Architecture**: Models, Repositories, Services, Controllers
+- ✅ **Dependency Injection**: Container-based dependency management
+- ✅ **RESTful API**: Comprehensive API with proper HTTP responses
+- ✅ **Configuration Management**: Environment-based configuration
+- ✅ **Caching Layer**: File-based caching with tag support
+- ✅ **Database Migrations**: Version-controlled schema changes
 
-### Reporting & Analytics
-- **Comprehensive Reports**: Member demographics, financial summaries
-- **Export Capabilities**: PDF, CSV, Excel format support
-- **Real-time Analytics**: Dashboard with live statistics
-- **Custom Report Generation**: Flexible reporting with date ranges and filters
-
-### Security & Administration
-- **Multi-Factor Authentication**: TOTP support with backup codes
-- **Role-Based Access Control**: Admin, Staff, Member permission levels
-- **Security Monitoring**: Real-time threat detection and logging
-- **CSRF Protection**: Cross-site request forgery prevention
-- **Input Validation**: Comprehensive XSS and SQL injection protection
+### Security Features
+- ✅ **Authentication & Authorization**: Role-based access control (RBAC)
+- ✅ **Session Management**: Database-stored secure sessions
+- ✅ **Password Security**: Strong requirements with bcrypt hashing
+- ✅ **Rate Limiting**: Brute force protection
+- ✅ **CSRF Protection**: Cross-site request forgery prevention
+- ✅ **Input Validation**: Comprehensive sanitization and validation
+- ✅ **Security Headers**: HTTP security headers implementation
 
 ## 🏗️ System Architecture
 
-### Technology Stack
-- **Backend**: PHP 8.2+ with MVC architecture
-- **Database**: MySQL 8.0+ with optimized schema
-- **Frontend**: Bootstrap 5, HTML5, CSS3, JavaScript
-- **Security**: Enterprise-grade security implementation
-- **Dependencies**: Composer, PHPMailer, Chart.js
+### Modern PHP Architecture
+- **Clean Architecture**: Separation of concerns with proper layering
+- **Dependency Injection**: Container-based service management
+- **Repository Pattern**: Data access abstraction layer
+- **Service Layer**: Business logic encapsulation
+- **Domain Models**: Rich domain models with validation
 
-### Database Schema
-- **Core Tables**: 8+ tables with proper relationships
-- **Data Integrity**: Foreign key constraints and validation
-- **Performance**: Indexed columns for optimal queries
-- **Audit Trail**: Comprehensive logging and timestamps
+### Technology Stack
+- **Backend**: PHP 8.1+ with modern architecture patterns
+- **Database**: MySQL 5.7+ with optimized schema and migrations
+- **API**: RESTful API with JSON responses
+- **Security**: Enterprise-grade security with JWT-style sessions
+- **Caching**: File-based caching with tag support
+- **Configuration**: Environment-based configuration management
+
+### Core Components
+- **Models**: Domain entities with business logic (User, Member, Loan, Contribution)
+- **Repositories**: Data access layer with QueryBuilder
+- **Services**: Business logic layer (AuthenticationService, LoanService, etc.)
+- **Controllers**: API request handling with proper HTTP responses
+- **Container**: Dependency injection for service management
 
 ## 📚 Documentation
 

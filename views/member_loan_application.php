@@ -10,6 +10,7 @@ if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
     exit();
 }
 
+require_once __DIR__ . '/../controllers/loan_controller.php';
 $loanController = new LoanController();
 $memberController = new MemberController();
 
@@ -26,7 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $term_months = trim($_POST['term_months'] ?? '');
     $collateral = trim($_POST['collateral'] ?? '');
     $guarantor = trim($_POST['guarantor'] ?? '');
-    $notes = trim($_POST['notes'] ?? '');
+    $notes = trim($_POST['remarks'] ?? ''); // Use remarks instead of notes
+    $savings = trim($_POST['savings'] ?? '');
+    $month_deduction_started = trim($_POST['month_deduction_started'] ?? '');
+    $month_deduction_end = trim($_POST['month_deduction_end'] ?? '');
+    $other_payment_plans = trim($_POST['other_payment_plans'] ?? '');
     
     // Validation
     if (empty($amount) || !is_numeric($amount) || $amount <= 0) {
@@ -49,13 +54,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Please provide guarantor information.';
     }
     
+    // Validate savings amount
+    if (!empty($savings) && (!is_numeric($savings) || $savings < 0)) {
+        $errors[] = 'Please enter a valid savings amount.';
+    }
+    
     if (empty($errors)) {
-        // Calculate interest rate and monthly payment (simplified calculation)
-        $interest_rate = 5.0; // Default 5% annual interest rate
+        // Calculate interest rate and monthly payment using dynamic logic
+        $interest_rate = $loanController->getInterestRate((float)$amount, (int)$term_months);
         $monthly_interest_rate = $interest_rate / 100 / 12;
-        $monthly_payment = ($amount * $monthly_interest_rate * pow(1 + $monthly_interest_rate, $term_months)) / 
+        $monthly_payment = ($amount * $monthly_interest_rate * pow(1 + $monthly_interest_rate, $term_months)) /
                           (pow(1 + $monthly_interest_rate, $term_months) - 1);
         
+        // Prepare loan data with all fields separated
         $loan_data = [
             'member_id' => $member_id,
             'amount' => $amount,
@@ -67,17 +78,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'status' => 'Pending',
             'collateral' => $collateral,
             'guarantor' => $guarantor,
-            'notes' => $notes
+            'notes' => $notes, // Use notes field for admin notes/processing notes
+            'savings' => $savings,
+            'month_deduction_started' => $month_deduction_started,
+            'month_deduction_end' => $month_deduction_end,
+            'other_payment_plans' => $other_payment_plans,
+            'remarks' => $notes // Member's remarks/comments
         ];
-        
-        $loan_id = $loanController->addLoan($loan_data);
+        $loan_id = $loanController->addLoanApplication($loan_data);
         
         if ($loan_id) {
             $success = true;
             // Clear form data
-            $amount = $purpose = $term_months = $collateral = $guarantor = $notes = '';
+            $amount = $purpose = $term_months = $collateral = $guarantor = $notes = $savings = $month_deduction_started = $month_deduction_end = $other_payment_plans = '';
         } else {
-            $errors[] = 'Failed to submit loan application. Please try again.';
+            $errors[] = 'Failed to submit loan application. Please check your information and try again.';
+            error_log("Loan application failed for member {$member_id}. Data: " . print_r($loan_data, true));
         }
     }
 }
@@ -214,78 +230,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </h3>
                             </div>
                             <div class="p-6">
-                                <form method="POST" class="space-y-6">
+                                <form method="POST" action="" class="space-y-8">
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">
                                                 Loan Amount (₦) <span class="text-red-500">*</span>
                                             </label>
-                                            <div class="relative">
-                                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                    <span class="text-gray-500 text-sm">₦</span>
-                                                </div>
-                                                <input type="number" class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
-                                                       id="amount" name="amount" 
-                                                       value="<?php echo htmlspecialchars($amount ?? ''); ?>" 
-                                                       min="1000" max="5000000" step="100" required>
-                                            </div>
-                                            <p class="mt-1 text-xs text-gray-500">Minimum: ₦1,000 | Maximum: ₦5,000,000</p>
+                                            <input type="number" class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="amount" name="amount" value="<?php echo htmlspecialchars($amount ?? ''); ?>" min="1000" required>
                                         </div>
                                         <div>
                                             <label for="term_months" class="block text-sm font-medium text-gray-700 mb-2">
                                                 Loan Term (Months) <span class="text-red-500">*</span>
                                             </label>
-                                            <select class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
-                                                    id="term_months" name="term_months" required>
-                                                <option value="">Select loan term</option>
-                                                <?php for ($i = 6; $i <= 60; $i += 6): ?>
-                                                    <option value="<?php echo $i; ?>" <?php echo (isset($term_months) && $term_months == $i) ? 'selected' : ''; ?>>
-                                                        <?php echo $i; ?> months (<?php echo number_format($i/12, 1); ?> years)
-                                                    </option>
-                                                <?php endfor; ?>
+                                            <select class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="term_months" name="term_months" required>
+                                                <option value="">Select loan term...</option>
+                                                <?php for ($i = 1; $i <= 36; $i++) { ?>
+                                                    <option value="<?php echo $i; ?>" <?php echo (isset($term_months) && $term_months == $i) ? 'selected' : ''; ?>><?php echo $i; ?></option>
+                                                <?php } ?>
                                             </select>
                                         </div>
+                                        <div>
+                                            <label for="savings" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Savings <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="number" class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="savings" name="savings" value="<?php echo htmlspecialchars($savings ?? ''); ?>" min="0" required>
+                                            <p class="mt-1 text-xs text-gray-500">Enter your current savings amount.</p>
+                                        </div>
+                                        <div>
+                                            <label for="month_deduction_started" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Month Deduction Started <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="month" class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="month_deduction_started" name="month_deduction_started" value="<?php echo htmlspecialchars($month_deduction_started ?? ''); ?>" required>
+                                            <p class="mt-1 text-xs text-gray-500">Select the month when deductions should start.</p>
+                                        </div>
+                                        <div>
+                                            <label for="month_deduction_end" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Month Deduction Should End <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="month" class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="month_deduction_end" name="month_deduction_end" value="<?php echo htmlspecialchars($month_deduction_end ?? ''); ?>" required>
+                                            <p class="mt-1 text-xs text-gray-500">Select the month when deductions should end.</p>
+                                        </div>
                                     </div>
-                                        
-                                    <div>
-                                        <label for="purpose" class="block text-sm font-medium text-gray-700 mb-2">
-                                            Purpose of Loan <span class="text-red-500">*</span>
-                                        </label>
-                                        <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
-                                                  id="purpose" name="purpose" rows="3" required 
-                                                  placeholder="Please describe the purpose of this loan..."><?php echo htmlspecialchars($purpose ?? ''); ?></textarea>
-                                    </div>
-                                    
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label for="purpose" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Purpose of Loan <span class="text-red-500">*</span>
+                                            </label>
+                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="purpose" name="purpose" rows="3" required placeholder="Please describe the purpose of this loan..."><?php echo htmlspecialchars($purpose ?? ''); ?></textarea>
+                                        </div>
                                         <div>
                                             <label for="collateral" class="block text-sm font-medium text-gray-700 mb-2">
                                                 Collateral <span class="text-red-500">*</span>
                                             </label>
-                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
-                                                      id="collateral" name="collateral" rows="3" required 
-                                                      placeholder="Please describe the collateral you're offering..."><?php echo htmlspecialchars($collateral ?? ''); ?></textarea>
+                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="collateral" name="collateral" rows="3" required placeholder="Please describe the collateral you're offering..."><?php echo htmlspecialchars($collateral ?? ''); ?></textarea>
                                             <p class="mt-1 text-xs text-gray-500">Describe any assets or property you're offering as security for this loan.</p>
                                         </div>
                                         <div>
                                             <label for="guarantor" class="block text-sm font-medium text-gray-700 mb-2">
                                                 Guarantor Information <span class="text-red-500">*</span>
                                             </label>
-                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
-                                                      id="guarantor" name="guarantor" rows="3" required 
-                                                      placeholder="Please provide guarantor details (Name, Phone, Relationship)..."><?php echo htmlspecialchars($guarantor ?? ''); ?></textarea>
+                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="guarantor" name="guarantor" rows="3" required placeholder="Please provide guarantor details (Name, Phone, Relationship)..."><?php echo htmlspecialchars($guarantor ?? ''); ?></textarea>
                                             <p class="mt-1 text-xs text-gray-500">Provide the name, contact information, and relationship of your guarantor.</p>
                                         </div>
+                                        <div>
+                                            <label for="other_payment_plans" class="block text-sm font-medium text-gray-700 mb-2">
+                                                Other Payment Plans</label>
+                                            <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="other_payment_plans" name="other_payment_plans" rows="2" placeholder="Describe any other payment plans..."><?php echo htmlspecialchars($other_payment_plans ?? ''); ?></textarea>
+                                            <p class="mt-1 text-xs text-gray-500">Optional: Provide details of any additional payment arrangements.</p>
+                                        </div>
                                     </div>
-                                    
                                     <div>
-                                        <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
-                                            Additional Notes
-                                        </label>
-                                        <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" 
-                                                  id="notes" name="notes" rows="2" 
-                                                  placeholder="Any additional information..."><?php echo htmlspecialchars($notes ?? ''); ?></textarea>
+                                        <label for="remarks" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Remarks</label>
+                                        <textarea class="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200" id="remarks" name="remarks" rows="2" placeholder="Any additional remarks..."><?php echo htmlspecialchars($remarks ?? ''); ?></textarea>
+                                        <p class="mt-1 text-xs text-gray-500">Optional: Add any comments or notes relevant to your application.</p>
                                     </div>
-                                        
                                     <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button type="reset" class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
                                             <i class="fas fa-undo mr-2"></i> Reset Form

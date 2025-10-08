@@ -6,8 +6,8 @@
  * retrieving, and deleting contribution records.
  */
 
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/db.php';
-require_once __DIR__ . '/../includes/utilities.php';
 
 class ContributionController {
     private $db;
@@ -17,6 +17,171 @@ class ContributionController {
      */
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
+    }
+    
+    /**
+     * Get all contributions with pagination and filtering
+     * 
+     * @param int $page Page number
+     * @param int $limit Items per page
+     * @param string $search Search term
+     * @param string $sort_by Sort column
+     * @param string $sort_order Sort order
+     * @param string $filter_type Type filter
+     * @param string $date_from Date from filter
+     * @param string $date_to Date to filter
+     * @return array Result with contributions and pagination info
+     */
+    public function getAllContributions($page = 1, $limit = 10, $search = '', $sort_by = 'contribution_date', $sort_order = 'DESC', $filter_type = '', $date_from = '', $date_to = '') {
+        try {
+            $offset = ($page - 1) * $limit;
+            
+            // Base query
+            $query = "SELECT c.*, m.first_name, m.last_name, m.email 
+                     FROM contributions c 
+                     JOIN members m ON c.member_id = m.member_id 
+                     WHERE 1=1";
+            
+            $params = [];
+            $types = "";
+            
+            // Add search filter
+            if (!empty($search)) {
+                $query .= " AND (m.first_name LIKE ? OR m.last_name LIKE ? OR c.receipt_number LIKE ? OR c.notes LIKE ?)";
+                $searchTerm = "%{$search}%";
+                $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+                $types .= "ssss";
+            }
+            
+            // Add type filter
+            if (!empty($filter_type)) {
+                $query .= " AND c.contribution_type = ?";
+                $params[] = $filter_type;
+                $types .= "s";
+            }
+            
+            // Add date range filter
+            if (!empty($date_from)) {
+                $query .= " AND c.contribution_date >= ?";
+                $params[] = $date_from;
+                $types .= "s";
+            }
+            
+            if (!empty($date_to)) {
+                $query .= " AND c.contribution_date <= ?";
+                $params[] = $date_to;
+                $types .= "s";
+            }
+            
+            // Count total records
+            $countQuery = str_replace("SELECT c.*, m.first_name, m.last_name, m.email", "SELECT COUNT(*)", $query);
+            $stmt = $this->db->prepare($countQuery);
+            if (!empty($params)) {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $totalRecords = $stmt->get_result()->fetch_row()[0];
+            
+            // Add sorting and pagination
+            $validSortColumns = ['contribution_date', 'amount', 'contribution_type', 'payment_method', 'created_at'];
+            if (!in_array($sort_by, $validSortColumns)) {
+                $sort_by = 'contribution_date';
+            }
+            
+            $sort_order = strtoupper($sort_order) === 'ASC' ? 'ASC' : 'DESC';
+            $query .= " ORDER BY c.{$sort_by} {$sort_order} LIMIT ? OFFSET ?";
+            
+            $params[] = $limit;
+            $params[] = $offset;
+            $types .= "ii";
+            
+            $stmt = $this->db->prepare($query);
+            if (!empty($params)) {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $contributions = $result->fetch_all(MYSQLI_ASSOC);
+            
+            // Calculate pagination
+            $totalPages = ceil($totalRecords / $limit);
+            
+            return [
+                'contributions' => $contributions,
+                'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => $totalPages,
+                    'total_records' => $totalRecords,
+                    'limit' => $limit
+                ]
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting all contributions: " . $e->getMessage());
+            return [
+                'contributions' => [],
+                'pagination' => [
+                    'current_page' => 1,
+                    'total_pages' => 0,
+                    'total_records' => 0,
+                    'limit' => $limit
+                ]
+            ];
+        }
+    }
+    
+    /**
+     * Get contribution types
+     * 
+     * @return array List of contribution types
+     */
+    public function getContributionTypes() {
+        return [
+            'Regular Contribution',
+            'Share Capital',
+            'Loan Repayment',
+            'Special Assessment',
+            'Entrance Fee',
+            'Registration Fee',
+            'Development Fund',
+            'Welfare Fund',
+            'Other'
+        ];
+    }
+    
+    /**
+     * Get payment methods
+     * 
+     * @return array List of payment methods
+     */
+    public function getPaymentMethods() {
+        return [
+            'Cash',
+            'Bank Transfer',
+            'Check',
+            'Credit Card',
+            'Debit Card',
+            'Mobile Money',
+            'Direct Debit',
+            'Online Payment',
+            'Other'
+        ];
+    }
+    
+    /**
+     * Delete contribution
+     * 
+     * @param int $contribution_id Contribution ID
+     * @return bool Success status
+     */
+    public function deleteContribution($contribution_id) {
+        try {
+            $stmt = $this->db->prepare("DELETE FROM contributions WHERE contribution_id = ?");
+            $stmt->bind_param("i", $contribution_id);
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log("Error deleting contribution: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -31,17 +196,17 @@ class ContributionController {
             $member_id = (int)$data['member_id'];
             $amount = (float)$data['amount'];
             $contribution_date = $data['contribution_date'] ?? date('Y-m-d');
-            $contribution_type = Utilities::sanitizeInput($data['contribution_type']);
-            $payment_method = Utilities::sanitizeInput($data['payment_method']);
-            $receipt_number = Utilities::sanitizeInput($data['receipt_number'] ?? '');
-            $notes = Utilities::sanitizeInput($data['notes'] ?? '');
+            $contribution_type = $data['contribution_type'] ?? 'Regular Contribution';
+            $payment_method = $data['payment_method'] ?? 'Cash';
+            $receipt_number = $data['receipt_number'] ?? '';
+            $notes = $data['notes'] ?? '';
             
             // Prepare SQL statement
             $stmt = $this->db->prepare("INSERT INTO contributions 
                 (member_id, amount, contribution_date, contribution_type, payment_method, receipt_number, notes, created_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
             
-            $stmt->bind_param("idssss", $member_id, $amount, $contribution_date, $contribution_type, $payment_method, $receipt_number, $notes);
+            $stmt->bind_param("idsssss", $member_id, $amount, $contribution_date, $contribution_type, $payment_method, $receipt_number, $notes);
             
             if ($stmt->execute()) {
                 return $stmt->insert_id;
@@ -68,10 +233,10 @@ class ContributionController {
             $contribution_id = (int)$contribution_id;
             $amount = (float)$data['amount'];
             $contribution_date = $data['contribution_date'];
-            $contribution_type = Utilities::sanitizeInput($data['contribution_type']);
-            $payment_method = Utilities::sanitizeInput($data['payment_method']);
-            $receipt_number = Utilities::sanitizeInput($data['receipt_number'] ?? '');
-            $notes = Utilities::sanitizeInput($data['notes'] ?? '');
+            $contribution_type = $data['contribution_type'];
+            $payment_method = $data['payment_method'];
+            $receipt_number = $data['receipt_number'] ?? '';
+            $notes = $data['notes'] ?? '';
             
             // Prepare SQL statement
             $stmt = $this->db->prepare("UPDATE contributions 
@@ -79,7 +244,7 @@ class ContributionController {
                 payment_method = ?, receipt_number = ?, notes = ?, updated_at = NOW() 
                 WHERE contribution_id = ?");
             
-            $stmt->bind_param("dssssi", $amount, $contribution_date, $contribution_type, $payment_method, $receipt_number, $notes, $contribution_id);
+            $stmt->bind_param("dsssssi", $amount, $contribution_date, $contribution_type, $payment_method, $receipt_number, $notes, $contribution_id);
             
             return $stmt->execute();
         } catch (Exception $e) {
@@ -116,140 +281,8 @@ class ContributionController {
             return false;
         } catch (Exception $e) {
             // Log error
-            error_log("Error getting contribution: " . $e->getMessage());
+            error_log("Error getting contribution by ID: " . $e->getMessage());
             return false;
-        }
-    }
-    
-    /**
-     * Get all contributions with pagination
-     * 
-     * @param int $page Current page number
-     * @param int $limit Records per page
-     * @param string $search Search term
-     * @param string $sort_by Column to sort by
-     * @param string $sort_order Sort order (ASC or DESC)
-     * @param string $filter_type Filter by contribution type
-     * @param string $date_from Filter by start date
-     * @param string $date_to Filter by end date
-     * @return array Contributions and pagination data
-     */
-    public function getAllContributions($page = 1, $limit = 10, $search = '', $sort_by = 'contribution_date', 
-                                      $sort_order = 'DESC', $filter_type = '', $date_from = '', $date_to = '') {
-        try {
-            $page = (int)$page;
-            $limit = (int)$limit;
-            $offset = ($page - 1) * $limit;
-            
-            // Base query
-            $query = "SELECT c.*, m.first_name, m.last_name 
-                     FROM contributions c 
-                     JOIN members m ON c.member_id = m.member_id 
-                     WHERE 1=1";
-            $count_query = "SELECT COUNT(*) as total 
-                           FROM contributions c 
-                           JOIN members m ON c.member_id = m.member_id 
-                           WHERE 1=1";
-            
-            $params = [];
-            $types = "";
-            
-            // Add search condition if provided
-            if (!empty($search)) {
-                $search_term = "%" . $search . "%";
-                $query .= " AND (m.first_name LIKE ? OR m.last_name LIKE ? OR 
-                         c.receipt_number LIKE ? OR c.notes LIKE ?)"; 
-                $count_query .= " AND (m.first_name LIKE ? OR m.last_name LIKE ? OR 
-                               c.receipt_number LIKE ? OR c.notes LIKE ?)"; 
-                $params = array_merge($params, [$search_term, $search_term, $search_term, $search_term]);
-                $types .= "ssss";
-            }
-            
-            // Add filter by contribution type if provided
-            if (!empty($filter_type)) {
-                $query .= " AND c.contribution_type = ?";
-                $count_query .= " AND c.contribution_type = ?";
-                $params[] = $filter_type;
-                $types .= "s";
-            }
-            
-            // Add date range filter if provided
-            if (!empty($date_from)) {
-                $query .= " AND c.contribution_date >= ?";
-                $count_query .= " AND c.contribution_date >= ?";
-                $params[] = $date_from;
-                $types .= "s";
-            }
-            
-            if (!empty($date_to)) {
-                $query .= " AND c.contribution_date <= ?";
-                $count_query .= " AND c.contribution_date <= ?";
-                $params[] = $date_to;
-                $types .= "s";
-            }
-            
-            // Add sorting
-            $allowed_sort_columns = ['contribution_date', 'amount', 'contribution_type', 'payment_method'];
-            $sort_by = in_array($sort_by, $allowed_sort_columns) ? $sort_by : 'contribution_date';
-            $sort_order = strtoupper($sort_order) === 'ASC' ? 'ASC' : 'DESC';
-            
-            $query .= " ORDER BY c.$sort_by $sort_order";
-            
-            // Add pagination
-            $query .= " LIMIT ?, ?";
-            $params[] = $offset;
-            $params[] = $limit;
-            $types .= "ii";
-            
-            // Get total count (without pagination parameters)
-            $count_params = array_slice($params, 0, -2); // Remove offset and limit
-            $count_types = substr($types, 0, -2); // Remove "ii" for offset and limit
-            
-            $count_stmt = $this->db->prepare($count_query);
-            if (!empty($count_types)) {
-                $count_stmt->bind_param($count_types, ...$count_params);
-            }
-            $count_stmt->execute();
-            $count_result = $count_stmt->get_result();
-            $total_records = $count_result->fetch_assoc()['total'];
-            
-            // Get paginated results
-            $stmt = $this->db->prepare($query);
-            if (!empty($types)) {
-                $stmt->bind_param($types, ...$params);
-            }
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            $contributions = [];
-            while ($row = $result->fetch_assoc()) {
-                $contributions[] = $row;
-            }
-            
-            // Calculate pagination data
-            $total_pages = ceil($total_records / $limit);
-            
-            return [
-                'contributions' => $contributions,
-                'pagination' => [
-                    'total_records' => $total_records,
-                    'total_pages' => $total_pages,
-                    'current_page' => $page,
-                    'limit' => $limit
-                ]
-            ];
-        } catch (Exception $e) {
-            // Log error
-            error_log("Error getting all contributions: " . $e->getMessage());
-            return [
-                'contributions' => [],
-                'pagination' => [
-                    'total_records' => 0,
-                    'total_pages' => 0,
-                    'current_page' => $page,
-                    'limit' => $limit
-                ]
-            ];
         }
     }
     
@@ -292,198 +325,7 @@ class ContributionController {
     }
     
     /**
-     * Delete a contribution record
-     * 
-     * @param int $contribution_id Contribution ID
-     * @return bool True on success, false on failure
-     */
-    public function deleteContribution($contribution_id) {
-        try {
-            $contribution_id = (int)$contribution_id;
-            
-            $stmt = $this->db->prepare("DELETE FROM contributions WHERE contribution_id = ?");
-            $stmt->bind_param("i", $contribution_id);
-            
-            return $stmt->execute();
-        } catch (Exception $e) {
-            // Log error
-            error_log("Error deleting contribution: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Get contribution statistics
-     * 
-     * @return array Statistics data
-     */
-    public function getContributionStatistics() {
-        try {
-            // Total contributions amount
-            $total_query = "SELECT SUM(amount) as total_amount FROM contributions";
-            $total_result = $this->db->query($total_query);
-            $total_amount = $total_result->fetch_assoc()['total_amount'] ?? 0;
-            
-            // Contributions this month
-            $month_query = "SELECT SUM(amount) as month_amount FROM contributions 
-                           WHERE MONTH(contribution_date) = MONTH(CURRENT_DATE()) 
-                           AND YEAR(contribution_date) = YEAR(CURRENT_DATE())"; 
-            $month_result = $this->db->query($month_query);
-            $month_amount = $month_result->fetch_assoc()['month_amount'] ?? 0;
-            
-            // Contributions by type
-            $type_query = "SELECT contribution_type, SUM(amount) as type_amount 
-                          FROM contributions 
-                          GROUP BY contribution_type 
-                          ORDER BY type_amount DESC";
-            $type_result = $this->db->query($type_query);
-            
-            $contributions_by_type = [];
-            while ($row = $type_result->fetch_assoc()) {
-                $contributions_by_type[] = $row;
-            }
-            
-            // Recent contributions
-            $recent_query = "SELECT c.*, m.first_name, m.last_name 
-                           FROM contributions c 
-                           JOIN members m ON c.member_id = m.member_id 
-                           ORDER BY c.contribution_date DESC 
-                           LIMIT 5";
-            $recent_result = $this->db->query($recent_query);
-            
-            $recent_contributions = [];
-            while ($row = $recent_result->fetch_assoc()) {
-                $recent_contributions[] = $row;
-            }
-            
-            // Monthly contributions for the past 12 months
-            $monthly_query = "SELECT 
-                              DATE_FORMAT(contribution_date, '%Y-%m') as month,
-                              SUM(amount) as monthly_amount 
-                              FROM contributions 
-                              WHERE contribution_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH) 
-                              GROUP BY DATE_FORMAT(contribution_date, '%Y-%m') 
-                              ORDER BY month ASC";
-            $monthly_result = $this->db->query($monthly_query);
-            
-            $monthly_contributions = [];
-            while ($row = $monthly_result->fetch_assoc()) {
-                $monthly_contributions[] = $row;
-            }
-            
-            return [
-                'total_amount' => $total_amount,
-                'month_amount' => $month_amount,
-                'contributions_by_type' => $contributions_by_type,
-                'recent_contributions' => $recent_contributions,
-                'monthly_contributions' => $monthly_contributions
-            ];
-        } catch (Exception $e) {
-            // Log error
-            error_log("Error getting contribution statistics: " . $e->getMessage());
-            return [
-                'total_amount' => 0,
-                'month_amount' => 0,
-                'contributions_by_type' => [],
-                'recent_contributions' => [],
-                'monthly_contributions' => []
-            ];
-        }
-    }
-    
-    /**
-     * Get contribution types
-     * 
-     * @return array List of contribution types
-     */
-    public function getContributionTypes() {
-        return [
-            'Membership Fee',
-            'Renewal Fee',
-            'Monthly Dues',
-            'Special Assessment',
-            'Donation',
-            'Investment',
-            'Other'
-        ];
-    }
-    
-    /**
-     * Get payment methods
-     * 
-     * @return array List of payment methods
-     */
-    public function getPaymentMethods() {
-        return [
-            'Cash',
-            'Check',
-            'Bank Transfer',
-            'Credit Card',
-            'Debit Card',
-            'Mobile Money',
-            'Other'
-        ];
-    }
-    
-    /**
-     * Get member contributions with pagination
-     * 
-     * @param int $member_id Member ID
-     * @param int $page Current page number
-     * @param int $limit Records per page
-     * @return array Contributions and pagination data
-     */
-    public function getMemberContributions($member_id, $page = 1, $limit = 10) {
-        try {
-            $member_id = (int)$member_id;
-            $page = max(1, (int)$page);
-            $limit = max(1, (int)$limit);
-            $offset = ($page - 1) * $limit;
-            
-            // Get total count
-            $count_stmt = $this->db->prepare("SELECT COUNT(*) as total FROM contributions WHERE member_id = ?");
-            $count_stmt->bind_param("i", $member_id);
-            $count_stmt->execute();
-            $total_records = $count_stmt->get_result()->fetch_assoc()['total'];
-            
-            // Get contributions
-            $stmt = $this->db->prepare("SELECT * FROM contributions WHERE member_id = ? ORDER BY contribution_date DESC LIMIT ? OFFSET ?");
-            $stmt->bind_param("iii", $member_id, $limit, $offset);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            $contributions = [];
-            while ($row = $result->fetch_assoc()) {
-                $contributions[] = $row;
-            }
-            
-            $total_pages = ceil($total_records / $limit);
-            
-            return [
-                'contributions' => $contributions,
-                'pagination' => [
-                    'total_records' => $total_records,
-                    'total_pages' => $total_pages,
-                    'current_page' => $page,
-                    'limit' => $limit
-                ]
-            ];
-        } catch (Exception $e) {
-            error_log("Error getting member contributions: " . $e->getMessage());
-            return [
-                'contributions' => [],
-                'pagination' => [
-                    'total_records' => 0,
-                    'total_pages' => 0,
-                    'current_page' => $page,
-                    'limit' => $limit
-                ]
-            ];
-        }
-    }
-    
-    /**
-     * Get member total contributions
+     * Get total contributions for a member
      * 
      * @param int $member_id Member ID
      * @return float Total contribution amount
@@ -495,17 +337,22 @@ class ContributionController {
             $stmt = $this->db->prepare("SELECT SUM(amount) as total FROM contributions WHERE member_id = ?");
             $stmt->bind_param("i", $member_id);
             $stmt->execute();
-            $result = $stmt->get_result()->fetch_assoc();
+            $result = $stmt->get_result();
             
-            return (float)($result['total'] ?? 0);
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                return (float)$row['total'] ?? 0;
+            }
+            
+            return 0;
         } catch (Exception $e) {
             error_log("Error getting member total contributions: " . $e->getMessage());
-            return 0.0;
+            return 0;
         }
     }
     
     /**
-     * Get member contribution count
+     * Get contribution count for a member
      * 
      * @param int $member_id Member ID
      * @return int Number of contributions
@@ -517,9 +364,14 @@ class ContributionController {
             $stmt = $this->db->prepare("SELECT COUNT(*) as count FROM contributions WHERE member_id = ?");
             $stmt->bind_param("i", $member_id);
             $stmt->execute();
-            $result = $stmt->get_result()->fetch_assoc();
+            $result = $stmt->get_result();
             
-            return (int)($result['count'] ?? 0);
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                return (int)$row['count'];
+            }
+            
+            return 0;
         } catch (Exception $e) {
             error_log("Error getting member contribution count: " . $e->getMessage());
             return 0;
@@ -527,7 +379,7 @@ class ContributionController {
     }
     
     /**
-     * Get member last contribution
+     * Get last contribution for a member
      * 
      * @param int $member_id Member ID
      * @return array|null Last contribution data or null if none found
@@ -550,17 +402,6 @@ class ContributionController {
             error_log("Error getting member last contribution: " . $e->getMessage());
             return null;
         }
-    }
-    
-    /**
-     * Get contributions for a specific member (wrapper method for compatibility)
-     * 
-     * @param int $member_id Member ID
-     * @param int $limit Number of records to return (0 for all)
-     * @return array|bool Contribution data or false on failure
-     */
-    public function getContributionsByMember($member_id, $limit = 0) {
-        return $this->getContributionsByMemberId($member_id, $limit);
     }
 }
 ?>

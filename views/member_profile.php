@@ -489,7 +489,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <?php echo $member['status']; ?>
                                         </span>
                                     </p>
-                                    <p><strong>Fee:</strong> $<?php echo number_format($member['membership_fee'], 2); ?></p>
+                                    <p><strong>Fee:</strong> =N=<?php echo number_format($member['membership_fee'], 2); ?></p>
                                 </div>
                             </div>
                                 </div>
@@ -669,3 +669,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-coins fa-2x mb-2"></i>
+                <h4>₦<?php echo number_format($member['monthly_contribution'], 2); ?></h4>
+                <p class="mb-0">Monthly Contribution</p>
+            </div>
+        </div>
+    </div>
+    <!-- Add other profile stats here -->
+</div>

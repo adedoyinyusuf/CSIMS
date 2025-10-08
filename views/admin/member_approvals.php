@@ -154,6 +154,7 @@ $pendingMembers = $memberController->getPendingMembers();
                                                 </td>
                                                 <td>
                                                     <span class="badge bg-info"><?php echo htmlspecialchars($member['membership_type']); ?></span>
+                                                    <td><?php echo isset($member['membership_type']) ? ucfirst($member['membership_type']) : 'Member'; ?></td>
                                                 </td>
                                                 <td><?php echo date('M d, Y', strtotime($member['join_date'])); ?></td>
                                                 <td>

@@ -46,11 +46,11 @@ class FinancialAnalyticsController {
                     (SELECT COALESCE(SUM(amount), 0) FROM contributions WHERE {$date_filter['where']}) as total_contributions,
                     (SELECT COALESCE(SUM(amount), 0) FROM investments WHERE status = 'Active' AND {$date_filter['where']}) as active_investments,
                     (SELECT COALESCE(SUM(amount - COALESCE((SELECT SUM(amount) FROM loan_repayments WHERE loan_id = loans.loan_id), 0)), 0) 
-                     FROM loans WHERE status = 'Active' AND {$date_filter['where']}) as outstanding_loans,
+                     FROM loans WHERE status IN ('Approved', 'Disbursed') AND {$date_filter['where']}) as outstanding_loans,
                     
                     -- Liquidity Metrics
                     (SELECT COALESCE(SUM(amount), 0) FROM contributions WHERE {$date_filter['where']}) - 
-                    (SELECT COALESCE(SUM(amount), 0) FROM loans WHERE status = 'Active' AND {$date_filter['where']}) as liquidity_ratio,
+                    (SELECT COALESCE(SUM(amount), 0) FROM loans WHERE status IN ('Approved', 'Disbursed') AND {$date_filter['where']}) as liquidity_ratio,
                     
                     -- Growth Metrics
                     (SELECT COUNT(*) FROM members WHERE {$date_filter['where']}) as new_members,
@@ -123,7 +123,7 @@ class FinancialAnalyticsController {
                          COALESCE(SUM(amount), 0) as amount,
                          COUNT(*) as transaction_count
                         FROM loans 
-                        WHERE status IN ('Active', 'Paid') AND {$date_filter['where']}
+                        WHERE status IN ('Approved', 'Disbursed', 'Paid') AND {$date_filter['where']}
                         UNION ALL
                         SELECT 
                          'New Investments' as source,
@@ -161,14 +161,14 @@ class FinancialAnalyticsController {
         $sql = "SELECT 
                     COUNT(*) as total_loans,
                     COALESCE(SUM(amount), 0) as total_loan_amount,
-                    COALESCE(SUM(CASE WHEN status = 'Active' THEN amount ELSE 0 END), 0) as active_loan_amount,
+                    COALESCE(SUM(CASE WHEN status IN ('Approved', 'Disbursed') THEN amount ELSE 0 END), 0) as active_loan_amount,
                     COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END), 0) as paid_loan_amount,
                     COALESCE(AVG(interest_rate), 0) as avg_interest_rate,
                     COALESCE(AVG(DATEDIFF(CURDATE(), created_at)), 0) as avg_loan_age_days,
                     
                     -- Delinquency metrics
                     (SELECT COUNT(*) FROM loans l 
-                     WHERE l.status = 'Active' 
+                     WHERE l.status IN ('Approved', 'Disbursed')
                      AND DATEDIFF(CURDATE(), l.created_at) > (l.term * 30)
                      AND {$date_filter['where']}) as overdue_loans,
                      
@@ -242,7 +242,7 @@ class FinancialAnalyticsController {
                     CONCAT(m.first_name, ' ', m.last_name) as member_name,
                     COALESCE(SUM(c.amount), 0) as total_contributions,
                     COALESCE(SUM(l.amount), 0) as total_loans,
-                    COALESCE(SUM(CASE WHEN l.status = 'Active' THEN l.amount ELSE 0 END), 0) as active_loans,
+                    COALESCE(SUM(CASE WHEN l.status IN ('Approved', 'Disbursed') THEN l.amount ELSE 0 END), 0) as active_loans,
                     COALESCE(SUM(lp.amount), 0) as total_payments,
                     COUNT(DISTINCT l.loan_id) as loan_count,
                     

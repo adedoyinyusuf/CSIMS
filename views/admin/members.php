@@ -202,7 +202,7 @@ $membership_types = $memberController->getMembershipTypes();
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                <?php echo $member['membership_type']; ?>
+                                                <?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?>
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

@@ -43,9 +43,9 @@ if (!$loan) {
     exit();
 }
 
-// Only active loans can receive repayments
-if ($loan['status'] !== 'active') {
-    $_SESSION['flash_message'] = "Only active loans can receive repayments";
+// Only approved, disbursed, or active loans can receive repayments
+if (!in_array($loan['status'], ['Approved', 'Disbursed', 'Active'])) {
+    $_SESSION['flash_message'] = "Only approved, disbursed, or active loans can receive repayments";
     $_SESSION['flash_message_class'] = "alert-danger";
     header('Location: view_loan.php?id=' . $loan_id);
     exit();

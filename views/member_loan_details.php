@@ -10,43 +10,58 @@ if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
     exit();
 }
 
-$loanController = new LoanController();
-$memberController = new MemberController();
+try {
+    $loanController = new LoanController();
+    $memberController = new MemberController();
 
-$member_id = $_SESSION['member_id'];
-$member = $memberController->getMemberById($member_id);
+    $member_id = $_SESSION['member_id'];
+    $member = $memberController->getMemberById($member_id);
 
-// Get loan ID from URL
-$loan_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    if (!$member) {
+        header('Location: member_login.php');
+        exit();
+    }
 
-if (!$loan_id) {
+    // Get loan ID from URL
+    $loan_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+    if (!$loan_id) {
+        header('Location: member_loans.php');
+        exit();
+    }
+
+    // Get loan details
+    $loan = $loanController->getLoanById($loan_id);
+
+    // Check if loan exists and belongs to the logged-in member
+    if (!$loan || $loan['member_id'] != $member_id) {
+        header('Location: member_loans.php');
+        exit();
+    }
+
+    // Get loan repayments if loan is active
+    $repayments = [];
+    if (in_array($loan['status'], ['Approved', 'Disbursed', 'Active'])) {
+        $repayments = $loanController->getLoanRepayments($loan_id);
+        if ($repayments === false) {
+            $repayments = [];
+        }
+    }
+
+    // Calculate loan progress
+    $total_paid = 0;
+    foreach ($repayments as $repayment) {
+        $total_paid += (float)$repayment['amount'];
+    }
+
+    $remaining_balance = (float)$loan['amount'] - $total_paid;
+    $progress_percentage = $loan['amount'] > 0 ? ($total_paid / $loan['amount']) * 100 : 0;
+    
+} catch (Exception $e) {
+    error_log("Error in loan details page: " . $e->getMessage());
     header('Location: member_loans.php');
     exit();
 }
-
-// Get loan details
-$loan = $loanController->getLoanById($loan_id);
-
-// Check if loan exists and belongs to the logged-in member
-if (!$loan || $loan['member_id'] != $member_id) {
-    header('Location: member_loans.php');
-    exit();
-}
-
-// Get loan repayments if loan is active
-$repayments = [];
-if ($loan['status'] === 'Active') {
-    $repayments = $loanController->getLoanRepayments($loan_id);
-}
-
-// Calculate loan progress
-$total_paid = 0;
-foreach ($repayments as $repayment) {
-    $total_paid += $repayment['amount'];
-}
-
-$remaining_balance = $loan['amount'] - $total_paid;
-$progress_percentage = $loan['amount'] > 0 ? ($total_paid / $loan['amount']) * 100 : 0;
 ?>
 
 <!DOCTYPE html>
@@ -186,17 +201,17 @@ $progress_percentage = $loan['amount'] > 0 ? ($total_paid / $loan['amount']) * 1
                                             </div>
                                             <div class="info-item">
                                                 <strong>Loan Term:</strong>
-                                                <div><?php echo $loan['term_months']; ?> months</div>
+                                                <div><?php echo isset($loan['term_months']) ? $loan['term_months'] : (isset($loan['term']) ? $loan['term'] : 'N/A'); ?> months</div>
                                             </div>
                                             <div class="info-item">
                                                 <strong>Interest Rate:</strong>
-                                                <div><?php echo $loan['interest_rate']; ?>% per annum</div>
+                                                <div><?php echo isset($loan['interest_rate']) ? number_format($loan['interest_rate'], 2) : 'N/A'; ?>% per annum</div>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="info-item">
                                                 <strong>Monthly Payment:</strong>
-                                                <div class="text-success fs-5">₦<?php echo number_format($loan['monthly_payment'], 2); ?></div>
+                                                <div class="text-success fs-5">₦<?php echo isset($loan['monthly_payment']) ? number_format($loan['monthly_payment'], 2) : 'N/A'; ?></div>
                                             </div>
                                             <div class="info-item">
                                                 <strong>Purpose:</strong>
@@ -228,11 +243,11 @@ $progress_percentage = $loan['amount'] > 0 ? ($total_paid / $loan['amount']) * 1
                                     <div class="row">
                                         <div class="col-md-6">
                                             <h6><i class="fas fa-shield-alt me-2"></i> Collateral</h6>
-                                            <p class="text-muted"><?php echo nl2br(htmlspecialchars($loan['collateral'])); ?></p>
+                                            <p class="text-muted"><?php echo isset($loan['collateral']) && !empty($loan['collateral']) ? nl2br(htmlspecialchars($loan['collateral'])) : 'No collateral specified'; ?></p>
                                         </div>
                                         <div class="col-md-6">
                                             <h6><i class="fas fa-user-shield me-2"></i> Guarantor</h6>
-                                            <p class="text-muted"><?php echo nl2br(htmlspecialchars($loan['guarantor'])); ?></p>
+                                            <p class="text-muted"><?php echo isset($loan['guarantor']) && !empty($loan['guarantor']) ? nl2br(htmlspecialchars($loan['guarantor'])) : 'No guarantor specified'; ?></p>
                                         </div>
                                     </div>
                                 </div>
@@ -312,22 +327,170 @@ $progress_percentage = $loan['amount'] > 0 ? ($total_paid / $loan['amount']) * 1
                                         <strong>Principal Amount:</strong>
                                         <div>₦<?php echo number_format($loan['amount'], 2); ?></div>
                                     </div>
-                                    <div class="info-item">
-                                        <strong>Total Interest:</strong>
-                                        <div>₦<?php echo number_format(($loan['monthly_payment'] * $loan['term_months']) - $loan['amount'], 2); ?></div>
-                                    </div>
-                                    <div class="info-item">
-                                        <strong>Total Payable:</strong>
-                                        <div class="fw-bold text-primary">₦<?php echo number_format($loan['monthly_payment'] * $loan['term_months'], 2); ?></div>
-                                    </div>
-                                    <?php if ($loan['status'] === 'Active'): ?>
+                                    <?php if (isset($loan['term']) && isset($loan['monthly_payment'])): ?>
+                                        <?php 
+                                        $total_payable = $loan['monthly_payment'] * $loan['term'];
+                                        $total_interest = $total_payable - $loan['amount'];
+                                        $effective_rate = $loan['amount'] > 0 ? ($total_interest / $loan['amount']) * 100 : 0;
+                                        ?>
+                                        <div class="info-item">
+                                            <strong>Total Interest:</strong>
+                                            <div>₦<?php echo number_format($total_interest, 2); ?></div>
+                                            <small class="text-muted">Effective rate: <?php echo number_format($effective_rate, 2); ?>% over <?php echo $loan['term']; ?> months</small>
+                                        </div>
+                                        <div class="info-item">
+                                            <strong>Total Payable:</strong>
+                                            <div class="fw-bold text-primary">₦<?php echo number_format($total_payable, 2); ?></div>
+                                            <small class="text-muted">Principal + Interest using amortization formula</small>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if (in_array($loan['status'], ['Approved', 'Disbursed', 'Active'])): ?>
                                         <div class="info-item">
                                             <strong>Payments Made:</strong>
-                                            <div><?php echo count($repayments); ?> of <?php echo $loan['term_months']; ?></div>
+                                            <div><?php echo count($repayments); ?><?php echo isset($loan['term']) ? ' of ' . $loan['term'] : ''; ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Additional loan details -->
+                                    <?php if (isset($loan['percentage'])): ?>
+                                        <div class="info-item">
+                                            <strong>Loan Percentage:</strong>
+                                            <div><?php echo $loan['percentage']; ?>%</div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (isset($loan['amount_applied']) && $loan['amount_applied'] != $loan['amount']): ?>
+                                        <div class="info-item">
+                                            <strong>Amount Applied:</strong>
+                                            <div>₦<?php echo number_format($loan['amount_applied'], 2); ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (isset($loan['disbursed']) && $loan['disbursed'] > 0): ?>
+                                        <div class="info-item">
+                                            <strong>Amount Disbursed:</strong>
+                                            <div>₦<?php echo number_format($loan['disbursed'], 2); ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (isset($loan['interest_on_loan']) && $loan['interest_on_loan'] > 0): ?>
+                                        <div class="info-item">
+                                            <strong>Interest on Loan:</strong>
+                                            <div>₦<?php echo number_format($loan['interest_on_loan'], 2); ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (isset($loan['savings']) && $loan['savings'] > 0): ?>
+                                        <div class="info-item">
+                                            <strong>Savings:</strong>
+                                            <div>₦<?php echo number_format($loan['savings'], 2); ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (isset($loan['deducted_for_loan']) && $loan['deducted_for_loan'] > 0): ?>
+                                        <div class="info-item">
+                                            <strong>Deducted for Loan:</strong>
+                                            <div>₦<?php echo number_format($loan['deducted_for_loan'], 2); ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (isset($loan['total_deducted']) && $loan['total_deducted'] > 0): ?>
+                                        <div class="info-item">
+                                            <strong>Total Deducted:</strong>
+                                            <div>₦<?php echo number_format($loan['total_deducted'], 2); ?></div>
                                         </div>
                                     <?php endif; ?>
                                 </div>
                             </div>
+                            
+                            <!-- Payment Breakdown -->
+                            <?php if (isset($loan['term']) && isset($loan['monthly_payment']) && isset($loan['interest_rate'])): ?>
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Payment Structure</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h6 class="text-muted mb-1">Monthly Payment</h6>
+                                                    <h4 class="text-success mb-0">₦<?php echo number_format($loan['monthly_payment'], 2); ?></h4>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h6 class="text-muted mb-1">Total Payments</h6>
+                                                    <h4 class="text-primary mb-0"><?php echo $loan['term']; ?> months</h4>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h6 class="text-muted mb-1">Interest Rate</h6>
+                                                    <h4 class="text-info mb-0"><?php echo number_format($loan['interest_rate'], 2); ?>%</h4>
+                                                    <small class="text-muted">per annum</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                This loan uses an amortizing payment structure where each payment includes both principal and interest. 
+                                                Early payments have more interest, later payments have more principal.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Payment Schedule Info -->
+                            <?php if (isset($loan['duration_months']) || isset($loan['deduction_month_started']) || isset($loan['deduction_month_end'])): ?>
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Payment Schedule</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <?php if (isset($loan['duration_months'])): ?>
+                                            <div class="info-item">
+                                                <strong>Duration:</strong>
+                                                <div><?php echo $loan['duration_months']; ?> months</div>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <?php if (isset($loan['deduction_month_started'])): ?>
+                                            <div class="info-item">
+                                                <strong>Deduction Started:</strong>
+                                                <div><?php echo htmlspecialchars($loan['deduction_month_started']); ?></div>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <?php if (isset($loan['deduction_month_end'])): ?>
+                                            <div class="info-item">
+                                                <strong>Deduction Should End:</strong>
+                                                <div><?php echo htmlspecialchars($loan['deduction_month_end']); ?></div>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <?php if (isset($loan['other_payment_plans']) && !empty($loan['other_payment_plans'])): ?>
+                                            <div class="info-item">
+                                                <strong>Other Payment Plans:</strong>
+                                                <div><?php echo nl2br(htmlspecialchars($loan['other_payment_plans'])); ?></div>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Remarks -->
+                            <?php if (isset($loan['remarks']) && !empty($loan['remarks'])): ?>
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Remarks</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($loan['remarks'])); ?></p>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                             
                             <!-- Actions -->
                             <?php if ($loan['status'] === 'Pending'): ?>

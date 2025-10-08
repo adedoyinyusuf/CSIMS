@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result) {
             $_SESSION['flash_message'] = "Contribution added successfully.";
             $_SESSION['flash_message_type'] = "success";
-            header('Location: ' . BASE_URL . '/admin/contributions.php');
+            header('Location: ' . BASE_URL . '/views/admin/contributions.php');
             exit;
         } else {
             $errors[] = "Failed to add contribution. Please try again.";
@@ -89,21 +89,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Page title
 $pageTitle = "Add New Contribution";
-
-// Include header
-include_once '../includes/header.php';
 ?>
 
-<!-- Main Content -->
-<div class="flex-1 ml-64 bg-gray-50">
-    <div class="p-8">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title><?php echo $pageTitle; ?> - CSIMS</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f4ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gray-50 font-sans">
+    <div class="flex h-screen bg-gray-50">
+        <!-- Sidebar -->
+        <?php include_once '../includes/sidebar.php'; ?>
+        
+        <!-- Content Wrapper -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <?php include_once '../includes/header.php'; ?>
+            
+            <!-- Main Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6 pl-12">
+                <div class="max-w-3xl mx-auto ml-12">
         <!-- Page Heading -->
         <div class="flex items-center justify-between mb-8">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">Add New Contribution</h1>
                 <p class="text-gray-600 mt-2">Create a new member contribution record</p>
             </div>
-            <a href="<?php echo BASE_URL; ?>/admin/contributions.php" class="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200">
+            <a href="<?php echo BASE_URL; ?>/views/admin/contributions.php" class="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200">
                 <i class="fas fa-arrow-left mr-2"></i> Back to Contributions
             </a>
         </div>
@@ -112,14 +152,14 @@ include_once '../includes/header.php';
         <nav class="flex mb-8" aria-label="Breadcrumb">
             <ol class="inline-flex items-center space-x-1 md:space-x-3">
                 <li class="inline-flex items-center">
-                    <a href="<?php echo BASE_URL; ?>/admin/dashboard.php" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
                         <i class="fas fa-home mr-2"></i> Dashboard
                     </a>
                 </li>
                 <li>
                     <div class="flex items-center">
                         <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                        <a href="<?php echo BASE_URL; ?>/admin/contributions.php" class="text-sm font-medium text-gray-700 hover:text-blue-600">Contributions</a>
+                        <a href="<?php echo BASE_URL; ?>/views/admin/contributions.php" class="text-sm font-medium text-gray-700 hover:text-blue-600">Contributions</a>
                     </div>
                 </li>
                 <li aria-current="page">
@@ -260,7 +300,7 @@ include_once '../includes/header.php';
                         
                         <!-- Submit Button -->
                         <div class="md:col-span-2 flex items-center justify-end space-x-4 pt-4">
-                            <a href="<?php echo BASE_URL; ?>/admin/contributions.php" class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                            <a href="<?php echo BASE_URL; ?>/views/admin/contributions.php" class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200">
                                 Cancel
                             </a>
                             <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center">
@@ -271,72 +311,71 @@ include_once '../includes/header.php';
                 </form>
             </div>
         </div>
+                </div>
+            </main>
+        </div>
     </div>
-</div>
 
-<script>
-    // Form validation
-    document.getElementById('contributionForm').addEventListener('submit', function(event) {
-        let valid = true;
-        const member = document.getElementById('member_id').value;
-        const amount = document.getElementById('amount').value;
-        const date = document.getElementById('contribution_date').value;
-        const type = document.getElementById('contribution_type').value;
-        const method = document.getElementById('payment_method').value;
-        
-        // Reset previous error messages
-        document.querySelectorAll('.border-red-500').forEach(function(element) {
-            element.classList.remove('border-red-500', 'ring-red-500');
-            element.classList.add('border-gray-300');
+    <script>
+        // Form validation
+        document.getElementById('contributionForm').addEventListener('submit', function(event) {
+            let valid = true;
+            const member = document.getElementById('member_id').value;
+            const amount = document.getElementById('amount').value;
+            const date = document.getElementById('contribution_date').value;
+            const type = document.getElementById('contribution_type').value;
+            const method = document.getElementById('payment_method').value;
+            
+            // Reset previous error messages
+            document.querySelectorAll('.border-red-500').forEach(function(element) {
+                element.classList.remove('border-red-500', 'ring-red-500');
+                element.classList.add('border-gray-300');
+            });
+            
+            // Validate member
+            if (!member) {
+                const memberField = document.getElementById('member_id');
+                memberField.classList.remove('border-gray-300');
+                memberField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            // Validate amount
+            if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+                const amountField = document.getElementById('amount');
+                amountField.classList.remove('border-gray-300');
+                amountField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            // Validate date
+            if (!date) {
+                const dateField = document.getElementById('contribution_date');
+                dateField.classList.remove('border-gray-300');
+                dateField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            // Validate type
+            if (!type) {
+                const typeField = document.getElementById('contribution_type');
+                typeField.classList.remove('border-gray-300');
+                typeField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            // Validate payment method
+            if (!method) {
+                const methodField = document.getElementById('payment_method');
+                methodField.classList.remove('border-gray-300');
+                methodField.classList.add('border-red-500', 'ring-red-500');
+                valid = false;
+            }
+            
+            if (!valid) {
+                event.preventDefault();
+            }
         });
-        
-        // Validate member
-        if (!member) {
-            const memberField = document.getElementById('member_id');
-            memberField.classList.remove('border-gray-300');
-            memberField.classList.add('border-red-500', 'ring-red-500');
-            valid = false;
-        }
-        
-        // Validate amount
-        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
-            const amountField = document.getElementById('amount');
-            amountField.classList.remove('border-gray-300');
-            amountField.classList.add('border-red-500', 'ring-red-500');
-            valid = false;
-        }
-        
-        // Validate date
-        if (!date) {
-            const dateField = document.getElementById('contribution_date');
-            dateField.classList.remove('border-gray-300');
-            dateField.classList.add('border-red-500', 'ring-red-500');
-            valid = false;
-        }
-        
-        // Validate type
-        if (!type) {
-            const typeField = document.getElementById('contribution_type');
-            typeField.classList.remove('border-gray-300');
-            typeField.classList.add('border-red-500', 'ring-red-500');
-            valid = false;
-        }
-        
-        // Validate payment method
-        if (!method) {
-            const methodField = document.getElementById('payment_method');
-            methodField.classList.remove('border-gray-300');
-            methodField.classList.add('border-red-500', 'ring-red-500');
-            valid = false;
-        }
-        
-        if (!valid) {
-            event.preventDefault();
-        }
-    });
-</script>
-
-<?php
-// Include footer
-include_once '../includes/footer.php';
-?>
+    </script>
+</body>
+</html>
