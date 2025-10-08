@@ -3,7 +3,9 @@
 namespace CSIMS\Services;
 
 use CSIMS\Models\Loan;
+use CSIMS\Models\LoanGuarantor;
 use CSIMS\Repositories\LoanRepository;
+use CSIMS\Repositories\LoanGuarantorRepository;
 use CSIMS\Repositories\MemberRepository;
 use CSIMS\Services\SecurityService;
 use CSIMS\DTOs\ValidationResult;
@@ -21,15 +23,18 @@ class LoanService
     private LoanRepository $loanRepository;
     private MemberRepository $memberRepository;
     private SecurityService $securityService;
+    private ?LoanGuarantorRepository $guarantorRepository;
     
     public function __construct(
         LoanRepository $loanRepository,
         MemberRepository $memberRepository,
-        SecurityService $securityService
+        SecurityService $securityService,
+        ?LoanGuarantorRepository $guarantorRepository = null
     ) {
         $this->loanRepository = $loanRepository;
         $this->memberRepository = $memberRepository;
         $this->securityService = $securityService;
+        $this->guarantorRepository = $guarantorRepository;
     }
     
     /**
@@ -511,5 +516,157 @@ class LoanService
         // This would require extending the QueryBuilder to support LIKE operations
         // For now, return regular filtered results
         return $this->getLoans($filters, $page, $limit);
+    }
+    
+    /**
+     * Add guarantors to a loan
+     * 
+     * @param int $loanId
+     * @param array $guarantorsData
+     * @return array
+     * @throws ValidationException
+     * @throws DatabaseException
+     */
+    public function addGuarantorsToLoan(int $loanId, array $guarantorsData): array
+    {
+        if (!$this->guarantorRepository) {
+            throw new DatabaseException('Guarantor repository not available');
+        }
+        
+        $addedGuarantors = [];
+        
+        foreach ($guarantorsData as $guarantorData) {
+            $guarantorData['loan_id'] = $loanId;
+            $guarantorData = $this->securityService->sanitizeArray($guarantorData);
+            
+            $guarantor = new LoanGuarantor($guarantorData);
+            
+            $validation = $guarantor->validate();
+            if (!$validation->isValid()) {
+                throw new ValidationException('Invalid guarantor data: ' . implode(', ', $validation->getErrors()));
+            }
+            
+            // Check if guarantor can provide this guarantee
+            $eligibility = $this->guarantorRepository->canMemberGuarantee(
+                $guarantor->getGuarantorMemberId(),
+                $guarantor->getGuaranteeAmount()
+            );
+            
+            if (!$eligibility['can_guarantee']) {
+                throw new ValidationException($eligibility['reason'] ?? 'Guarantor not eligible');
+            }
+            
+            $addedGuarantors[] = $this->guarantorRepository->create($guarantor);
+        }
+        
+        return $addedGuarantors;
+    }
+    
+    /**
+     * Get loan with its guarantors
+     * 
+     * @param int $loanId
+     * @return array
+     * @throws DatabaseException
+     */
+    public function getLoanWithGuarantors(int $loanId): array
+    {
+        $loan = $this->loanRepository->find($loanId);
+        if (!$loan) {
+            throw new ValidationException('Loan not found');
+        }
+        
+        $guarantors = [];
+        $totalGuaranteeAmount = 0;
+        
+        if ($this->guarantorRepository) {
+            $guarantors = $this->guarantorRepository->findByLoan($loanId);
+            $totalGuaranteeAmount = $this->guarantorRepository->getTotalGuaranteeAmount($loanId);
+        }
+        
+        return [
+            'loan' => $loan,
+            'guarantors' => $guarantors,
+            'total_guarantee_amount' => $totalGuaranteeAmount,
+            'guarantee_coverage_percentage' => $loan->getAmount() > 0 ? 
+                round(($totalGuaranteeAmount / $loan->getAmount()) * 100, 2) : 0
+        ];
+    }
+    
+    /**
+     * Get loans guaranteed by a member
+     * 
+     * @param int $memberId
+     * @return array
+     * @throws DatabaseException
+     */
+    public function getLoansGuaranteedByMember(int $memberId): array
+    {
+        if (!$this->guarantorRepository) {
+            return [];
+        }
+        
+        return $this->guarantorRepository->findByGuarantor($memberId);
+    }
+    
+    /**
+     * Remove a guarantor from a loan
+     * 
+     * @param int $guarantorId
+     * @return bool
+     * @throws ValidationException
+     * @throws DatabaseException
+     */
+    public function removeGuarantor(int $guarantorId): bool
+    {
+        if (!$this->guarantorRepository) {
+            throw new DatabaseException('Guarantor repository not available');
+        }
+        
+        return $this->guarantorRepository->delete($guarantorId);
+    }
+    
+    /**
+     * Update guarantor status
+     * 
+     * @param int $guarantorId
+     * @param string $status
+     * @return bool
+     * @throws ValidationException
+     * @throws DatabaseException
+     */
+    public function updateGuarantorStatus(int $guarantorId, string $status): bool
+    {
+        if (!$this->guarantorRepository) {
+            throw new DatabaseException('Guarantor repository not available');
+        }
+        
+        $guarantor = $this->guarantorRepository->find($guarantorId);
+        if (!$guarantor) {
+            throw new ValidationException('Guarantor not found');
+        }
+        
+        $status = $this->securityService->sanitizeString($status);
+        $guarantor->setStatus($status);
+        
+        return $this->guarantorRepository->update($guarantor) !== null;
+    }
+    
+    /**
+     * Get enhanced loan statistics including guarantor information
+     * 
+     * @return array
+     * @throws DatabaseException
+     */
+    public function getEnhancedLoanStatistics(): array
+    {
+        $loanStats = $this->loanRepository->getStatistics();
+        
+        if ($this->guarantorRepository) {
+            $guarantorStats = $this->guarantorRepository->getStatistics();
+            $loanStats['guarantor_statistics'] = $guarantorStats;
+        }
+        
+        return $loanStats;
     }
 }

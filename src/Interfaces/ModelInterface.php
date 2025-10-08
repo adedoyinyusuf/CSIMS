@@ -2,6 +2,8 @@
 
 namespace CSIMS\Interfaces;
 
+use CSIMS\DTOs\ValidationResult;
+
 /**
  * Base Model Interface
  * 

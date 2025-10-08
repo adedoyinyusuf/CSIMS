@@ -43,7 +43,8 @@ class SecurityService
             'float' => filter_var($data, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION),
             'url' => filter_var($data, FILTER_SANITIZE_URL),
             'html' => htmlspecialchars($data, ENT_QUOTES, 'UTF-8'),
-            'string', default => htmlspecialchars(strip_tags($data), ENT_QUOTES, 'UTF-8')
+            'string' => htmlspecialchars(strip_tags($data), ENT_QUOTES, 'UTF-8'),
+            default => htmlspecialchars(strip_tags($data), ENT_QUOTES, 'UTF-8')
         };
     }
     
