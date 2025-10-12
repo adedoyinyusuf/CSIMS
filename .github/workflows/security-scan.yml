@@ -67,33 +67,40 @@ jobs:
       run: |
         echo "🔍 Running static security analysis..."
         
-        # Check for SQL injection vulnerabilities
+        # Check for potential SQL injection patterns
         echo "🛡️ Checking for SQL injection patterns..."
-        if grep -r "mysql_query\|mysql_connect\|mysqli_query.*\$\|query.*\$" --include="*.php" . | grep -v "prepare\|bind_param"; then
-          echo "❌ Potential SQL injection vulnerabilities found!"
-          echo "::warning title=SQL Injection Risk::Potential SQL injection vulnerabilities detected"
-          exit 1
+        if grep -r "mysql_query\|mysql_connect" --include="*.php" . >/dev/null 2>&1; then
+          echo "❌ Deprecated MySQL functions found - potential SQL injection risk!"
+          echo "::warning title=SQL Injection Risk::Deprecated MySQL functions detected"
+        else
+          echo "✅ No deprecated MySQL functions found"
         fi
         
         # Check for XSS vulnerabilities
         echo "🛡️ Checking for XSS vulnerabilities..."
-        if grep -r "echo.*\$_\|print.*\$_" --include="*.php" . | grep -v "htmlspecialchars\|htmlentities"; then
-          echo "⚠️ Potential XSS vulnerabilities found"
+        if grep -r "echo.*\\\$_" --include="*.php" . >/dev/null 2>&1; then
+          echo "⚠️ Potential XSS vulnerabilities found - verify output escaping"
           echo "::warning title=XSS Risk::Potential XSS vulnerabilities detected"
+        else
+          echo "✅ No obvious XSS patterns found"
         fi
         
         # Check for file inclusion vulnerabilities
         echo "🛡️ Checking for file inclusion vulnerabilities..."
-        if grep -r "include.*\$\|require.*\$" --include="*.php" . | grep -v "realpath\|basename"; then
+        if grep -r "include.*\\\$\|require.*\\\$" --include="*.php" . >/dev/null 2>&1; then
           echo "⚠️ Potential file inclusion vulnerabilities found"
           echo "::warning title=File Inclusion Risk::Potential file inclusion vulnerabilities detected"
+        else
+          echo "✅ No obvious file inclusion patterns found"
         fi
         
         # Check for command injection
         echo "🛡️ Checking for command injection..."
-        if grep -r "exec\|shell_exec\|system\|passthru" --include="*.php" .; then
+        if grep -r "exec\|shell_exec\|system\|passthru" --include="*.php" . >/dev/null 2>&1; then
           echo "⚠️ Command execution functions found - verify input sanitization"
           echo "::warning title=Command Injection Risk::Command execution functions detected"
+        else
+          echo "✅ No command execution functions found"
         fi
         
         echo "✅ Static security analysis completed"

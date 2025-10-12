@@ -45,18 +45,20 @@ jobs:
         echo "🔍 Scanning for potential security issues..."
         
         # Check for potential SQL injection patterns
-        if grep -r "mysql_query\|mysql_connect" --include="*.php" . && [ $? -eq 0 ]; then
+        if grep -r "mysql_query\|mysql_connect" --include="*.php" . >/dev/null 2>&1; then
           echo "❌ Found deprecated MySQL functions - security risk!"
           exit 1
         fi
         
         # Check for eval() usage
-        if grep -r "eval(" --include="*.php" . && [ $? -eq 0 ]; then
+        if grep -r "eval(" --include="*.php" . >/dev/null 2>&1; then
           echo "⚠️ Found eval() usage - potential security risk!"
         fi
         
         # Check for proper password hashing
-        if ! grep -r "password_hash\|PASSWORD_DEFAULT" --include="*.php" . && [ $? -ne 0 ]; then
+        if grep -r "password_hash\|PASSWORD_DEFAULT" --include="*.php" . >/dev/null 2>&1; then
+          echo "✅ Secure password hashing found"
+        else
           echo "⚠️ No password hashing found - verify authentication security"
         fi
         
@@ -67,12 +69,14 @@ jobs:
         echo "🔍 Running code quality checks..."
         
         # Check for debug code that shouldn't be in production
-        if grep -r "var_dump\|print_r\|echo.*debug\|die(" --include="*.php" . && [ $? -eq 0 ]; then
+        if grep -r "var_dump\|print_r\|echo.*debug\|die(" --include="*.php" . >/dev/null 2>&1; then
           echo "⚠️ Found debug code - should be removed for production"
         fi
         
         # Check for proper error handling
-        if ! grep -r "try.*catch" --include="*.php" . && [ $? -ne 0 ]; then
+        if grep -r "try.*catch" --include="*.php" . >/dev/null 2>&1; then
+          echo "✅ Exception handling found"
+        else
           echo "⚠️ No exception handling found - consider adding error handling"
         fi
         

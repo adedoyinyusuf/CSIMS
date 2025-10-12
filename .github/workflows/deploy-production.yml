@@ -156,6 +156,7 @@ jobs:
         echo "✅ Production configuration completed"
         
     - name: 📤 Deploy via FTP
+      if: ${{ secrets.FTP_HOST != '' }}
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_HOST }}
@@ -168,6 +169,17 @@ jobs:
           **/.git*/**
           **/node_modules/**
           **/*.md
+          
+    - name: ℹ️ FTP Deployment Skipped
+      if: ${{ secrets.FTP_HOST == '' }}
+      run: |
+        echo "ℹ️ FTP deployment skipped - no FTP credentials configured"
+        echo "To enable FTP deployment, add these secrets to your repository:"
+        echo "- FTP_HOST: your-ftp-server.com"
+        echo "- FTP_USER: your-ftp-username"
+        echo "- FTP_PASSWORD: your-ftp-password"
+        echo "- FTP_SERVER_DIR: /public_html/"
+        echo "::notice title=FTP Deployment Skipped::Add FTP secrets to enable deployment"
         
     - name: 🔄 Post-Deployment Health Check
       run: |
@@ -202,11 +214,24 @@ jobs:
       uses: actions/checkout@v4
       
     - name: 🔑 Setup SSH
+      if: ${{ secrets.SSH_PRIVATE_KEY != '' }}
       uses: webfactory/ssh-agent@v0.7.0
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         
+    - name: ℹ️ VPS Deployment Skipped
+      if: ${{ secrets.SSH_PRIVATE_KEY == '' }}
+      run: |
+        echo "ℹ️ VPS deployment skipped - no SSH credentials configured"
+        echo "To enable VPS deployment, add these secrets to your repository:"
+        echo "- SSH_PRIVATE_KEY: your-ssh-private-key"
+        echo "- SERVER_HOST: your-server-ip-or-domain"
+        echo "- SERVER_USER: your-ssh-username"
+        echo "- DEPLOY_PATH: /var/www/html/csims"
+        echo "::notice title=VPS Deployment Skipped::Add SSH secrets to enable deployment"
+        
     - name: 📤 Deploy to Server
+      if: ${{ secrets.SSH_PRIVATE_KEY != '' }}
       run: |
         echo "🚀 Deploying to VPS/Cloud server..."
         
