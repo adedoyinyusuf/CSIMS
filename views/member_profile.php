@@ -284,8 +284,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="member_contributions.php">
-                                <i class="fas fa-piggy-bank"></i> My Contributions
+                            <a class="nav-link" href="member_savings.php">
+                                <i class="fas fa-piggy-bank"></i> My Savings
                             </a>
                         </li>
                         <li class="nav-item">

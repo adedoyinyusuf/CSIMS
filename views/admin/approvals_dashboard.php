@@ -334,19 +334,19 @@ $pageTitle = "Approval Dashboard";
                                                         </div>
                                                         
                                                         <!-- Collateral -->
-                                                        <div class="bg-purple-50 rounded-lg p-4">
-                                                            <h5 class="font-semibold text-purple-800 flex items-center mb-3">
+                                                        <div class="bg-slate-50 rounded-lg p-4">
+                                                            <h5 class="font-semibold text-slate-800 flex items-center mb-3">
                                                                 <i class="fas fa-shield-alt mr-2"></i> Collateral (<?php echo count($collaterals); ?>)
                                                             </h5>
                                                             <div class="space-y-2 text-sm">
                                                                 <?php foreach (array_slice($collaterals, 0, 2) as $collateral): ?>
                                                                     <div class="flex justify-between">
-                                                                        <span class="text-purple-800"><?php echo ucfirst($collateral['collateral_type']); ?></span>
+                                                                        <span class="text-slate-800"><?php echo ucfirst($collateral['collateral_type']); ?></span>
                                                                         <span class="font-medium">₦<?php echo number_format($collateral['estimated_value'], 0); ?></span>
                                                                     </div>
                                                                 <?php endforeach; ?>
                                                                 <?php if (count($collaterals) > 2): ?>
-                                                                    <p class="text-xs text-purple-600">+<?php echo count($collaterals) - 2; ?> more</p>
+                                                                    <p class="text-xs text-slate-600">+<?php echo count($collaterals) - 2; ?> more</p>
                                                                 <?php endif; ?>
                                                             </div>
                                                         </div>

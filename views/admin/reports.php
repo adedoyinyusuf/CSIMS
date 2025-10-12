@@ -1,17 +1,31 @@
 <?php
+/**
+ * CSIMS Reports & Analytics Page
+ * Updated to use the CSIMS admin template system with Phase 1&2 integrations
+ */
+
+session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/report_controller.php';
-
-// Initialize session and auth
-$session = Session::getInstance();
-$authController = new AuthController();
+require_once '../../includes/services/NotificationService.php';
+require_once '../../includes/services/SimpleBusinessRulesService.php';
+require_once '_admin_template_config.php';
 
 // Check if user is logged in
-if (!$authController->isLoggedIn()) {
-    header('Location: ../auth/login.php');
+$auth = new AuthController();
+if (!$auth->isLoggedIn()) {
+    $_SESSION['error'] = 'Please login to access this page';
+    header('Location: ' . BASE_URL . '/index.php');
     exit();
 }
+
+// Get current user
+$current_user = $auth->getCurrentUser();
+
+// Initialize common services
+$notificationService = new NotificationService();
+$businessRulesService = new SimpleBusinessRulesService();
 
 // Initialize report controller
 $reportController = new ReportController();
@@ -83,7 +97,55 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $report_data) {
 $report_types = $reportController->getReportTypes();
 $date_presets = $reportController->getDateRangePresets();
 
-$page_title = 'Reports & Analytics';
+// Get session messages
+$success_message = isset($_SESSION['success_message']) ? $_SESSION['success_message'] : '';
+$error_message = isset($_SESSION['error_message']) ? $_SESSION['error_message'] : '';
+unset($_SESSION['success_message'], $_SESSION['error_message']);
+
+// Page configuration
+$pageConfig = AdminTemplateConfig::getPageConfig('reports');
+$pageTitle = $pageConfig['title'];
+$pageDescription = $pageConfig['description'];
+$pageIcon = $pageConfig['icon'];
+
+// Helper function for date range presets
+function getDateRangeFromPreset($preset) {
+    $today = date('Y-m-d');
+    $dates = ['start' => $today, 'end' => $today];
+    
+    switch ($preset) {
+        case 'yesterday':
+            $dates['start'] = $dates['end'] = date('Y-m-d', strtotime('-1 day'));
+            break;
+        case 'this_week':
+            $dates['start'] = date('Y-m-d', strtotime('monday this week'));
+            $dates['end'] = date('Y-m-d', strtotime('sunday this week'));
+            break;
+        case 'last_week':
+            $dates['start'] = date('Y-m-d', strtotime('monday last week'));
+            $dates['end'] = date('Y-m-d', strtotime('sunday last week'));
+            break;
+        case 'this_month':
+            $dates['start'] = date('Y-m-01');
+            $dates['end'] = date('Y-m-t');
+            break;
+        case 'last_month':
+            $dates['start'] = date('Y-m-01', strtotime('last month'));
+            $dates['end'] = date('Y-m-t', strtotime('last month'));
+            break;
+        case 'this_quarter':
+            $quarter = ceil(date('n') / 3);
+            $dates['start'] = date('Y-' . sprintf('%02d', ($quarter - 1) * 3 + 1) . '-01');
+            $dates['end'] = date('Y-m-t', strtotime($dates['start'] . ' +2 months'));
+            break;
+        case 'this_year':
+            $dates['start'] = date('Y-01-01');
+            $dates['end'] = date('Y-12-31');
+            break;
+    }
+    
+    return $dates;
+}
 ?>
 
 <!DOCTYPE html>
@@ -91,144 +153,128 @@ $page_title = 'Reports & Analytics';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?> - CSIMS</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Custom CSS -->
-    <link href="../assets/css/style.css" rel="stylesheet">
-    
+    <title><?php echo $pageTitle; ?> - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CSIMS Color System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
+    <!-- Tailwind CSS -->
+    <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
+    <!-- Chart.js for report visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <?php 
-    // Set auth variable for header.php
-    $auth = $authController;
-    require_once '../includes/header.php'; 
-    
-    // Helper function for date range presets
-    function getDateRangeFromPreset($preset) {
-        $today = date('Y-m-d');
-        $dates = ['start' => $today, 'end' => $today];
-        
-        switch ($preset) {
-            case 'yesterday':
-                $dates['start'] = $dates['end'] = date('Y-m-d', strtotime('-1 day'));
-                break;
-            case 'this_week':
-                $dates['start'] = date('Y-m-d', strtotime('monday this week'));
-                $dates['end'] = date('Y-m-d', strtotime('sunday this week'));
-                break;
-            case 'last_week':
-                $dates['start'] = date('Y-m-d', strtotime('monday last week'));
-                $dates['end'] = date('Y-m-d', strtotime('sunday last week'));
-                break;
-            case 'this_month':
-                $dates['start'] = date('Y-m-01');
-                $dates['end'] = date('Y-m-t');
-                break;
-            case 'last_month':
-                $dates['start'] = date('Y-m-01', strtotime('last month'));
-                $dates['end'] = date('Y-m-t', strtotime('last month'));
-                break;
-            case 'this_quarter':
-                $quarter = ceil(date('n') / 3);
-                $dates['start'] = date('Y-' . sprintf('%02d', ($quarter - 1) * 3 + 1) . '-01');
-                $dates['end'] = date('Y-m-t', strtotime($dates['start'] . ' +2 months'));
-                break;
-            case 'this_year':
-                $dates['start'] = date('Y-01-01');
-                $dates['end'] = date('Y-12-31');
-                break;
-        }
-        
-        return $dates;
-    }
-    ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php require_once '../includes/sidebar.php'; ?>
+<body class="bg-admin">
+    <!-- Include Header/Navbar -->
+    <?php include '../../views/includes/header.php'; ?>
+    
+    <div class="flex">
+        <!-- Include Sidebar -->
+        <?php include '../../views/includes/sidebar.php'; ?>
         
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Reports & Analytics</h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <div class="btn-group me-2">
-                        <?php if ($report_data): ?>
-                            <a href="?export=csv&report_type=<?php echo urlencode($report_type); ?>&start_date=<?php echo urlencode($start_date); ?>&end_date=<?php echo urlencode($end_date); ?>" 
-                               class="btn btn-sm btn-success">
-                                <i class="fas fa-download"></i> Export CSV
-                            </a>
-                        <?php endif; ?>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                            <i class="fas fa-print"></i> Print
-                        </button>
-                    </div>
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-64 mt-16 p-6" id="mainContent">
+            <!-- Page Header -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div class="animate-slide-in">
+                    <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">
+                        <i class="<?php echo $pageIcon; ?> mr-3" style="color: var(--persian-orange);"></i>
+                        <?php echo $pageTitle; ?>
+                    </h1>
+                    <p style="color: var(--text-muted);"><?php echo $pageDescription; ?></p>
+                </div>
+                <div class="flex items-center space-x-3 mt-4 md:mt-0">
+                    <?php if ($report_data): ?>
+                        <a href="?export=csv&report_type=<?php echo urlencode($report_type); ?>&start_date=<?php echo urlencode($start_date); ?>&end_date=<?php echo urlencode($end_date); ?>" 
+                           class="btn btn-primary">
+                            <i class="fas fa-download mr-2"></i> Export CSV
+                        </a>
+                    <?php endif; ?>
+                    <button type="button" class="btn btn-outline" onclick="exportData()">
+                        <i class="fas fa-file-export mr-2"></i> Export
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="printData()">
+                        <i class="fas fa-print mr-2"></i> Print
+                    </button>
                 </div>
             </div>
-
-            <?php if ($session->getFlash('success')): ?>
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($session->getFlash('success')); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            
+            <!-- Enhanced Flash Messages -->
+            <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success flex items-center justify-between animate-slide-in">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-3" style="color: var(--success);"></i>
+                        <span><?php echo htmlspecialchars($success_message); ?></span>
+                    </div>
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             <?php endif; ?>
             
-            <?php if ($session->getFlash('error')): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($session->getFlash('error')); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <?php if (!empty($error_message)): ?>
+                <div class="alert alert-error flex items-center justify-between animate-slide-in">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <span><?php echo htmlspecialchars($error_message); ?></span>
+                    </div>
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             <?php endif; ?>
 
-            <!-- Report Generation Form -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Generate Report</h6>
+            <!-- Enhanced Report Generation Form -->
+            <div class="card card-admin animate-fade-in mb-6">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-chart-bar mr-2" style="color: var(--lapis-lazuli);"></i>
+                        Generate Report
+                    </h3>
                 </div>
-                <div class="card-body">
-                    <form method="POST" id="reportForm">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label for="report_type" class="form-label">Report Type</label>
-                                <select class="form-select" id="report_type" name="report_type" required>
-                                    <option value="">Select Report Type</option>
+                <div class="card-body p-6">
+                    <form method="POST" id="reportForm" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                        <div class="md:col-span-2">
+                            <label for="report_type" class="form-label">Report Type</label>
+                            <select class="form-control" id="report_type" name="report_type" required>
+                                <option value="">Select Report Type</option>
+                                <?php if (isset($report_types)): ?>
                                     <?php foreach ($report_types as $key => $value): ?>
                                         <option value="<?php echo $key; ?>" <?php echo $report_type === $key ? 'selected' : ''; ?>>
                                             <?php echo $value; ?>
                                         </option>
                                     <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="date_range" class="form-label">Date Range</label>
-                                <select class="form-select" id="date_range" name="date_range" onchange="toggleCustomDates()">
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="date_range" class="form-label">Date Range</label>
+                            <select class="form-control" id="date_range" name="date_range" onchange="toggleCustomDates()">
+                                <?php if (isset($date_presets)): ?>
                                     <?php foreach ($date_presets as $key => $value): ?>
                                         <option value="<?php echo $key; ?>" <?php echo (isset($_POST['date_range']) && $_POST['date_range'] === $key) ? 'selected' : ''; ?>>
                                             <?php echo $value; ?>
                                         </option>
                                     <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2" id="start_date_group" style="display: none;">
-                                <label for="start_date" class="form-label">Start Date</label>
-                                <input type="date" class="form-control" id="start_date" name="start_date" value="<?php echo $start_date; ?>">
-                            </div>
-                            <div class="col-md-2" id="end_date_group" style="display: none;">
-                                <label for="end_date" class="form-label">End Date</label>
-                                <input type="date" class="form-control" id="end_date" name="end_date" value="<?php echo $end_date; ?>">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">&nbsp;</label>
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-chart-bar"></i> Generate
-                                    </button>
-                                </div>
-                            </div>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        
+                        <div id="start_date_group" style="display: none;">
+                            <label for="start_date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" value="<?php echo $start_date; ?>">
+                        </div>
+                        
+                        <div id="end_date_group" style="display: none;">
+                            <label for="end_date" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="<?php echo $end_date; ?>">
+                        </div>
+                        
+                        <div class="flex items-end">
+                            <button type="submit" class="btn btn-primary w-full">
+                                <i class="fas fa-chart-bar mr-2"></i> Generate Report
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -696,18 +742,25 @@ $page_title = 'Reports & Analytics';
             <?php endif; ?>
         </main>
     </div>
-</div>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Include Footer -->
+    <?php include '../../views/includes/footer.php'; ?>
     
-    <!-- Custom JS -->
-    <script src="../assets/js/script.js"></script>
+    <!-- JavaScript -->
 
 <script>
+<?php echo AdminTemplateConfig::getCommonJavaScript(); ?>
+
+// Reports-specific functions
+function exportData() {
+    showAlert('Exporting report data...', 'success');
+    // Implementation for general export functionality
+}
+
+function printData() {
+    window.print();
+}
+
 function toggleCustomDates() {
     const dateRange = document.getElementById('date_range').value;
     const startDateGroup = document.getElementById('start_date_group');

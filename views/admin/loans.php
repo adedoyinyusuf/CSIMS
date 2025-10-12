@@ -1,145 +1,294 @@
 <?php
 /**
- * Admin - Loans List View
+ * Admin - Loans Management
  * 
- * This page displays a list of all loan applications with filtering, sorting,
- * and pagination capabilities.
+ * Enhanced loans management page with CSIMS color scheme, 
+ * Phase 1&2 integrations, and comprehensive loan tracking.
  */
 
-// Require authentication and controllers
+session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
-require_once '../../controllers/loan_controller.php';
+require_once '../../controllers/enhanced_loan_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../includes/services/NotificationService.php';
+require_once '../../includes/services/SimpleBusinessRulesService.php';
 
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
-    header('Location: ../auth/login.php');
+    $_SESSION['error'] = 'Please login to access the loans page';
+    header('Location: ' . BASE_URL . '/index.php');
     exit();
 }
 
-// Initialize controllers
-$loanController = new LoanController();
+// Get current user
+$current_user = $auth->getCurrentUser();
+
+// Initialize controllers and services
+$loanController = class_exists('EnhancedLoanController') ? new EnhancedLoanController() : new LoanController();
 $memberController = new MemberController();
+$notificationService = new NotificationService();
+$businessRulesService = new SimpleBusinessRulesService();
 
-// Get loan statuses for filter dropdown
-$loanStatuses = $loanController->getLoanStatuses();
-
-// Get filter parameters
+// Get filter parameters with enhanced options
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? trim($_GET['status']) : '';
+$loan_type = isset($_GET['loan_type']) ? trim($_GET['loan_type']) : '';
+$amount_range = isset($_GET['amount_range']) ? $_GET['amount_range'] : '';
 $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'application_date';
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 10; // Items per page
+$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 15;
 
-// Get loans with pagination
-$result = $loanController->getAllLoans($page, $limit, $search, $sort_by, $sort_order, $status_filter);
-$loans = $result['loans'];
-$pagination = $result['pagination'];
+// Get loans with enhanced filtering
+$result = $loanController->getAllLoans($page, $per_page, $search, $sort_by, $sort_order, $status_filter, $loan_type, $amount_range);
+$loans = $result['loans'] ?? [];
+$pagination = $result['pagination'] ?? [];
+$total_pages = $pagination['total_pages'] ?? 1;
+$total_loans = $pagination['total_items'] ?? 0;
 
-// Get loan statistics
+// Get comprehensive loan statistics
 $loanStats = $loanController->getLoanStatistics();
+$loanTypes = $loanController->getLoanTypes();
+$loanStatuses = $loanController->getLoanStatuses();
+
+// Get session messages
+$success_message = isset($_SESSION['success_message']) ? $_SESSION['success_message'] : '';
+$error_message = isset($_SESSION['error_message']) ? $_SESSION['error_message'] : '';
+unset($_SESSION['success_message'], $_SESSION['error_message']);
+
+// Get business rules alerts for loans
+$loan_alerts = $businessRulesService->getLoanAlerts();
 
 // Page title
-$pageTitle = "Loan Applications";
+$pageTitle = "Loans Management";
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
-
-    <title><?php echo $pageTitle; ?> - CSIMS</title>
-
-    <!-- Custom fonts for this template-->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" type="text/css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $pageTitle; ?> - <?php echo APP_NAME; ?></title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CSIMS Color System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a'
-                        },
-                        secondary: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            300: '#cbd5e1',
-                            400: '#94a3b8',
-                            500: '#64748b',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1e293b',
-                            900: '#0f172a'
-                        }
-                    },
-                    fontFamily: {
-                        'sans': ['Inter', 'system-ui', 'sans-serif']
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <!-- Legacy CSS for compatibility -->
-    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
 </head>
 
-<body class="bg-gray-50 font-sans">
-    <div class="flex h-screen bg-gray-50">
-        <!-- Sidebar -->
-        <?php include_once __DIR__ . '/../includes/sidebar.php'; ?>
+<body class="bg-admin">
+    <!-- Include Header/Navbar -->
+    <?php include '../../views/includes/header.php'; ?>
+    
+    <div class="flex">
+        <!-- Include Sidebar -->
+        <?php include '../../views/includes/sidebar.php'; ?>
         
-        <!-- Content Wrapper -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <?php include_once __DIR__ . '/../includes/header.php'; ?>
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-64 mt-16 p-6" id="mainContent">
+            <!-- Page Header with Loan Statistics -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div class="animate-slide-in">
+                    <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">
+                        <i class="fas fa-hand-holding-usd mr-3" style="color: var(--persian-orange);"></i>
+                        Loans Management
+                    </h1>
+                    <p style="color: var(--text-muted);">Track, manage and approve all loan applications</p>
+                </div>
+                <div class="flex items-center space-x-3 mt-4 md:mt-0">
+                    <a href="<?php echo BASE_URL; ?>/views/admin/add_loan.php" class="btn btn-primary">
+                        <i class="fas fa-plus mr-2"></i> New Loan Application
+                    </a>
+                    <button type="button" class="btn btn-secondary" onclick="openLoanImportModal()">
+                        <i class="fas fa-file-import mr-2"></i> Import Loans
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="exportLoans()">
+                        <i class="fas fa-file-export mr-2"></i> Export
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="printLoans()">
+                        <i class="fas fa-print mr-2"></i> Print
+                    </button>
+                </div>
+            </div>
             
-            <!-- Main Content -->
-            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6 pl-12">
-                <div class="max-w-5xl mx-auto ml-12">
-                <!-- Page Header -->
-                <div class="bg-gradient-to-r from-primary-600 to-primary-800 text-white p-8 rounded-2xl mb-8 shadow-lg">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h1 class="text-3xl font-bold mb-2"><i class="fas fa-money-bill-wave mr-4"></i>Loan Applications</h1>
-                            <p class="text-primary-100 text-lg">Track and manage all loan applications</p>
-                        </div>
-                        <div class="flex gap-3">
-                            <a href="<?php echo BASE_URL; ?>/views/admin/add_loan.php" class="bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-all duration-200 shadow-md hover:shadow-lg">
-                                <i class="fas fa-plus mr-2"></i>New Loan Application
-                            </a>
-                            <button onclick="openImportModal()" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-all duration-200">
-                                <i class="fas fa-upload mr-2"></i>Import
-                            </button>
-                            <button onclick="exportToCSV()" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-all duration-200">
-                                <i class="fas fa-download mr-2"></i>Export CSV
-                            </button>
-                            <button onclick="window.print()" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-all duration-200">
-                                <i class="fas fa-print mr-2"></i>Print
-                            </button>
+            <!-- Loan Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--lapis-lazuli);">Total Loans</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($total_loans); ?></p>
+                                <p class="text-xs" style="color: var(--success);">₦<?php echo number_format($loanStats['total_amount'] ?? 0, 2); ?></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);">
+                                <i class="fas fa-hand-holding-usd text-white"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
+                
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--persian-orange);">Pending Applications</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($loanStats['pending_count'] ?? 0); ?></p>
+                                <p class="text-xs" style="color: var(--warning);">Awaiting Review</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--persian-orange) 0%, var(--jasper) 100%);">
+                                <i class="fas fa-clock text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--success);">Approved Loans</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($loanStats['approved_count'] ?? 0); ?></p>
+                                <p class="text-xs" style="color: var(--success);">₦<?php echo number_format($loanStats['approved_amount'] ?? 0, 2); ?></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--persian-orange) 0%, var(--success) 100%);">
+                                <i class="fas fa-check-circle text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--jasper);">Default Risk</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($loanStats['overdue_count'] ?? 0); ?></p>
+                                <p class="text-xs" style="color: var(--danger);">Need Attention</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--jasper) 0%, var(--fire-brick) 100%);">
+                                <i class="fas fa-exclamation-triangle text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Enhanced Flash Messages -->
+            <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success flex items-center justify-between animate-slide-in">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-3" style="color: var(--success);"></i>
+                        <span><?php echo htmlspecialchars($success_message); ?></span>
+                    </div>
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($error_message)): ?>
+                <div class="alert alert-error flex items-center justify-between animate-slide-in">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <span><?php echo htmlspecialchars($error_message); ?></span>
+                    </div>
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
+            
+            <!-- Business Rules Alerts for Loans -->
+            <?php if (!empty($loan_alerts)): ?>
+                <div class="alert alert-warning flex items-center justify-between animate-slide-in">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-3" style="color: var(--warning);"></i>
+                        <div>
+                            <strong>Loan Business Rules Alert:</strong>
+                            <span><?php echo count($loan_alerts); ?> loan(s) require attention</span>
+                            <a href="<?php echo BASE_URL; ?>/views/admin/loan_approvals.php" class="ml-2 text-sm underline">Review Now</a>
+                        </div>
+                    </div>
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
+            
+            <!-- Enhanced Filter and Search Section -->
+            <div class="card card-admin animate-fade-in">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-filter mr-2" style="color: var(--lapis-lazuli);"></i>
+                        Filter & Search Loans
+                    </h3>
+                </div>
+                <div class="card-body p-6">
+                    <form action="" method="GET" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                        <div class="md:col-span-2">
+                            <label for="search" class="form-label">Search Loans</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search" style="color: var(--text-muted);"></i>
+                                </div>
+                                <input type="text" class="form-control pl-10" id="search" name="search" 
+                                       placeholder="Member name, loan ID, purpose" 
+                                       value="<?php echo htmlspecialchars($search); ?>">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-control" id="status" name="status">
+                                <option value="">All Statuses</option>
+                                <?php foreach ($loanStatuses as $status_key => $status_label): ?>
+                                    <option value="<?php echo htmlspecialchars($status_key); ?>" 
+                                        <?php echo ($status_filter === $status_key) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($status_label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="loan_type" class="form-label">Loan Type</label>
+                            <select class="form-control" id="loan_type" name="loan_type">
+                                <option value="">All Types</option>
+                                <?php foreach ($loanTypes as $type): ?>
+                                    <option value="<?php echo htmlspecialchars($type['id']); ?>" 
+                                        <?php echo ($loan_type == $type['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($type['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="amount_range" class="form-label">Amount Range</label>
+                            <select class="form-control" id="amount_range" name="amount_range">
+                                <option value="">All Amounts</option>
+                                <option value="0-100000" <?php echo ($amount_range == '0-100000') ? 'selected' : ''; ?>>₦0 - ₦100k</option>
+                                <option value="100001-500000" <?php echo ($amount_range == '100001-500000') ? 'selected' : ''; ?>>₦100k - ₦500k</option>
+                                <option value="500001-1000000" <?php echo ($amount_range == '500001-1000000') ? 'selected' : ''; ?>>₦500k - ₦1M</option>
+                                <option value="1000001-9999999" <?php echo ($amount_range == '1000001-9999999') ? 'selected' : ''; ?>>Above ₦1M</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-end space-x-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search mr-2"></i> Search
+                            </button>
+                            <a href="<?php echo $_SERVER['PHP_SELF']; ?>" class="btn btn-outline">
+                                <i class="fas fa-times mr-2"></i> Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
             
             <!-- Flash Messages -->
             <?php if (isset($_SESSION['flash_message'])): ?>

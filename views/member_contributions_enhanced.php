@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="bg-gray-50">
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <div class="w-64 bg-gradient-to-br from-primary-600 to-purple-700 shadow-xl">
+        <div class="w-64 shadow-xl" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);">
             <div class="flex flex-col h-full p-6">
                 <h4 class="text-white text-xl font-bold mb-6">
                     <i class="fas fa-university mr-2"></i> Member Portal
@@ -235,15 +235,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                     
-                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4" style="border-left-color: var(--lapis-lazuli);">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-purple-600 uppercase tracking-wider mb-2">Net Position</p>
+                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: var(--lapis-lazuli);">Net Position</p>
                                 <p class="text-2xl font-bold text-gray-800">₦<?php echo number_format($stats['net_contributions'], 2); ?></p>
                                 <p class="text-sm text-gray-500">Available balance</p>
                             </div>
-                            <div class="bg-purple-100 p-3 rounded-full">
-                                <i class="fas fa-balance-scale text-2xl text-purple-600"></i>
+                            <div class="p-3 rounded-full" style="background-color: rgba(26, 85, 153, 0.1);">
+                                <i class="fas fa-balance-scale text-2xl" style="color: var(--lapis-lazuli);"></i>
                             </div>
                         </div>
                     </div>

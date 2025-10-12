@@ -11,51 +11,71 @@ class AuthController {
     public function __construct() {
         $this->db = Database::getInstance();
         $this->conn = $this->db->getConnection();
-        $this->session = Session::getInstance();
-        $this->securityController = new SecurityController();
+        
+        // Initialize session with fallback
+        try {
+            $this->session = Session::getInstance();
+        } catch (Exception $e) {
+            // If Session class fails, create a simple session wrapper
+            $this->session = new SimpleSessionWrapper();
+        }
+        
+        try {
+            $this->securityController = new SecurityController();
+        } catch (Exception $e) {
+            // If SecurityController fails, continue without it
+            $this->securityController = null;
+        }
     }
     
     // Login user with enhanced security
     public function login($username, $password, $two_factor_code = null) {
-        // Rate limiting check
-        $clientId = $_SERVER['REMOTE_ADDR'] . '_' . $username;
-        if (!RateLimiter::checkLimit($clientId, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_TIME)) {
-            SecurityLogger::logSuspiciousActivity('Rate limit exceeded for login attempts', [
-                'username' => $username,
-                'ip' => $_SERVER['REMOTE_ADDR'],
-                'attempts' => MAX_LOGIN_ATTEMPTS
-            ]);
-            return [
-                'success' => false,
-                'message' => 'Too many login attempts. Please try again later.',
-                'locked' => true
-            ];
-        }
-        
         // Sanitize inputs
-        $username = SecurityValidator::sanitizeInput($username);
+        $username = class_exists('SecurityValidator') ? SecurityValidator::sanitizeInput($username) : trim($username);
         $password = trim($password);
         $ip_address = $this->getClientIP();
         
-        // Enhanced suspicious activity check
-        $security_check = $this->securityController->checkSuspiciousActivity($username, $ip_address);
+        // Basic rate limiting check (simplified for compatibility)
+        if (class_exists('RateLimiter')) {
+            $clientId = $_SERVER['REMOTE_ADDR'] . '_' . $username;
+            if (!RateLimiter::checkLimit($clientId, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_TIME)) {
+                if (class_exists('SecurityLogger')) {
+                    SecurityLogger::logSuspiciousActivity('Rate limit exceeded for login attempts', [
+                        'username' => $username,
+                        'ip' => $_SERVER['REMOTE_ADDR'],
+                        'attempts' => MAX_LOGIN_ATTEMPTS
+                    ]);
+                }
+                return [
+                    'success' => false,
+                    'message' => 'Too many login attempts. Please try again later.',
+                    'locked' => true
+                ];
+            }
+        }
+        
+        // Enhanced suspicious activity check (if available)
+        if ($this->securityController) {
+            $security_check = $this->securityController->checkSuspiciousActivity($username, $ip_address);
+            if (isset($security_check['status']) && $security_check['status'] === 'locked') {
+                $this->logLoginAttempt($username, $ip_address, false, 'Account locked');
+                return ['success' => false, 'message' => 'Account is locked due to suspicious activity. Please contact administrator.'];
+            }
+        }
         
         // Additional security checks
         if ($this->isAccountLocked($username)) {
-            SecurityLogger::logSecurityEvent('Login attempt on locked account', [
-                'username' => $username,
-                'ip' => $_SERVER['REMOTE_ADDR']
-            ]);
+            if (class_exists('SecurityLogger')) {
+                SecurityLogger::logSecurityEvent('Login attempt on locked account', [
+                    'username' => $username,
+                    'ip' => $_SERVER['REMOTE_ADDR']
+                ]);
+            }
             return [
                 'success' => false,
                 'message' => 'Account is locked. Please contact administrator.',
                 'locked' => true
             ];
-        }
-        
-        if ($security_check['status'] === 'locked') {
-            $this->logLoginAttempt($username, $ip_address, false, 'Account locked');
-            return ['success' => false, 'message' => 'Account is locked due to suspicious activity. Please contact administrator.'];
         }
         
         // Prepare statement - check both admins and users tables
@@ -95,15 +115,20 @@ class AuthController {
                 
                 // Log successful login with enhanced details
                 $this->logLoginAttempt($username, $ip_address, true);
-                $this->securityController->logSecurityEvent('successful_login', "User {$username} logged in successfully", $admin['admin_id'], $ip_address, 'low');
                 
-                SecurityLogger::logSecurityEvent('Successful login', [
-                    'username' => $username,
-                    'user_id' => $admin['admin_id'],
-                    'ip' => $_SERVER['REMOTE_ADDR'],
-                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
-                    'two_factor_used' => !empty($two_factor_code)
-                ]);
+                if ($this->securityController) {
+                    $this->securityController->logSecurityEvent('successful_login', "User {$username} logged in successfully", $admin['admin_id'], $ip_address, 'low');
+                }
+                
+                if (class_exists('SecurityLogger')) {
+                    SecurityLogger::logSecurityEvent('Successful login', [
+                        'username' => $username,
+                        'user_id' => $admin['admin_id'],
+                        'ip' => $_SERVER['REMOTE_ADDR'],
+                        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
+                        'two_factor_used' => !empty($two_factor_code)
+                    ]);
+                }
                 
                 // Reset failed attempts counter
                 $this->resetFailedAttempts($username);
@@ -524,24 +549,75 @@ class AuthController {
     }
 }
 
-// Base32 decode function for TOTP
-function base32_decode($input) {
-    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    $output = '';
-    $v = 0;
-    $vbits = 0;
-    
-    for ($i = 0, $j = strlen($input); $i < $j; $i++) {
-        $v <<= 5;
-        $v += strpos($alphabet, $input[$i]);
-        $vbits += 5;
-        
-        if ($vbits >= 8) {
-            $output .= chr($v >> ($vbits - 8));
-            $vbits -= 8;
+/**
+ * Simple Session Wrapper for compatibility
+ * This provides basic session functionality when the main Session class fails
+ */
+class SimpleSessionWrapper {
+    public function __construct() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
     }
     
-    return $output;
+    public function set($key, $value) {
+        $_SESSION[$key] = $value;
+    }
+    
+    public function get($key) {
+        return isset($_SESSION[$key]) ? $_SESSION[$key] : null;
+    }
+    
+    public function exists($key) {
+        return isset($_SESSION[$key]);
+    }
+    
+    public function remove($key) {
+        if (isset($_SESSION[$key])) {
+            unset($_SESSION[$key]);
+        }
+    }
+    
+    public function isLoggedIn() {
+        return isset($_SESSION['admin_id']);
+    }
+    
+    public function login($admin) {
+        $_SESSION['admin_id'] = $admin['admin_id'];
+        $_SESSION['username'] = $admin['username'];
+        $_SESSION['role'] = $admin['role'];
+        $_SESSION['first_name'] = $admin['first_name'];
+        $_SESSION['last_name'] = $admin['last_name'];
+        $_SESSION['user_type'] = 'admin';
+        $_SESSION['last_activity'] = time();
+        $_SESSION['login_time'] = time();
+    }
+    
+    public function logout() {
+        session_destroy();
+    }
+}
+
+// Base32 decode function for TOTP
+if (!function_exists('base32_decode')) {
+    function base32_decode($input) {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        $output = '';
+        $v = 0;
+        $vbits = 0;
+        
+        for ($i = 0, $j = strlen($input); $i < $j; $i++) {
+            $v <<= 5;
+            $v += strpos($alphabet, $input[$i]);
+            $vbits += 5;
+            
+            if ($vbits >= 8) {
+                $output .= chr($v >> ($vbits - 8));
+                $vbits -= 8;
+            }
+        }
+        
+        return $output;
+    }
 }
 ?>

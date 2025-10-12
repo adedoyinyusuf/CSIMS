@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="bg-gray-50">
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <div class="w-64 bg-gradient-to-br from-primary-600 to-purple-700 shadow-xl">
+        <div class="w-64 bg-gradient-to-br from-primary-600 to-primary-800 shadow-xl">
             <div class="flex flex-col h-full p-6">
                 <h4 class="text-white text-xl font-bold mb-6">
                     <i class="fas fa-university mr-2"></i> Member Portal

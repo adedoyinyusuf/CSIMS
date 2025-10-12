@@ -104,8 +104,8 @@ foreach ($loans as $loan) {
                         <a class="nav-link active" href="member_loans.php">
                             <i class="fas fa-money-bill-wave me-2"></i> My Loans
                         </a>
-                        <a class="nav-link" href="member_contributions.php">
-                            <i class="fas fa-piggy-bank me-2"></i> My Contributions
+                        <a class="nav-link" href="member_savings.php">
+                            <i class="fas fa-piggy-bank me-2"></i> My Savings
                         </a>
                         <a class="nav-link" href="member_notifications.php">
                             <i class="fas fa-bell me-2"></i> Notifications

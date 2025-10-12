@@ -66,7 +66,7 @@ $outstanding_balance = $total_loan_amount - $total_amount_paid;
 <body class="bg-gray-50">
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <div class="w-64 bg-gradient-to-br from-primary-600 to-purple-700 shadow-xl">
+        <div class="w-64 bg-gradient-to-br from-primary-600 to-primary-800 shadow-xl">
             <div class="flex flex-col h-full p-6">
                 <h4 class="text-white text-xl font-bold mb-6">
                     <i class="fas fa-university mr-2"></i> Member Portal
@@ -300,29 +300,29 @@ $outstanding_balance = $total_loan_amount - $total_amount_paid;
                                                 </div>
                                                 
                                                 <!-- Payment Info -->
-                                                <div class="bg-purple-50 rounded-lg p-4">
+                                                <div class="bg-slate-50 rounded-lg p-4">
                                                     <div class="flex items-center justify-between mb-3">
-                                                        <h5 class="font-semibold text-purple-800 flex items-center">
+                                                        <h5 class="font-semibold text-slate-800 flex items-center">
                                                             <i class="fas fa-calendar-alt mr-2"></i> Payments
                                                         </h5>
-                                                        <span class="text-sm text-purple-600 font-medium"><?php echo count($paymentSchedule); ?></span>
+                                                        <span class="text-sm text-slate-600 font-medium"><?php echo count($paymentSchedule); ?></span>
                                                     </div>
                                                     <div class="space-y-2">
                                                         <div class="flex justify-between items-center text-sm">
-                                                            <span class="text-purple-800">Monthly Payment:</span>
-                                                            <span class="text-purple-600 font-medium">₦<?php echo number_format($loan['monthly_payment'], 2); ?></span>
+                                                            <span class="text-slate-800">Monthly Payment:</span>
+                                                            <span class="text-slate-600 font-medium">₦<?php echo number_format($loan['monthly_payment'], 2); ?></span>
                                                         </div>
                                                         <div class="flex justify-between items-center text-sm">
-                                                            <span class="text-purple-800">Amount Paid:</span>
+                                                            <span class="text-slate-800">Amount Paid:</span>
                                                             <span class="text-green-600 font-medium">₦<?php echo number_format($loan['amount_paid'] ?? 0, 2); ?></span>
                                                         </div>
                                                         <div class="flex justify-between items-center text-sm">
-                                                            <span class="text-purple-800">Outstanding:</span>
+                                                            <span class="text-slate-800">Outstanding:</span>
                                                             <span class="text-red-600 font-medium">₦<?php echo number_format($loan['amount'] - ($loan['amount_paid'] ?? 0), 2); ?></span>
                                                         </div>
                                                         <?php if ($loan['last_payment_date']): ?>
-                                                            <div class="border-t border-purple-200 pt-2 mt-2">
-                                                                <p class="text-xs text-purple-600">Last Payment: <?php echo date('M d, Y', strtotime($loan['last_payment_date'])); ?></p>
+                                                            <div class="border-t border-slate-200 pt-2 mt-2">
+                                                                <p class="text-xs text-slate-600">Last Payment: <?php echo date('M d, Y', strtotime($loan['last_payment_date'])); ?></p>
                                                             </div>
                                                         <?php endif; ?>
                                                     </div>
@@ -335,7 +335,7 @@ $outstanding_balance = $total_loan_amount - $total_amount_paid;
                                                     <i class="fas fa-eye mr-2"></i> View Details
                                                 </button>
                                                 <?php if (!empty($paymentSchedule)): ?>
-                                                    <button onclick="viewPaymentSchedule(<?php echo $loan['loan_id']; ?>)" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors duration-200">
+                                                    <button onclick="viewPaymentSchedule(<?php echo $loan['loan_id']; ?>)" class="inline-flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg font-medium hover:bg-slate-700 transition-colors duration-200">
                                                         <i class="fas fa-calendar-alt mr-2"></i> Payment Schedule
                                                     </button>
                                                 <?php endif; ?>

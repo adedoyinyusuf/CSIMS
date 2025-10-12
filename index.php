@@ -7,9 +7,38 @@ require_once 'config/database.php';
 require_once 'includes/db.php';
 require_once 'config/config.php';
 require_once 'includes/session.php';
-$session = Session::getInstance();
-if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
-    header('Location: views/admin/dashboard.php');
+
+// Initialize session with error handling
+try {
+    $session = Session::getInstance();
+    
+    // Check if admin is logged in
+    if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
+        // Prevent redirect loops by checking if we're in a redirect cycle
+        if (!isset($_SESSION['redirect_check'])) {
+            $_SESSION['redirect_check'] = true;
+            header('Location: simple_dashboard.php');
+            exit();
+        }
+    }
+} catch (Exception $e) {
+    // If session initialization fails, fall back to simple session
+    error_log('Session initialization failed: ' . $e->getMessage());
+    
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    // Check for admin login with simple session
+    if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
+        header('Location: simple_dashboard.php');
+        exit();
+    }
+}
+
+// Check if member is logged in
+if (isset($_SESSION['member_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'member') {
+    header('Location: views/member_dashboard.php');
     exit();
 }
 $error = '';
@@ -21,37 +50,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter both username and password.';
     } else {
         try {
-            $db = Database::getInstance();
-            $conn = $db->getConnection();
-            $stmt = $conn->prepare("SELECT admin_id, username, password, first_name, last_name, email, role, status FROM admins WHERE username = ? AND status = 'Active'");
-            $stmt->bind_param("s", $username);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows === 1) {
-                $admin = $result->fetch_assoc();
-                if (password_verify($password, $admin['password'])) {
-                    $_SESSION['admin_id'] = $admin['admin_id'];
-                    $_SESSION['username'] = $admin['username'];
-                    $_SESSION['role'] = $admin['role'];
-                    $_SESSION['first_name'] = $admin['first_name'];
-                    $_SESSION['last_name'] = $admin['last_name'];
-                    $_SESSION['user_type'] = 'admin';
-                    $_SESSION['last_activity'] = time();
-                    $updateStmt = $conn->prepare("UPDATE admins SET last_login = NOW() WHERE admin_id = ?");
-                    $updateStmt->bind_param("i", $admin['admin_id']);
-                    $updateStmt->execute();
-                    header('Location: views/admin/dashboard.php');
-                    exit();
+            // Use AuthController for login
+            require_once 'controllers/auth_controller.php';
+            $authController = new AuthController();
+            
+            $loginResult = $authController->login($username, $password);
+            
+            if ($loginResult['success']) {
+                // Successful login - redirect to simple dashboard
+                header('Location: simple_dashboard.php');
+                exit();
+            } else {
+                $error = $loginResult['message'];
+            }
+            
+        } catch (Exception $e) {
+            // Fall back to simple login if AuthController fails
+            error_log('AuthController failed, using simple login: ' . $e->getMessage());
+            
+            try {
+                $db = Database::getInstance();
+                $conn = $db->getConnection();
+                $stmt = $conn->prepare("SELECT admin_id, username, password, first_name, last_name, email, role, status FROM admins WHERE username = ? AND status = 'Active'");
+                $stmt->bind_param("s", $username);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($result->num_rows === 1) {
+                    $admin = $result->fetch_assoc();
+                    if (password_verify($password, $admin['password'])) {
+                        $_SESSION['admin_id'] = $admin['admin_id'];
+                        $_SESSION['username'] = $admin['username'];
+                        $_SESSION['role'] = $admin['role'];
+                        $_SESSION['first_name'] = $admin['first_name'];
+                        $_SESSION['last_name'] = $admin['last_name'];
+                        $_SESSION['user_type'] = 'admin';
+                        $_SESSION['last_activity'] = time();
+                        $updateStmt = $conn->prepare("UPDATE admins SET last_login = NOW() WHERE admin_id = ?");
+                        $updateStmt->bind_param("i", $admin['admin_id']);
+                        $updateStmt->execute();
+                        header('Location: simple_dashboard.php');
+                        exit();
+                    } else {
+                        $error = 'Invalid username or password.';
+                    }
                 } else {
                     $error = 'Invalid username or password.';
                 }
-            } else {
-                $error = 'Invalid username or password.';
+                $stmt->close();
+            } catch (Exception $e2) {
+                $error = 'Login system temporarily unavailable. Please try again later.';
+                error_log('Simple login also failed: ' . $e2->getMessage());
             }
-            $stmt->close();
-        } catch (Exception $e) {
-            $error = 'Login system temporarily unavailable. Please try again later.';
-            error_log('Login error: ' . $e->getMessage());
         }
     }
 }
@@ -73,6 +122,7 @@ try {
     <title><?php echo APP_NAME; ?> - Admin Login</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="assets/css/csims-colors.css">
     <script>
         if (typeof tailwind !== 'undefined') {
             tailwind.config = {
@@ -80,13 +130,23 @@ try {
                     extend: {
                         colors: {
                             primary: {
-                                50: '#eff6ff',
-                                100: '#dbeafe',
-                                500: '#667eea',
-                                600: '#4f46e5',
-                                700: '#4338ca',
-                                800: '#3730a3',
-                                900: '#312e81'
+                                50: '#f8fafc',
+                                100: '#f1f5f9',
+                                200: '#e2e8f0',
+                                300: '#cbd5e1',
+                                400: '#94a3b8',
+                                500: '#64748b',
+                                600: '#475569',
+                                700: '#334155',
+                                800: '#1e293b',
+                                900: '#0f172a'
+                            },
+                            secondary: {
+                                100: '#fef3e2',
+                                300: '#EA8C55',
+                                500: '#C75146',
+                                600: '#AD2E24',
+                                700: '#81171B'
                             }
                         }
                     }
@@ -95,11 +155,11 @@ try {
         }
     </script>
 </head>
-<body class="min-h-screen bg-white flex items-center justify-center font-sans">
-    <div class="w-full max-w-5xl mx-auto flex flex-col md:flex-row rounded-3xl shadow-2xl overflow-hidden border border-white/20 bg-white/95 backdrop-blur-lg">
-        <div class="md:w-1/2 w-full flex flex-col justify-center items-center p-10 bg-gradient-to-br from-primary-500 to-purple-600 text-white relative overflow-hidden">
-            <div id="curtain-left" class="absolute inset-0 z-20 bg-gradient-to-br from-primary-500 to-purple-600 transition-transform duration-1000" style="transform:translateX(0);"></div>
-            <div id="curtain-right" class="absolute inset-0 z-10 bg-gradient-to-br from-purple-600 to-primary-500 transition-transform duration-1000" style="transform:translateX(0);"></div>
+<body class="min-h-screen flex items-center justify-center font-sans" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 25%, #cbd5e1 50%, #94a3b8 75%, #64748b 100%);">
+    <div class="w-full max-w-5xl mx-auto flex flex-col md:flex-row rounded-3xl shadow-2xl overflow-hidden border border-white/20 glass animate-slide-in">
+        <div class="md:w-1/2 w-full flex flex-col justify-center items-center p-10 relative overflow-hidden" style="background: linear-gradient(135deg, #1A5599 0%, #336699 50%, #334155 100%);">
+            <div id="curtain-left" class="absolute inset-0 z-20 transition-transform duration-1000" style="background: linear-gradient(135deg, #336699 0%, #475569 100%); transform:translateX(0);"></div>
+            <div id="curtain-right" class="absolute inset-0 z-10 transition-transform duration-1000" style="background: linear-gradient(135deg, #475569 0%, #64748b 100%); transform:translateX(0);"></div>
             <div class="mb-8 text-center z-30 relative animate-text-fade-up">
                 <h1 class="text-4xl font-bold mb-2">
                     <i class="fas fa-shield-alt"></i> <?php echo APP_SHORT_NAME; ?>
@@ -145,9 +205,9 @@ try {
                         <label for="username" class="block text-gray-700 font-medium mb-2">Username</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <i class="fas fa-user text-white bg-gradient-to-r from-primary-500 to-purple-600 p-2 rounded-l-lg"></i>
+                                <i class="fas fa-user text-white p-2 rounded-l-lg" style="background: linear-gradient(135deg, #1A5599 0%, #336699 100%);"></i>
                             </div>
-                            <input type="text" class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all" 
+                            <input type="text" class="form-control w-full pl-12 pr-4 py-3" 
                                    id="username" name="username" value="<?php echo htmlspecialchars($username ?? ''); ?>" required>
                         </div>
                     </div>
@@ -155,27 +215,27 @@ try {
                         <label for="password" class="block text-gray-700 font-medium mb-2">Password</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <i class="fas fa-lock text-white bg-gradient-to-r from-primary-500 to-purple-600 p-2 rounded-l-lg"></i>
+                                <i class="fas fa-lock text-white p-2 rounded-l-lg" style="background: linear-gradient(135deg, #1A5599 0%, #336699 100%);"></i>
                             </div>
-                            <input type="password" class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all" 
+                            <input type="password" class="form-control w-full pl-12 pr-4 py-3" 
                                    id="password" name="password" required>
                         </div>
                     </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-primary-500 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+                    <button type="submit" class="btn-primary w-full py-3 px-4 font-semibold hover:-translate-y-1 transition-all duration-300">
                         <i class="fas fa-sign-in-alt mr-2"></i> Login
                     </button>
                 </form>
                 <div class="text-center mt-6">
-                    <a href="views/auth/forgot_password.php" class="text-primary-600 hover:text-primary-700 transition-colors">
+                    <a href="views/auth/forgot_password.php" class="text-primary-600 hover:text-primary-800 transition-colors font-medium">
                         Forgot Password?
                     </a>
                 </div>
-                <hr class="my-6 border-gray-200">
+                <hr class="my-6" style="border-color: rgba(180, 136, 235, 0.3);">
                 <div class="flex gap-3">
-                    <a href="views/member_login.php" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg text-center transition-colors">
+                    <a href="views/member_login.php" class="flex-1 glass-dark text-white py-3 px-4 rounded-lg text-center transition-all duration-300 hover:transform hover:scale-105 font-medium">
                         <i class="fas fa-user mr-1"></i> Member Login
                     </a>
-                    <a href="views/member_register.php" class="flex-1 bg-green-100 hover:bg-green-200 text-green-700 py-2 px-4 rounded-lg text-center transition-colors">
+                    <a href="views/member_register.php" class="flex-1 btn-secondary py-3 px-4 text-center transition-all duration-300 hover:transform hover:scale-105 font-medium">
                         <i class="fas fa-user-plus mr-1"></i> Join
                     </a>
                 </div>

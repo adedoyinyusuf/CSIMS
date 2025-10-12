@@ -401,4 +401,118 @@ class SecurityService
         $result = $this->validatePassword($password);
         return $result->isValid();
     }
+    
+    /**
+     * Sanitize array data recursively
+     * 
+     * @param array $data
+     * @param string $type
+     * @return array
+     */
+    public function sanitizeArray(array $data, string $type = 'string'): array
+    {
+        $sanitized = [];
+        
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $sanitized[$key] = $this->sanitizeArray($value, $type);
+            } else {
+                $sanitized[$key] = $this->sanitizeInput($value, $type);
+            }
+        }
+        
+        return $sanitized;
+    }
+    
+    /**
+     * Check rate limit with simplified interface
+     * 
+     * @param string $identifier
+     * @param string $action
+     * @param int $maxAttempts
+     * @param int $timeWindow
+     * @return bool
+     */
+    public function isRateLimitAllowed(string $identifier, string $action = 'default', int $maxAttempts = 5, int $timeWindow = 300): bool
+    {
+        return $this->checkRateLimit($action, $identifier, $maxAttempts, $timeWindow);
+    }
+    
+    /**
+     * Validate password strength with detailed scoring
+     * 
+     * @param string $password
+     * @return array
+     */
+    public function validatePasswordStrength(string $password): array
+    {
+        $score = 0;
+        $feedback = [];
+        
+        // Length scoring
+        $length = strlen($password);
+        if ($length >= 8) $score += 20;
+        if ($length >= 12) $score += 10;
+        if ($length >= 16) $score += 10;
+        else $feedback[] = 'Consider using a longer password';
+        
+        // Character variety
+        if (preg_match('/[A-Z]/', $password)) {
+            $score += 15;
+        } else {
+            $feedback[] = 'Add uppercase letters';
+        }
+        
+        if (preg_match('/[a-z]/', $password)) {
+            $score += 15;
+        } else {
+            $feedback[] = 'Add lowercase letters';
+        }
+        
+        if (preg_match('/[0-9]/', $password)) {
+            $score += 15;
+        } else {
+            $feedback[] = 'Add numbers';
+        }
+        
+        if (preg_match('/[^A-Za-z0-9]/', $password)) {
+            $score += 15;
+        } else {
+            $feedback[] = 'Add special characters';
+        }
+        
+        // Complexity bonus
+        $uniqueChars = count(array_unique(str_split($password)));
+        if ($uniqueChars > $length * 0.7) $score += 10;
+        
+        // Common pattern penalties
+        if (preg_match('/123|abc|qwe|password|admin/i', $password)) {
+            $score -= 20;
+            $feedback[] = 'Avoid common patterns and words';
+        }
+        
+        return [
+            'score' => max(0, min(100, $score)),
+            'is_valid' => $score >= 60,
+            'strength' => $this->getPasswordStrengthLabel($score),
+            'feedback' => $feedback
+        ];
+    }
+    
+    /**
+     * Get password strength label
+     * 
+     * @param int $score
+     * @return string
+     */
+    private function getPasswordStrengthLabel(int $score): string
+    {
+        return match (true) {
+            $score >= 90 => 'Very Strong',
+            $score >= 70 => 'Strong', 
+            $score >= 50 => 'Moderate',
+            $score >= 30 => 'Weak',
+            default => 'Very Weak'
+        };
+    }
 }

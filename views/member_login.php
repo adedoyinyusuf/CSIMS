@@ -1,9 +1,29 @@
 <?php
 session_start();
-require_once '../config/database.php';
+require_once '../config/config.php';
 require_once '../controllers/member_controller.php';
 
-$memberController = new MemberController($conn);
+// Check if admin is already logged in
+if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
+    // Admin is logged in, show logout option
+    $admin_logged_in = true;
+    $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
+} else {
+    $admin_logged_in = false;
+}
+
+// Handle admin logout
+if (isset($_GET['logout_admin'])) {
+    session_destroy();
+    session_start();
+    header('Location: member_login.php');
+    exit();
+}
+
+$database = Database::getInstance();
+$conn = $database->getConnection();
+
+$memberController = new MemberController();
 
 $error = '';
 
@@ -63,13 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Member Login - NPC CTLStaff Loan Society</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/csims-colors.css">
     <style>
         body {
             margin: 0;
             padding: 0;
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 25%, #cbd5e1 50%, #94a3b8 100%);
         }
         .split-screen {
             display: flex;
@@ -77,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .left-panel {
             flex: 1;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1A5599 0%, #336699 50%, #475569 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -122,19 +143,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 15px 35px rgba(0,0,0,0.08);
         }
         .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102,126,234,0.25);
+            border-color: var(--primary-400);
+            box-shadow: 0 0 0 0.2rem rgba(180, 136, 235, 0.25);
         }
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);
             border: none;
             padding: 12px 30px;
             border-radius: 25px;
             width: 100%;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .btn-primary:hover {
+            background: linear-gradient(135deg, var(--true-blue) 0%, var(--paynes-gray) 100%);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 20px var(--shadow-lg);
         }
         .logo {
             text-align: center;
@@ -145,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-weight: 700;
         }
         .input-group-text {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);
             border: none;
             color: white;
         }
@@ -157,8 +181,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-top: 1rem;
         }
         .links a {
-            color: #667eea;
+            color: var(--primary-600);
             text-decoration: none;
+            font-weight: 500;
         }
         .links a:hover {
             text-decoration: underline;
@@ -189,26 +214,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h2><i class="fas fa-user-circle"></i> Member Portal</h2>
                     <p class="text-muted">NPC CTLStaff Loan Society</p>
                 </div>
+                
+                <?php if ($admin_logged_in): ?>
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Admin Session Active:</strong> You are currently logged in as admin (<?php echo htmlspecialchars($admin_name); ?>).
+                        <br><small>To login as a member, please 
+                        <a href="member_login.php?logout_admin=1" class="alert-link">logout from admin first</a>.
+                        </small>
+                    </div>
+                <?php endif; ?>
+                
                 <?php if ($error): ?>
                     <div class="alert alert-danger" role="alert">
                         <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($error); ?>
                     </div>
                 <?php endif; ?>
-                <form method="POST" action="">
+                <form method="POST" action="" <?php echo $admin_logged_in ? 'style="opacity: 0.5; pointer-events: none;"' : ''; ?>>
                     <div class="mb-3">
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input type="text" class="form-control" name="username" placeholder="Username" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" required>
+                            <input type="text" class="form-control" name="username" placeholder="Username" 
+                                   value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
+                                   <?php echo $admin_logged_in ? 'disabled' : 'required'; ?>>
                         </div>
                     </div>
                     <div class="mb-3">
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <input type="password" class="form-control" name="password" placeholder="Password" required>
+                            <input type="password" class="form-control" name="password" placeholder="Password" 
+                                   <?php echo $admin_logged_in ? 'disabled' : 'required'; ?>>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-sign-in-alt"></i> Login
+                    <button type="submit" class="btn btn-primary" <?php echo $admin_logged_in ? 'disabled' : ''; ?>>
+                        <i class="fas fa-sign-in-alt"></i> <?php echo $admin_logged_in ? 'Admin Logout Required' : 'Login'; ?>
                     </button>
                 </form>
                 <div class="links">

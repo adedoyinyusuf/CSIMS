@@ -240,12 +240,16 @@ class QueryBuilder
     /**
      * Add GROUP BY clause
      * 
-     * @param string $column
+     * @param string|array $columns
      * @return $this
      */
-    public function groupBy(string $column): self
+    public function groupBy(string|array $columns): self
     {
-        $this->groupBy[] = $column;
+        if (is_array($columns)) {
+            $this->groupBy = array_merge($this->groupBy, $columns);
+        } else {
+            $this->groupBy[] = $columns;
+        }
         return $this;
     }
     

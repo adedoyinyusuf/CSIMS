@@ -1,37 +1,51 @@
 <?php
+session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../controllers/membership_controller.php';
+require_once '../../includes/services/NotificationService.php';
 
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
-    $session->setFlash('error', 'Please login to access the members page');
-    header("Location: " . BASE_URL . "index.php");
+    $_SESSION['error'] = 'Please login to access the members page';
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
 // Get current user
 $current_user = $auth->getCurrentUser();
 
-// Initialize member controller
+// Initialize controllers and services
 $memberController = new MemberController();
+$membershipController = new MembershipController();
+$notificationService = new NotificationService();
 
 // Get pagination parameters
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status = isset($_GET['status']) ? $_GET['status'] : '';
 $membership_type = isset($_GET['membership_type']) ? $_GET['membership_type'] : '';
+$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 15;
 
 // Get members with pagination
-$result = $memberController->getAllMembers($page, $search, $status, $membership_type);
-$members = $result['members'];
-$pagination = $result['pagination'];
-$total_pages = $pagination['total_pages'];
-$total_members = $pagination['total_items'];
+$result = $memberController->getAllMembers($page, $search, $status, $membership_type, $per_page);
+$members = $result['members'] ?? [];
+$pagination = $result['pagination'] ?? [];
+$total_pages = $pagination['total_pages'] ?? 1;
+$total_members = $pagination['total_items'] ?? 0;
 
 // Get membership types for filter
-$membership_types = $memberController->getMembershipTypes();
+$membership_types = $membershipController->getAllMembershipTypes(1, 100)['membership_types'] ?? [];
+
+// Get session messages
+$success_message = isset($_SESSION['success_message']) ? $_SESSION['success_message'] : '';
+$error_message = isset($_SESSION['error_message']) ? $_SESSION['error_message'] : '';
+unset($_SESSION['success_message'], $_SESSION['error_message']);
+
+// Get member statistics for dashboard mini-cards
+$member_stats = $memberController->getMemberStatistics();
 ?>
 
 <!DOCTYPE html>
@@ -42,10 +56,12 @@ $membership_types = $memberController->getMembershipTypes();
     <title>Members - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CSIMS Color System -->
+    <link rel="stylesheet" href="../../assets/css/csims-colors.css">
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
 </head>
-<body class="bg-gray-50">
+<body class="bg-admin">
     <!-- Include Header/Navbar -->
     <?php include '../../views/includes/header.php'; ?>
     
@@ -54,116 +70,208 @@ $membership_types = $memberController->getMembershipTypes();
         <?php include '../../views/includes/sidebar.php'; ?>
         
         <!-- Main Content -->
-        <main class="flex-1 md:ml-64 mt-16 p-6">
+        <main class="flex-1 md:ml-64 mt-16 p-6" id="mainContent">
+            <!-- Page Header with Statistics -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Members</h1>
-                    <p class="text-gray-600">Manage and view all cooperative society members</p>
+                <div class="animate-slide-in">
+                    <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">Members Management</h1>
+                    <p style="color: var(--text-muted);">Manage and view all cooperative society members</p>
                 </div>
                 <div class="flex items-center space-x-3 mt-4 md:mt-0">
-                    <a href="add_member.php" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
+                    <a href="add_member.php" class="btn btn-primary">
                         <i class="fas fa-user-plus mr-2"></i> Add New Member
                     </a>
-                    <button type="button" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors" onclick="openImportModal()">
-                        <i class="fas fa-user-plus mr-2"></i> Import New Members
+                    <button type="button" class="btn btn-secondary" onclick="openImportModal()">
+                        <i class="fas fa-file-import mr-2"></i> Import Members
                     </button>
-                    <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors btn-export-csv" data-table="membersTable">
+                    <button type="button" class="btn btn-outline" onclick="exportMembers()">
                         <i class="fas fa-file-export mr-2"></i> Export
                     </button>
-                    <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors btn-print">
+                    <button type="button" class="btn btn-outline" onclick="printMembers()">
                         <i class="fas fa-print mr-2"></i> Print
                     </button>
                 </div>
             </div>
-                
-            <!-- Flash Messages -->
-            <?php if ($session->hasFlash('success')): ?>
-                <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
-                    <div class="flex items-center">
-                        <i class="fas fa-check-circle mr-3 text-green-600"></i>
-                        <?php echo $session->getFlash('success'); ?>
+            
+            <!-- Quick Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--lapis-lazuli);">Total Members</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($total_members); ?></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);">
+                                <i class="fas fa-users text-white"></i>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" class="text-green-600 hover:text-green-800" onclick="this.parentElement.remove()">
+                </div>
+                
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--persian-orange);">Active Members</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($member_stats['active_members'] ?? 0); ?></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--persian-orange) 0%, var(--jasper) 100%);">
+                                <i class="fas fa-user-check text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--jasper);">New This Month</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($member_stats['new_members_this_month'] ?? 0); ?></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--jasper) 0%, var(--fire-brick) 100%);">
+                                <i class="fas fa-user-plus text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card card-admin">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="form-label text-xs mb-1" style="color: var(--paynes-gray);">Expiring Soon</p>
+                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php 
+                                    $expiring_count = 0;
+                                    foreach($members as $member) {
+                                        $expiry_date = strtotime($member['expiry_date']);
+                                        $today = strtotime('today');
+                                        $days_left = round(($expiry_date - $today) / (60 * 60 * 24));
+                                        if ($days_left <= 30 && $days_left >= 0) $expiring_count++;
+                                    }
+                                    echo number_format($expiring_count);
+                                ?></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--paynes-gray) 0%, var(--lapis-lazuli) 100%);">
+                                <i class="fas fa-clock text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                
+            <!-- Enhanced Flash Messages -->
+            <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success flex items-center justify-between animate-slide-in">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-3" style="color: var(--success);"></i>
+                        <span><?php echo htmlspecialchars($success_message); ?></span>
+                    </div>
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             <?php endif; ?>
             
-            <?php if ($session->hasFlash('error')): ?>
-                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+            <?php if (!empty($error_message)): ?>
+                <div class="alert alert-error flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-3 text-red-600"></i>
-                        <?php echo $session->getFlash('error'); ?>
+                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <span><?php echo htmlspecialchars($error_message); ?></span>
                     </div>
-                    <button type="button" class="text-red-600 hover:text-red-800" onclick="this.parentElement.remove()">
+                    <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             <?php endif; ?>
                 
-            <!-- Filter and Search -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Filter Members</h3>
+            <!-- Enhanced Filter and Search -->
+            <div class="card card-admin animate-fade-in">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-filter mr-2" style="color: var(--lapis-lazuli);"></i>
+                        Filter & Search Members
+                    </h3>
                 </div>
-                <div class="p-6">
-                    <form action="" method="GET" class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div class="card-body p-6">
+                    <form action="" method="GET" class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         <div class="lg:col-span-2">
-                            <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="search" name="search" placeholder="Name, Email, Phone, ID" value="<?php echo htmlspecialchars($search); ?>">
+                            <label for="search" class="form-label">Search Members</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search" style="color: var(--text-muted);"></i>
+                                </div>
+                                <input type="text" class="form-control pl-10" id="search" name="search" 
+                                       placeholder="Name, Email, Phone, Member ID" 
+                                       value="<?php echo htmlspecialchars($search); ?>">
+                            </div>
                         </div>
                         <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="status" name="status">
+                            <label for="status" class="form-label">Membership Status</label>
+                            <select class="form-control" id="status" name="status">
                                 <option value="">All Statuses</option>
                                 <option value="Active" <?php echo ($status == 'Active') ? 'selected' : ''; ?>>Active</option>
                                 <option value="Inactive" <?php echo ($status == 'Inactive') ? 'selected' : ''; ?>>Inactive</option>
                                 <option value="Expired" <?php echo ($status == 'Expired') ? 'selected' : ''; ?>>Expired</option>
+                                <option value="Pending" <?php echo ($status == 'Pending') ? 'selected' : ''; ?>>Pending</option>
                             </select>
                         </div>
                         <div>
-                            <label for="membership_type" class="block text-sm font-medium text-gray-700 mb-2">Membership Type</label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="membership_type" name="membership_type">
+                            <label for="membership_type" class="form-label">Membership Type</label>
+                            <select class="form-control" id="membership_type" name="membership_type">
                                 <option value="">All Types</option>
                                 <?php foreach ($membership_types as $type): ?>
                                     <option value="<?php echo $type['membership_type_id']; ?>" <?php echo ($membership_type == $type['membership_type_id']) ? 'selected' : ''; ?>>
-                                        <?php echo $type['name']; ?>
+                                        <?php echo htmlspecialchars($type['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="flex items-end">
-                            <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
-                                <i class="fas fa-filter mr-2"></i> Apply Filters
+                        <div>
+                            <label for="per_page" class="form-label">Show</label>
+                            <select class="form-control" id="per_page" name="per_page">
+                                <option value="15" <?php echo ($per_page == 15) ? 'selected' : ''; ?>>15 per page</option>
+                                <option value="25" <?php echo ($per_page == 25) ? 'selected' : ''; ?>>25 per page</option>
+                                <option value="50" <?php echo ($per_page == 50) ? 'selected' : ''; ?>>50 per page</option>
+                                <option value="100" <?php echo ($per_page == 100) ? 'selected' : ''; ?>>100 per page</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end space-x-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search mr-2"></i> Search
                             </button>
+                            <a href="<?php echo $_SERVER['PHP_SELF']; ?>" class="btn btn-outline">
+                                <i class="fas fa-times mr-2"></i> Clear
+                            </a>
                         </div>
                     </form>
                 </div>
             </div>
                 
             <!-- Members Table -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Member List</h3>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+            <div class="card animate-fade-in">
+                <div class="card-header flex items-center justify-between">
+                    <h3 class="text-lg font-semibold">Member List</h3>
+                    <span class="badge badge-info">
                         <?php echo $total_members; ?> Total Members
                     </span>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full" id="membersTable">
-                        <thead class="bg-gray-50">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="membersTable">
+                        <thead>
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Membership</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Contact</th>
+                                <th>Membership</th>
+                                <th>Join Date</th>
+                                <th>Expiry Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200">
+                        <tbody>
                             <?php if (count($members) > 0): ?>
                                 <?php foreach ($members as $member): ?>
                                     <tr class="hover:bg-gray-50 transition-colors">
@@ -201,7 +309,7 @@ $membership_types = $memberController->getMembershipTypes();
                                             <div class="text-sm text-gray-500"><?php echo $member['phone']; ?></div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <span class="badge badge-info">
                                                 <?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?>
                                             </span>
                                         </td>
@@ -217,36 +325,36 @@ $membership_types = $memberController->getMembershipTypes();
                                                 $days_left = round(($expiry_date - $today) / (60 * 60 * 24));
                                                 
                                                 if ($days_left <= 0) {
-                                                    echo '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">Expired</span>';
+                                                    echo '<span class="badge badge-error mt-1">Expired</span>';
                                                 } elseif ($days_left <= 30) {
-                                                    echo '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">' . $days_left . ' days left</span>';
+                                                    echo '<span class="badge badge-warning mt-1">' . $days_left . ' days left</span>';
                                                 }
                                                 ?>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <?php if ($member['status'] == 'Active'): ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                                                <span class="badge badge-success">Active</span>
                                             <?php elseif ($member['status'] == 'Inactive'): ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>
+                                                <span class="badge badge-warning">Inactive</span>
                                             <?php else: ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Expired</span>
+                                                <span class="badge badge-error">Expired</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div class="flex items-center space-x-2">
-                                                <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-2.5 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-200 transition-colors" title="View Details">
+                                            <div class="table-actions">
+                                                <a href="<?php echo BASE_URL; ?>/views/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-outline btn-sm" title="View Details">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="<?php echo BASE_URL; ?>/views/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-2.5 py-1.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg hover:bg-indigo-200 transition-colors" title="Edit Member">
+                                                <a href="<?php echo BASE_URL; ?>/views/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-primary btn-sm" title="Edit Member">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                                 <?php if ($days_left <= 0): ?>
-                                                    <a href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-2.5 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded-lg hover:bg-green-200 transition-colors" title="Renew Membership">
+                                                    <a href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>" class="btn btn-secondary btn-sm" title="Renew Membership">
                                                         <i class="fas fa-sync-alt"></i>
                                                     </a>
                                                 <?php endif; ?>
-                                                <a href="<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=<?php echo $member['member_id']; ?>" class="inline-flex items-center px-2.5 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded-lg hover:bg-red-200 transition-colors btn-delete" title="Delete Member">
+                                                <a href="<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-outline btn-sm text-error border-error hover:bg-error-bg btn-delete" title="Delete Member">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
                                             </div>
@@ -267,23 +375,29 @@ $membership_types = $memberController->getMembershipTypes();
                         
                 <!-- Pagination -->
                 <?php if ($total_pages > 1): ?>
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        <nav class="flex items-center justify-center" aria-label="Page navigation">
-                            <div class="flex items-center space-x-1">
-                                <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>&membership_type=<?php echo urlencode($membership_type); ?>" class="<?php echo ($page <= 1) ? 'pointer-events-none opacity-50' : ''; ?> inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors" aria-label="Previous">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
+                    <div class="px-6 py-4 border-t border-light">
+                        <nav class="pagination" aria-label="Page navigation">
+                            <ul class="pagination">
+                                <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>&membership_type=<?php echo urlencode($membership_type); ?>" aria-label="Previous">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
                                 
                                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                    <a href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>&membership_type=<?php echo urlencode($membership_type); ?>" class="<?php echo ($page == $i) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-700'; ?> inline-flex items-center px-3 py-2 text-sm font-medium border rounded-lg transition-colors">
-                                        <?php echo $i; ?>
-                                    </a>
+                                    <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
+                                        <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>&membership_type=<?php echo urlencode($membership_type); ?>">
+                                            <?php echo $i; ?>
+                                        </a>
+                                    </li>
                                 <?php endfor; ?>
                                 
-                                <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>&membership_type=<?php echo urlencode($membership_type); ?>" class="<?php echo ($page >= $total_pages) ? 'pointer-events-none opacity-50' : ''; ?> inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors" aria-label="Next">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            </div>
+                                <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>&membership_type=<?php echo urlencode($membership_type); ?>" aria-label="Next">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            </ul>
                         </nav>
                     </div>
                 <?php endif; ?>

@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/membership_controller.php';
@@ -12,6 +13,13 @@ if (!$current_user) {
 }
 
 $membershipController = new MembershipController();
+
+// Get success message from session
+$success_message = '';
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
 
 // Handle pagination and search
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -56,6 +64,14 @@ $expiring = $membershipController->getExpiringMemberships(30);
                         </a>
                     </div>
                 </div>
+
+                <!-- Success Message -->
+                <?php if (!empty($success_message)): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Statistics Cards -->
                 <div class="row mb-4">

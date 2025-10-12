@@ -105,13 +105,13 @@ $page_title = 'Financial Analytics Dashboard';
 
             <!-- Financial Overview Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                <div style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);" class="rounded-xl p-6 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="text-3xl font-bold mb-2">₦<?php echo number_format($dashboard_data['overview']['total_assets'], 0); ?></div>
-                            <div class="text-purple-100 text-sm">Total Assets</div>
+                            <div class="text-blue-100 text-sm">Total Assets</div>
                         </div>
-                        <i class="fas fa-wallet text-4xl text-purple-200"></i>
+                        <i class="fas fa-wallet text-4xl text-blue-200"></i>
                     </div>
                 </div>
                 
@@ -184,7 +184,7 @@ $page_title = 'Financial Analytics Dashboard';
                 </div>
             </div>
 
-            <!-- Loan Performance & Investment Returns -->
+            <!-- Loan Performance & Savings Performance -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">
@@ -205,19 +205,19 @@ $page_title = 'Financial Analytics Dashboard';
                 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                        <i class="fas fa-chart-line mr-2 text-primary-600"></i>Investment Returns
+                        <i class="fas fa-piggy-bank mr-2 text-primary-600"></i>Savings Performance
                     </h3>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <div class="text-2xl font-bold text-green-600"><?php echo number_format($dashboard_data['investment_returns']['avg_roi_percentage'], 1); ?>%</div>
-                            <div class="text-sm text-green-700">Average ROI</div>
+                            <div class="text-2xl font-bold text-green-600"><?php echo number_format($dashboard_data['savings_performance']['avg_interest_rate'] ?? 0, 1); ?>%</div>
+                            <div class="text-sm text-green-700">Average Interest Rate</div>
                         </div>
                         <div class="text-center p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
-                            <div class="text-2xl font-bold text-cyan-600"><?php echo number_format($dashboard_data['investment_returns']['realization_rate'], 1); ?>%</div>
-                            <div class="text-sm text-cyan-700">Realization Rate</div>
+                            <div class="text-2xl font-bold text-cyan-600"><?php echo number_format($dashboard_data['savings_performance']['growth_rate'] ?? 0, 1); ?>%</div>
+                            <div class="text-sm text-cyan-700">Growth Rate</div>
                         </div>
                     </div>
-                    <canvas id="investmentChart" height="150"></canvas>
+                    <canvas id="savingsChart" height="150"></canvas>
                 </div>
             </div>
 
@@ -241,7 +241,7 @@ $page_title = 'Financial Analytics Dashboard';
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contributions</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Savings</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Loans</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health Score</th>
                                     </tr>
@@ -250,7 +250,7 @@ $page_title = 'Financial Analytics Dashboard';
                                     <?php foreach (array_slice($dashboard_data['member_financial_health'], 0, 10) as $member): ?>
                                         <tr class="hover:bg-gray-50 transition-colors">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($member['member_name']); ?></td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦<?php echo number_format($member['total_contributions'], 0); ?></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦<?php echo number_format($member['total_savings'] ?? 0, 0); ?></td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦<?php echo number_format($member['active_loans'], 0); ?></td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <?php 
@@ -412,24 +412,24 @@ $page_title = 'Financial Analytics Dashboard';
             }
         });
 
-        // Investment Chart
-        const investCtx = document.getElementById('investmentChart').getContext('2d');
-        const investChart = new Chart(investCtx, {
+        // Savings Chart
+        const savingsCtx = document.getElementById('savingsChart').getContext('2d');
+        const savingsChart = new Chart(savingsCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Realized Returns', 'Unrealized Returns'],
+                labels: ['Active Savings', 'Interest Earned'],
                 datasets: [{
                     data: [
-                        <?php echo $dashboard_data['investment_returns']['realized_returns']; ?>,
-                        <?php echo $dashboard_data['investment_returns']['unrealized_returns']; ?>
+                        <?php echo $dashboard_data['savings_performance']['total_savings'] ?? 0; ?>,
+                        <?php echo $dashboard_data['savings_performance']['total_interest_earned'] ?? 0; ?>
                     ],
                     backgroundColor: [
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(153, 102, 255, 0.8)'
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(59, 130, 246, 0.8)'
                     ],
                     borderColor: [
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(153, 102, 255, 1)'
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(59, 130, 246, 1)'
                     ],
                     borderWidth: 1
                 }]
@@ -447,7 +447,7 @@ $page_title = 'Financial Analytics Dashboard';
         // Trends Chart
         const trendsData = <?php echo json_encode($dashboard_data['trends']); ?>;
         const periods = [...new Set(trendsData.map(item => item.period))].sort();
-        const categories = ['Contributions', 'Loans', 'Investments'];
+        const categories = ['Savings', 'Loans'];
         
         const trendsCtx = document.getElementById('trendsChart').getContext('2d');
         const trendsChart = new Chart(trendsCtx, {

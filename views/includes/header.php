@@ -11,20 +11,22 @@ if (!isset($current_user)) {
 
 <!-- Tailwind CSS Local Build -->
 <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
+<!-- CSIMS Color System -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
 
-<header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+<header class="navbar sticky top-0 z-50">
     <div class="flex items-center justify-between px-4 py-3">
         <!-- Brand -->
         <div class="flex items-center space-x-4">
-            <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="flex items-center space-x-2 text-primary-600 hover:text-primary-700 transition-colors">
-                <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-university text-white text-sm"></i>
+            <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="navbar-brand flex items-center space-x-2 transition-all duration-300 hover:transform hover:scale-105">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center glass-dark">
+                    <i class="fas fa-university text-white text-lg"></i>
                 </div>
-                <span class="font-bold text-xl hidden sm:block"><?php echo APP_SHORT_NAME; ?></span>
+                <span class="hidden sm:block font-bold text-lapis-lazuli"><?php echo APP_SHORT_NAME; ?></span>
             </a>
             
             <!-- Sidebar toggle button (mobile and desktop) -->
-            <button type="button" class="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors" onclick="toggleSidebar()">
+            <button type="button" class="p-3 rounded-xl transition-all duration-300" onclick="toggleSidebar()">
                 <i class="fas fa-bars text-lg"></i>
             </button>
         </div>
@@ -32,10 +34,10 @@ if (!isset($current_user)) {
         <!-- Search Bar -->
         <div class="flex-1 max-w-lg mx-4 hidden md:block">
             <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input type="text" class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors" placeholder="Search members, loans, contributions..." aria-label="Search">
+                <input type="text" class="form-control w-full pl-12 pr-4 py-3" placeholder="Search members, loans, contributions..." aria-label="Search">
             </div>
         </div>
         
@@ -43,17 +45,17 @@ if (!isset($current_user)) {
         <div class="flex items-center space-x-2">
             <!-- Notifications -->
             <div class="relative">
-                <button type="button" class="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors relative" onclick="toggleNotifications()">
+                <button type="button" class="p-3 rounded-xl transition-all duration-300 relative" onclick="toggleNotifications()">
                     <i class="fas fa-bell text-lg"></i>
-                    <span class="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                    <span class="badge absolute -top-1 -right-1 h-5 w-5 text-xs rounded-full flex items-center justify-center font-bold bg-red-500 text-white">
                         3
                     </span>
                 </button>
                 
                 <!-- Notifications Dropdown -->
-                <div id="notificationsDropdown" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
+                <div id="notificationsDropdown" class="dropdown-menu absolute right-0 mt-3 w-80 hidden z-50">
                     <div class="p-4 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900">Notifications</h3>
+                        <h3 class="text-lg font-semibold text-primary">Notifications</h3>
                     </div>
                     <div class="max-h-96 overflow-y-auto">
                         <a href="#" class="block p-4 hover:bg-gray-50 transition-colors border-b border-gray-100">
@@ -92,28 +94,28 @@ if (!isset($current_user)) {
             
             <!-- User Menu -->
             <div class="relative">
-                <button type="button" class="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors" onclick="toggleUserMenu()">
-                    <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-                        <i class="fas fa-user text-white text-sm"></i>
+                <button type="button" class="user-menu flex items-center space-x-3 p-2 rounded-xl transition-all duration-300" onclick="toggleUserMenu()">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center glass-dark">
+                        <i class="fas fa-user text-white"></i>
                     </div>
-                    <span class="hidden sm:block font-medium"><?php echo $current_user['first_name']; ?></span>
-                    <i class="fas fa-chevron-down text-xs text-gray-500"></i>
+                    <span class="hidden sm:block user-name"><?php echo $current_user['first_name']; ?></span>
+                    <i class="fas fa-chevron-down text-sm"></i>
                 </button>
                 
                 <!-- User Dropdown -->
-                <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
+                <div id="userDropdown" class="dropdown-menu absolute right-0 mt-3 w-52 hidden z-50">
                     <div class="py-2">
-                        <a href="<?php echo BASE_URL; ?>/views/admin/profile.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-user w-4 h-4 mr-3 text-gray-400"></i>
+                        <a href="<?php echo BASE_URL; ?>/views/admin/profile.php" class="dropdown-item flex items-center">
+                            <i class="fas fa-user w-5 h-5 mr-3 text-primary-600"></i>
                             Profile
                         </a>
-                        <a href="<?php echo BASE_URL; ?>/views/admin/settings.php" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-cog w-4 h-4 mr-3 text-gray-400"></i>
+                        <a href="<?php echo BASE_URL; ?>/views/admin/settings.php" class="dropdown-item flex items-center">
+                            <i class="fas fa-cog w-5 h-5 mr-3 text-primary-600"></i>
                             Settings
                         </a>
-                        <hr class="my-2 border-gray-200">
-                        <a href="<?php echo BASE_URL; ?>/views/auth/logout.php" class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                            <i class="fas fa-sign-out-alt w-4 h-4 mr-3 text-red-500"></i>
+                        <div class="dropdown-divider"></div>
+                        <a href="<?php echo BASE_URL; ?>/views/auth/logout.php" class="dropdown-item flex items-center text-error hover:bg-error-bg">
+                            <i class="fas fa-sign-out-alt w-5 h-5 mr-3 text-error"></i>
                             Logout
                         </a>
                     </div>

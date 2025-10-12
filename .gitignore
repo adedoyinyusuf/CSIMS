@@ -1,0 +1,150 @@
+# CSIMS - Git Ignore File
+# ======================
+
+# Environment and Configuration
+.env
+.env.local
+.env.production
+config/local_config.php
+config/production_config.php
+
+# Logs and Runtime Data
+logs/
+*.log
+error.log
+access.log
+php_error.log
+security.log
+
+# Uploads and User Data
+uploads/
+backups/
+temp/
+cache/
+
+# Database
+*.sql
+*.sqlite
+*.db
+database.sql
+backup_*.sql
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# PHP
+vendor/
+composer.lock
+*.cache
+opcache/
+
+# Node.js (if using for asset compilation)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build and Distribution
+dist/
+build/
+public/assets/compiled/
+*.min.js
+*.min.css
+
+# Testing and Development
+test_*.php
+*test*.php
+test-*.php
+debug_*.php
+*debug*.php
+check_*.php
+phpunit.xml
+.phpunit.result.cache
+tests/coverage/
+
+# Temporary Files
+*.tmp
+*.temp
+.htaccess.backup
+config.php.backup
+*.bak
+
+# Session Files
+sessions/
+tmp/
+
+# Error and Debug Output
+debug.txt
+errors.txt
+output.log
+
+# Local Development
+xampp/
+wamp/
+localhost/
+local/
+
+# Security Files (never commit these)
+private_keys/
+certificates/
+*.pem
+*.key
+*.crt
+
+# Package Managers
+composer.phar
+
+# Documentation Build
+docs/_build/
+docs/.build/
+
+# Cache Files
+*.cache
+cache/
+
+# Lock Files
+*.lock
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+desktop.ini
+
+# Archive Files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Backup Files
+*.backup
+*.old
+*.orig
+
+# Local Configuration
+local.php
+development.php
+staging.php
+
+# Runtime
+runtime/
+var/
+
+# Composer
+/vendor/
+
+# PHPUnit
+.phpunit.cache

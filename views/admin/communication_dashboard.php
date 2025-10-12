@@ -131,7 +131,7 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
 <body class="bg-gray-50">
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <div class="w-64 bg-gradient-to-br from-primary-600 to-purple-700 shadow-xl">
+        <div class="w-64 sidebar shadow-xl">
             <div class="flex flex-col h-full p-6">
                 <h4 class="text-white text-xl font-bold mb-6">
                     <i class="fas fa-university mr-2"></i> Admin Portal
@@ -251,15 +251,15 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
                         </div>
                     </div>
                     
-                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-slate-500">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-purple-600 uppercase tracking-wider mb-2">Notifications</p>
+                                <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Notifications</p>
                                 <p class="text-2xl font-bold text-gray-800"><?php echo $stats['notifications']['total_notifications']; ?></p>
                                 <p class="text-sm text-gray-500"><?php echo $stats['notifications']['sent_notifications']; ?> delivered</p>
                             </div>
-                            <div class="bg-purple-100 p-3 rounded-full">
-                                <i class="fas fa-bell text-2xl text-purple-600"></i>
+                            <div class="bg-slate-100 p-3 rounded-full">
+                                <i class="fas fa-bell text-2xl text-slate-600"></i>
                             </div>
                         </div>
                     </div>

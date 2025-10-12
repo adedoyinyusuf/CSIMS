@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSIMS Professional Color System Demo</title>
+    <link rel="stylesheet" href="assets/css/csims-colors.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .demo-section {
+            margin-bottom: 40px;
+        }
+        
+        .demo-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        
+        .demo-subtitle {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1A5599;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .color-swatch {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .color-name {
+            font-size: 14px;
+            margin-top: 8px;
+            opacity: 0.9;
+        }
+        
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        
+        .demo-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .form-demo {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .status-demo {
+            display: grid;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1 class="demo-title">CSIMS Professional Color System</h1>
+        <p style="text-align: center; color: #475569; font-size: 18px; margin-bottom: 40px;">
+            A comprehensive professional color palette with blue-gray foundation and strategic orange accents
+        </p>
+        
+        <!-- Color Palette Display -->
+        <div class="demo-section">
+            <h2 class="demo-subtitle">Core Color Palette</h2>
+            <div class="color-palette">
+                <div class="color-swatch" style="background: var(--lapis-lazuli);">
+                    <div>Lapis Lazuli</div>
+                    <div class="color-name">#1A5599</div>
+                </div>
+                <div class="color-swatch" style="background: var(--true-blue);">
+                    <div>True Blue</div>
+                    <div class="color-name">#336699</div>
+                </div>
+                <div class="color-swatch" style="background: var(--paynes-gray);">
+                    <div>Paynes Gray</div>
+                    <div class="color-name">#334155</div>
+                </div>
+                <div class="color-swatch" style="background: var(--charcoal);">
+                    <div>Charcoal</div>
+                    <div class="color-name">#475569</div>
+                </div>
+                <div class="color-swatch" style="background: var(--persian-orange);">
+                    <div>Persian Orange</div>
+                    <div class="color-name">#EA8C55</div>
+                </div>
+                <div class="color-swatch" style="background: var(--jasper);">
+                    <div>Jasper</div>
+                    <div class="color-name">#C75146</div>
+                </div>
+                <div class="color-swatch" style="background: var(--fire-brick);">
+                    <div>Fire Brick</div>
+                    <div class="color-name">#AD2E24</div>
+                </div>
+                <div class="color-swatch" style="background: var(--falu-red);">
+                    <div>Falu Red</div>
+                    <div class="color-name">#81171B</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Button Components -->
+        <div class="demo-section">
+            <h2 class="demo-subtitle">Professional Button Components</h2>
+            <div class="component-grid">
+                <div class="demo-card">
+                    <h3 style="color: #334155; margin-bottom: 20px;">Action Buttons</h3>
+                    <div class="button-group">
+                        <button class="btn-primary">Primary Action</button>
+                        <button class="btn-secondary">Secondary Action</button>
+                        <button class="btn-danger">Delete/Danger</button>
+                        <button class="btn-outline">Outline Button</button>
+                    </div>
+                </div>
+                
+                <div class="demo-card">
+                    <h3 style="color: #334155; margin-bottom: 20px;">Status Badges</h3>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <span class="badge badge-primary">Primary</span>
+                        <span class="badge badge-success">Success</span>
+                        <span class="badge badge-warning">Warning</span>
+                        <span class="badge badge-danger">Danger</span>
+                        <span class="badge badge-info">Information</span>
+                        <span class="badge badge-secondary">Secondary</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Form Components -->
+        <div class="demo-section">
+            <h2 class="demo-subtitle">Professional Form Elements</h2>
+            <div class="component-grid">
+                <div class="demo-card">
+                    <h3 style="color: #334155; margin-bottom: 20px;">Form Controls</h3>
+                    <div class="form-demo">
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" placeholder="Enter your email">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Password</label>
+                            <input type="password" class="form-control" placeholder="Enter password">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" placeholder="Enter description"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="demo-card">
+                    <h3 style="color: #334155; margin-bottom: 20px;">Progress Indicators</h3>
+                    <div style="display: grid; gap: 16px;">
+                        <div>
+                            <div style="margin-bottom: 8px; font-weight: 600;">Default Progress</div>
+                            <div class="progress">
+                                <div class="progress-bar" style="width: 75%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="margin-bottom: 8px; font-weight: 600;">Success Progress</div>
+                            <div class="progress">
+                                <div class="progress-bar success" style="width: 60%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="margin-bottom: 8px; font-weight: 600;">Warning Progress</div>
+                            <div class="progress">
+                                <div class="progress-bar warning" style="width: 40%"></div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="loading-spinner"></div>
+                            <span>Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alert Components -->
+        <div class="demo-section">
+            <h2 class="demo-subtitle">Professional Alert Messages</h2>
+            <div class="status-demo">
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle" style="margin-right: 12px; color: var(--success-color);"></i>
+                    Success! Your changes have been saved successfully.
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle" style="margin-right: 12px; color: var(--lapis-lazuli);"></i>
+                    Information: Please review the updated membership guidelines.
+                </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 12px; color: var(--jasper);"></i>
+                    Warning: Your membership expires in 30 days.
+                </div>
+                <div class="alert alert-error">
+                    <i class="fas fa-times-circle" style="margin-right: 12px; color: var(--fire-brick);"></i>
+                    Error: Unable to process your request. Please try again.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Table Component -->
+        <div class="demo-section">
+            <h2 class="demo-subtitle">Professional Data Tables</h2>
+            <div class="demo-card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Member ID</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>#M001</td>
+                            <td>John Doe</td>
+                            <td>john.doe@example.com</td>
+                            <td><span class="badge badge-success">Active</span></td>
+                            <td>
+                                <button class="btn-outline" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>#M002</td>
+                            <td>Jane Smith</td>
+                            <td>jane.smith@example.com</td>
+                            <td><span class="badge badge-warning">Pending</span></td>
+                            <td>
+                                <button class="btn-outline" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>#M003</td>
+                            <td>Bob Johnson</td>
+                            <td>bob.johnson@example.com</td>
+                            <td><span class="badge badge-danger">Expired</span></td>
+                            <td>
+                                <button class="btn-outline" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Card Components -->
+        <div class="demo-section">
+            <h2 class="demo-subtitle">Professional Card Components</h2>
+            <div class="component-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-users" style="margin-right: 8px;"></i>
+                        Member Statistics
+                    </div>
+                    <div style="padding: 24px;">
+                        <div style="display: grid; gap: 12px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Total Members:</span>
+                                <strong>1,245</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Active Members:</span>
+                                <strong>1,198</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Pending:</span>
+                                <strong>47</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card card-admin">
+                    <div class="card-header">
+                        <i class="fas fa-chart-bar" style="margin-right: 8px;"></i>
+                        Admin Dashboard
+                    </div>
+                    <div style="padding: 24px;">
+                        <p style="color: #475569; margin-bottom: 16px;">
+                            Administrative overview with key metrics and system status.
+                        </p>
+                        <div class="button-group">
+                            <button class="btn-primary">View Report</button>
+                            <button class="btn-secondary">Export Data</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Color Psychology Section -->
+        <div class="demo-section">
+            <div class="demo-card">
+                <h2 style="color: #1A5599; margin-bottom: 20px;">Color Psychology & Professional Impact</h2>
+                <div style="display: grid; gap: 16px; color: #475569; line-height: 1.6;">
+                    <p><strong style="color: #1A5599;">Blue-Gray Foundation:</strong> Establishes trust, reliability, and professional credibility. These colors communicate stability and competence, essential for financial and membership management systems.</p>
+                    
+                    <p><strong style="color: #EA8C55;">Orange Accents:</strong> Strategic use of warm orange tones for calls-to-action and status communication. Orange conveys energy, enthusiasm, and draws attention to important interactive elements.</p>
+                    
+                    <p><strong style="color: #334155;">Sophisticated Neutrals:</strong> Charcoal and Paynes Gray provide professional depth and ensure excellent readability while maintaining a modern, sophisticated appearance.</p>
+                    
+                    <p><strong style="color: #28a745;">Status Colors:</strong> Carefully selected status colors (success green, warning amber, error red) provide clear visual feedback while maintaining accessibility standards.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Add some interactive effects
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-4px)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+        
+        // Simulate progress bar animation
+        setTimeout(() => {
+            document.querySelectorAll('.progress-bar').forEach((bar, index) => {
+                const currentWidth = parseInt(bar.style.width);
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = currentWidth + '%';
+                }, index * 200);
+            });
+        }, 500);
+    </script>
+</body>
+</html>

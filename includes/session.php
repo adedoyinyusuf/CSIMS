@@ -42,27 +42,14 @@ class Session {
     }
     
     private function validateSession() {
-        // Check for session hijacking
-        if ($this->exists('user_ip') && $this->get('user_ip') !== $_SERVER['REMOTE_ADDR']) {
-            SecurityLogger::logCriticalSecurity('Session hijacking attempt detected', [
-                'stored_ip' => $this->get('user_ip'),
-                'current_ip' => $_SERVER['REMOTE_ADDR'],
-                'session_id' => session_id()
-            ]);
-            $this->destroy();
-            return;
-        }
+        // More flexible session validation for development/local environments
+        $environment = defined('ENVIRONMENT') ? ENVIRONMENT : 'production';
         
-        // Check for session fixation
-        $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        if ($this->exists('user_agent') && $this->get('user_agent') !== $currentUserAgent) {
-            SecurityLogger::logCriticalSecurity('Session fixation attempt detected', [
-                'stored_agent' => $this->get('user_agent'),
-                'current_agent' => $currentUserAgent,
-                'session_id' => session_id()
-            ]);
-            $this->destroy();
-            return;
+        // In development, be more lenient with IP changes (localhost vs 127.0.0.1)
+        if ($environment === 'development') {
+            $this->validateSessionDevelopment();
+        } else {
+            $this->validateSessionProduction();
         }
         
         // Set initial security markers if not set
@@ -71,7 +58,66 @@ class Session {
         }
         
         if (!$this->exists('user_agent')) {
-            $this->set('user_agent', $currentUserAgent);
+            $this->set('user_agent', $_SERVER['HTTP_USER_AGENT'] ?? '');
+        }
+    }
+    
+    private function validateSessionDevelopment() {
+        // More lenient validation for development
+        $current_ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $stored_ip = $this->get('user_ip');
+        
+        // Allow localhost variations (127.0.0.1, ::1, localhost)
+        $localhost_ips = ['127.0.0.1', '::1', 'localhost'];
+        
+        if ($stored_ip && $stored_ip !== $current_ip) {
+            // If both are localhost variations, allow it
+            $stored_is_local = in_array($stored_ip, $localhost_ips);
+            $current_is_local = in_array($current_ip, $localhost_ips);
+            
+            if (!($stored_is_local && $current_is_local)) {
+                // Log but don't destroy session in development
+                if (class_exists('SecurityLogger')) {
+                    SecurityLogger::logSecurityEvent('IP change detected in development', [
+                        'stored_ip' => $stored_ip,
+                        'current_ip' => $current_ip,
+                        'session_id' => session_id()
+                    ]);
+                }
+                // Update IP instead of destroying session
+                $this->set('user_ip', $current_ip);
+            }
+        }
+        
+        // Skip user agent validation in development (browsers update frequently)
+    }
+    
+    private function validateSessionProduction() {
+        // Strict validation for production
+        if ($this->exists('user_ip') && $this->get('user_ip') !== $_SERVER['REMOTE_ADDR']) {
+            if (class_exists('SecurityLogger')) {
+                SecurityLogger::logCriticalSecurity('Session hijacking attempt detected', [
+                    'stored_ip' => $this->get('user_ip'),
+                    'current_ip' => $_SERVER['REMOTE_ADDR'],
+                    'session_id' => session_id()
+                ]);
+            }
+            $this->destroy();
+            return;
+        }
+        
+        // Check for session fixation
+        $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if ($this->exists('user_agent') && $this->get('user_agent') !== $currentUserAgent) {
+            if (class_exists('SecurityLogger')) {
+                SecurityLogger::logCriticalSecurity('Session fixation attempt detected', [
+                    'stored_agent' => $this->get('user_agent'),
+                    'current_agent' => $currentUserAgent,
+                    'session_id' => session_id()
+                ]);
+            }
+            $this->destroy();
+            return;
         }
     }
     

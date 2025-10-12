@@ -1,18 +1,19 @@
 <?php
 session_start();
-require_once '../config/database.php';
+require_once '../config/config.php';
 require_once '../controllers/member_controller.php';
 require_once '../controllers/loan_controller.php';
-require_once '../controllers/contribution_controller.php';
 require_once '../controllers/notification_controller.php';
 // Check if member is logged in
 if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
     header('Location: member_login.php');
     exit();
 }
-$memberController = new MemberController($conn);
+$database = Database::getInstance();
+$conn = $database->getConnection();
+
+$memberController = new MemberController();
 $loanController = new LoanController($conn);
-$contributionController = new ContributionController();
 $notificationController = new NotificationController($conn);
 $member_id = $_SESSION['member_id'];
 // Get member details
@@ -22,20 +23,24 @@ $member_loans = $loanController->getMemberLoans($member_id);
 if ($member_loans === false) {
     $member_loans = []; // Handle error case
 }
-$member_contributions = $contributionController->getContributionsByMemberId($member_id);
-if ($member_contributions === false) {
-    $member_contributions = []; // Handle error case
+// Get member savings accounts
+try {
+    require_once '../src/autoload.php';
+    $savingsRepository = new \CSIMS\Repositories\SavingsAccountRepository($conn);
+    $member_savings = $savingsRepository->findByMemberId($member_id);
+} catch (Exception $e) {
+    $member_savings = []; // Handle error case
 }
 $member_notifications = $notificationController->getMemberNotifications($member_id);
 if ($member_notifications === false) {
     $member_notifications = []; // Handle error case
 }
 // Calculate totals
-$total_contributions = 0;
+$total_savings = 0;
 $total_loan_amount = 0;
 $active_loans = 0;
-foreach ($member_contributions as $contribution) {
-    $total_contributions += $contribution['amount'];
+foreach ($member_savings as $savings_account) {
+    $total_savings += $savings_account->getBalance();
 }
 foreach ($member_loans as $loan) {
     $total_loan_amount += $loan['amount'];
@@ -54,16 +59,86 @@ $unread_notifications = count(array_filter($member_notifications, function($n) {
     <title>Member Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/csims-colors.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .stat-card { background: #f8f9fa; border-radius: 10px; }
-        .stat-card-success { background: #d4edda; border-radius: 10px; }
-        .stat-card-warning { background: #fff3cd; border-radius: 10px; }
-        .stat-card-info { background: #d1ecf1; border-radius: 10px; }
-        .welcome-section { background: #6c63ff; color: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .sidebar { background: #343a40; color: #fff; border-radius: 10px; }
-        .sidebar .nav-link { color: #fff; }
-        .sidebar .nav-link.active { background: #6c63ff; }
+        body { 
+            background: var(--member-bg); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        .stat-card { 
+            background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%); 
+            border-radius: 16px;
+            border: 1px solid var(--border-light);
+            box-shadow: 0 4px 20px var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--shadow-md);
+        }
+        .stat-card-success { 
+            background: linear-gradient(135deg, var(--sky-blue) 0%, var(--vista-blue) 100%); 
+            color: white;
+        }
+        .stat-card-warning { 
+            background: linear-gradient(135deg, var(--orange-peel) 0%, var(--princeton-orange) 100%); 
+            color: white;
+        }
+        .stat-card-info { 
+            background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%); 
+            color: white;
+        }
+        .welcome-section { 
+            background: linear-gradient(135deg, var(--member-primary) 0%, var(--member-secondary) 100%); 
+            color: #fff; 
+            border-radius: 16px; 
+            padding: 30px; 
+            margin-bottom: 30px;
+            box-shadow: 0 8px 30px var(--shadow-md);
+        }
+        .sidebar { 
+            background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-secondary) 100%); 
+            color: #fff; 
+            border-radius: 16px;
+            box-shadow: 0 4px 20px var(--shadow-sm);
+        }
+        .sidebar .nav-link { 
+            color: rgba(255, 255, 255, 0.8); 
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 4px 12px;
+            transition: all 0.3s ease;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active { 
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: translateX(4px);
+        }
+        .navbar {
+            background: linear-gradient(90deg, var(--member-primary) 0%, var(--member-secondary) 100%);
+            box-shadow: 0 2px 10px var(--shadow-sm);
+        }
+        .card {
+            border-radius: 16px;
+            border: 1px solid var(--border-light);
+            box-shadow: 0 4px 20px var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--shadow-md);
+        }
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-100) 0%, var(--primary-50) 100%);
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .badge {
+            background: linear-gradient(135deg, var(--safety-orange) 0%, var(--pumpkin) 100%);
+        }
     </style>
 </head>
 <body>
@@ -110,8 +185,8 @@ $unread_notifications = count(array_filter($member_notifications, function($n) {
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="member_contributions.php">
-                                <i class="fas fa-piggy-bank"></i> My Contributions
+                            <a class="nav-link" href="member_savings.php">
+                                <i class="fas fa-piggy-bank"></i> My Savings
                             </a>
                         </li>
                         <li class="nav-item">
@@ -151,8 +226,8 @@ $unread_notifications = count(array_filter($member_notifications, function($n) {
                             <div class="card stat-card">
                                 <div class="card-body text-center">
                                     <i class="fas fa-piggy-bank fa-2x mb-2"></i>
-                                    <h5>Total Contributions</h5>
-                                    <h3>$<?php echo number_format($total_contributions, 2); ?></h3>
+                                    <h5>Total Savings</h5>
+                                    <h3>₦<?php echo number_format($total_savings, 2); ?></h3>
                                 </div>
                             </div>
                         </div>
@@ -229,26 +304,27 @@ $unread_notifications = count(array_filter($member_notifications, function($n) {
                             </div>
                         </div>
 
-                        <!-- Recent Contributions -->
+                        <!-- Recent Savings Activity -->
                         <div class="col-md-6 mb-4">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-piggy-bank"></i> Recent Contributions</h5>
+                                    <h5><i class="fas fa-piggy-bank"></i> Recent Savings Activity</h5>
                                 </div>
                                 <div class="card-body">
                                     <?php if (empty($member_contributions)): ?>
-                                        <p class="text-muted">No contributions found.</p>
+                                        <p class="text-muted">No savings activity found.</p>
+                                        <a href="member_savings.php" class="btn btn-primary">Manage Savings</a>
                                     <?php else: ?>
                                         <?php foreach (array_slice($member_contributions, 0, 3) as $contribution): ?>
                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                 <div>
-                                                    <strong>$<?php echo number_format($contribution['amount'], 2); ?></strong>
+                                                    <strong>₦<?php echo number_format($contribution['amount'], 2); ?></strong>
                                                     <br><small class="text-muted"><?php echo $contribution['contribution_type']; ?></small>
                                                 </div>
                                                 <small class="text-muted"><?php echo date('M d, Y', strtotime($contribution['contribution_date'])); ?></small>
                                             </div>
                                         <?php endforeach; ?>
-                                        <a href="member_contributions.php" class="btn btn-outline-primary btn-sm">View All</a>
+                                        <a href="member_savings.php" class="btn btn-outline-primary btn-sm">View All</a>
                                     <?php endif; ?>
                                 </div>
                             </div>

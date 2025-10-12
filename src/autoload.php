@@ -43,6 +43,12 @@ function initializeContainer(): \CSIMS\Container\Container
         return \CSIMS\Services\ConfigurationManager::getInstance();
     });
     
+    // Bind NotificationService
+    $container->singleton(\CSIMS\Services\NotificationService::class, function($container) {
+        $database = $container->resolve('database');
+        return new \CSIMS\Services\NotificationService($database);
+    });
+    
     // Bind database connection
     $container->singleton('database', function($container) {
         $config = $container->resolve(\CSIMS\Services\ConfigurationManager::class);
