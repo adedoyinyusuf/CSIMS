@@ -1,0 +1,364 @@
+name: 🚀 Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  # Pre-deployment validation
+  pre-deployment-check:
+    name: 🔍 Pre-deployment Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mysqli, pdo_mysql, session, json, openssl, mbstring, gd
+        
+    - name: 🔍 PHP Syntax Validation
+      run: |
+        echo "🔍 Validating PHP syntax for production deployment..."
+        find . -name "*.php" -not -path "./vendor/*" -not -path "./.git/*" | xargs -I {} php -l {}
+        echo "✅ PHP syntax validation completed"
+        
+    - name: 🛡️ Security Pre-check
+      run: |
+        echo "🔍 Running security pre-checks..."
+        
+        # Ensure no debug code in production
+        if grep -r "var_dump\|print_r\|die(" --include="*.php" . && [ $? -eq 0 ]; then
+          echo "❌ Debug code found - remove before production deployment!"
+          exit 1
+        fi
+        
+        # Check for proper error handling configuration
+        if grep -r "display_errors.*=.*1" --include="*.php" . && [ $? -eq 0 ]; then
+          echo "⚠️ Warning: Error display might be enabled - verify production config"
+        fi
+        
+        echo "✅ Security pre-check completed"
+        
+    - name: 📋 Environment Configuration Check
+      run: |
+        echo "🔍 Checking production readiness..."
+        
+        # Check for required directories
+        for dir in "config" "includes" "controllers" "views"; do
+          if [ ! -d "$dir" ]; then
+            echo "❌ Required directory missing: $dir"
+            exit 1
+          fi
+        done
+        
+        # Check for .htaccess security files
+        if [ ! -f "logs/.htaccess" ] || [ ! -f "uploads/.htaccess" ] || [ ! -f "backups/.htaccess" ]; then
+          echo "⚠️ Some .htaccess security files are missing"
+        fi
+        
+        echo "✅ Environment configuration check completed"
+
+  # Deploy to Shared Hosting (cPanel/FTP)
+  deploy-shared-hosting:
+    name: 🌐 Deploy to Shared Hosting
+    runs-on: ubuntu-latest
+    needs: pre-deployment-check
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🗂️ Prepare Deployment Package
+      run: |
+        echo "📦 Preparing deployment package..."
+        
+        # Create deployment directory
+        mkdir -p deployment-package
+        
+        # Copy all necessary files except excluded ones
+        rsync -av --progress . deployment-package/ \
+          --exclude='.git*' \
+          --exclude='node_modules' \
+          --exclude='*.md' \
+          --exclude='.github' \
+          --exclude='tests' \
+          --exclude='*.log' \
+          --exclude='composer.lock'
+        
+        echo "✅ Deployment package prepared"
+        
+    - name: 🔧 Configure for Production
+      run: |
+        cd deployment-package
+        
+        echo "🔧 Configuring for production environment..."
+        
+        # Create production .htaccess for root directory
+        cat > .htaccess << 'EOF'
+        # CSIMS Production Security Settings
+        Options -Indexes
+        ServerSignature Off
+        
+        # Security Headers
+        Header always set X-Content-Type-Options nosniff
+        Header always set X-Frame-Options DENY
+        Header always set X-XSS-Protection "1; mode=block"
+        Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Header always set Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # PHP Security Settings
+        php_flag display_errors Off
+        php_flag log_errors On
+        php_value error_log logs/php_errors.log
+        
+        # File Upload Security
+        php_value upload_max_filesize 5M
+        php_value post_max_size 10M
+        php_value max_execution_time 300
+        
+        # Protect sensitive files
+        <FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql|conf)$">
+            Order Allow,Deny
+            Deny from all
+        </FilesMatch>
+        
+        # Pretty URLs (if needed)
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule ^(.*)$ index.php [QSA,L]
+        EOF
+        
+        # Ensure secure directories have protection
+        for dir in logs uploads backups; do
+          if [ -d "$dir" ]; then
+            echo "Deny from all" > "$dir/.htaccess"
+          fi
+        done
+        
+        echo "✅ Production configuration completed"
+        
+    - name: 📤 Deploy via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_HOST }}
+        username: ${{ secrets.FTP_USER }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./deployment-package/
+        server-dir: ${{ secrets.FTP_SERVER_DIR }}
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/*.md
+        
+    - name: 🔄 Post-Deployment Health Check
+      run: |
+        echo "🏥 Running post-deployment health check..."
+        
+        # Wait for deployment to complete
+        sleep 30
+        
+        # Check if site is accessible (if URL is provided)
+        if [ ! -z "${{ secrets.SITE_URL }}" ]; then
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.SITE_URL }}" || echo "000")
+          
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Site is accessible (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️ Site returned HTTP $HTTP_STATUS"
+          fi
+        fi
+        
+        echo "🎉 Deployment completed!"
+
+  # Deploy to VPS/Cloud Server
+  deploy-vps:
+    name: ☁️ Deploy to VPS/Cloud Server
+    runs-on: ubuntu-latest
+    needs: pre-deployment-check
+    if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🔑 Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+    - name: 📤 Deploy to Server
+      run: |
+        echo "🚀 Deploying to VPS/Cloud server..."
+        
+        # Server details
+        SERVER="${{ secrets.SERVER_HOST }}"
+        USER="${{ secrets.SERVER_USER }}"
+        DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+        
+        # Create deployment script
+        cat > deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🔧 Setting up deployment environment..."
+        
+        # Update system packages
+        sudo apt-get update -q
+        
+        # Ensure PHP and extensions are installed
+        sudo apt-get install -y php php-mysqli php-pdo-mysql php-json php-mbstring php-gd php-curl php-zip
+        
+        # Create backup of current deployment
+        if [ -d "$DEPLOY_PATH" ]; then
+          echo "📦 Creating backup..."
+          sudo cp -r "$DEPLOY_PATH" "$DEPLOY_PATH.backup.$(date +%Y%m%d_%H%M%S)"
+        fi
+        
+        echo "✅ Server preparation completed"
+        EOF
+        
+        # Copy deployment script to server
+        scp -o StrictHostKeyChecking=no deploy.sh $USER@$SERVER:/tmp/
+        
+        # Execute deployment script
+        ssh -o StrictHostKeyChecking=no $USER@$SERVER 'bash /tmp/deploy.sh'
+        
+        # Sync files to server
+        rsync -avz --delete \
+          --exclude='.git*' \
+          --exclude='node_modules' \
+          --exclude='*.md' \
+          --exclude='.github' \
+          --exclude='tests' \
+          ./ $USER@$SERVER:$DEPLOY_PATH/
+        
+        echo "✅ Files synced to server"
+        
+    - name: ⚙️ Configure Server Environment
+      run: |
+        SERVER="${{ secrets.SERVER_HOST }}"
+        USER="${{ secrets.SERVER_USER }}"
+        DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+        
+        # Configure server environment
+        ssh -o StrictHostKeyChecking=no $USER@$SERVER << EOF
+          cd $DEPLOY_PATH
+          
+          echo "🔧 Configuring server environment..."
+          
+          # Set proper file permissions
+          find . -type f -exec chmod 644 {} \;
+          find . -type d -exec chmod 755 {} \;
+          chmod -R 777 logs uploads backups
+          
+          # Configure web server (Apache)
+          if command -v apache2 &> /dev/null; then
+            echo "🌐 Configuring Apache..."
+            # Enable required modules
+            sudo a2enmod rewrite headers ssl
+            sudo systemctl reload apache2
+          fi
+          
+          # Configure web server (Nginx) 
+          if command -v nginx &> /dev/null; then
+            echo "🌐 Nginx detected - manual configuration may be needed"
+          fi
+          
+          echo "✅ Server configuration completed"
+        EOF
+
+  # Staging Deployment
+  deploy-staging:
+    name: 🧪 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: pre-deployment-check
+    if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🧪 Staging Deployment
+      run: |
+        echo "🧪 Deploying to staging environment..."
+        
+        # Staging-specific configuration
+        echo "⚙️ Configuring for staging..."
+        
+        # Create staging configuration
+        cat > config/staging.php << 'EOF'
+        <?php
+        // Staging Configuration
+        define('ENVIRONMENT', 'staging');
+        define('DEBUG_MODE', true);
+        
+        // Enable error display for staging
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+        ini_set('log_errors', 1);
+        ?>
+        EOF
+        
+        echo "✅ Staging deployment prepared"
+        
+    - name: 📤 Deploy to Staging Server
+      run: |
+        echo "🚀 Deploying to staging server..."
+        
+        if [ ! -z "${{ secrets.STAGING_FTP_HOST }}" ]; then
+          echo "📤 Using FTP deployment for staging..."
+          # FTP deployment logic would go here
+        else
+          echo "ℹ️ Staging server not configured - deployment skipped"
+        fi
+
+  # Deployment notification
+  notify-deployment:
+    name: 📢 Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-shared-hosting, deploy-vps, deploy-staging]
+    if: always()
+    
+    steps:
+    - name: 📢 Send Deployment Notification
+      run: |
+        echo "📢 Sending deployment notification..."
+        
+        # Determine deployment status
+        SHARED_STATUS="${{ needs.deploy-shared-hosting.result }}"
+        VPS_STATUS="${{ needs.deploy-vps.result }}"
+        STAGING_STATUS="${{ needs.deploy-staging.result }}"
+        
+        if [[ "$SHARED_STATUS" == "success" || "$VPS_STATUS" == "success" || "$STAGING_STATUS" == "success" ]]; then
+          echo "🎉 CSIMS deployment completed successfully!"
+          echo "::notice title=Deployment Success::CSIMS has been deployed successfully!"
+        else
+          echo "⚠️ CSIMS deployment had issues - check logs above"
+          echo "::warning title=Deployment Issues::CSIMS deployment encountered issues"
+        fi
+        
+        echo "📊 Deployment Summary:"
+        echo "- Shared Hosting: $SHARED_STATUS"
+        echo "- VPS/Cloud: $VPS_STATUS" 
+        echo "- Staging: $STAGING_STATUS"

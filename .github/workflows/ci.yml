@@ -1,0 +1,237 @@
+name: 🔄 CSIMS Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # PHP Syntax and Security Validation
+  php-validation:
+    name: 🐘 PHP Validation & Security
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        php-version: [7.4, 8.0, 8.1, 8.2]
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🐘 Setup PHP ${{ matrix.php-version }}
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+        extensions: mysqli, pdo, pdo_mysql, session, json, openssl, mbstring, gd
+        coverage: none
+        
+    - name: 📋 Validate Composer Files
+      run: |
+        if [ -f composer.json ]; then
+          composer validate --strict
+        else
+          echo "No composer.json found, skipping validation"
+        fi
+        
+    - name: 🔍 PHP Syntax Check
+      run: |
+        find . -name "*.php" -not -path "./vendor/*" -not -path "./.git/*" | xargs -I {} php -l {}
+        
+    - name: 🛡️ Security Scan
+      run: |
+        # Check for common security issues
+        echo "🔍 Scanning for potential security issues..."
+        
+        # Check for potential SQL injection patterns
+        if grep -r "mysql_query\|mysql_connect" --include="*.php" . && [ $? -eq 0 ]; then
+          echo "❌ Found deprecated MySQL functions - security risk!"
+          exit 1
+        fi
+        
+        # Check for eval() usage
+        if grep -r "eval(" --include="*.php" . && [ $? -eq 0 ]; then
+          echo "⚠️ Found eval() usage - potential security risk!"
+        fi
+        
+        # Check for proper password hashing
+        if ! grep -r "password_hash\|PASSWORD_DEFAULT" --include="*.php" . && [ $? -ne 0 ]; then
+          echo "⚠️ No password hashing found - verify authentication security"
+        fi
+        
+        echo "✅ Basic security scan completed"
+        
+    - name: 📊 Code Quality Check
+      run: |
+        echo "🔍 Running code quality checks..."
+        
+        # Check for debug code that shouldn't be in production
+        if grep -r "var_dump\|print_r\|echo.*debug\|die(" --include="*.php" . && [ $? -eq 0 ]; then
+          echo "⚠️ Found debug code - should be removed for production"
+        fi
+        
+        # Check for proper error handling
+        if ! grep -r "try.*catch" --include="*.php" . && [ $? -ne 0 ]; then
+          echo "⚠️ No exception handling found - consider adding error handling"
+        fi
+        
+        echo "✅ Code quality check completed"
+
+  # Database Schema Validation  
+  database-validation:
+    name: 🗄️ Database Schema Validation
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: csims_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🗄️ Test Database Connection
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u root -ptest_password -e "SELECT 1"
+        
+    - name: 📋 Validate SQL Files
+      run: |
+        if [ -d "database" ] || [ -d "sql" ] || [ -d "migrations" ]; then
+          echo "🔍 Found database files, validating SQL syntax..."
+          
+          # Basic SQL syntax validation
+          for sql_file in $(find . -name "*.sql" -type f); do
+            echo "Checking: $sql_file"
+            # Basic validation - check if file is not empty and has valid SQL structure
+            if [ -s "$sql_file" ] && grep -q "CREATE\|INSERT\|UPDATE\|SELECT" "$sql_file"; then
+              echo "✅ $sql_file appears valid"
+            else
+              echo "⚠️ $sql_file might have issues"
+            fi
+          done
+        else
+          echo "ℹ️ No database directory found, skipping SQL validation"
+        fi
+
+  # Security and Dependencies Check
+  security-audit:
+    name: 🛡️ Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Check for Secrets
+      run: |
+        echo "🔍 Scanning for potential secrets..."
+        
+        # Check for common secret patterns
+        if grep -r "password.*=" --include="*.php" --include="*.txt" --include="*.md" . | grep -v "password_hash\|PASSWORD_DEFAULT" && [ $? -eq 0 ]; then
+          echo "⚠️ Found potential password references - verify they're not hardcoded"
+        fi
+        
+        if grep -r "api.*key\|secret.*key\|private.*key" --include="*.php" --include="*.txt" . && [ $? -eq 0 ]; then
+          echo "⚠️ Found potential API keys - ensure they're properly secured"
+        fi
+        
+        echo "✅ Secret scan completed"
+        
+    - name: 📝 File Permissions Check
+      run: |
+        echo "🔍 Checking file structure..."
+        
+        # Verify important directories exist
+        for dir in "config" "includes" "controllers" "views"; do
+          if [ -d "$dir" ]; then
+            echo "✅ $dir directory found"
+          else
+            echo "⚠️ $dir directory missing"
+          fi
+        done
+        
+        # Check for .htaccess files in sensitive directories
+        if [ -f "config/.htaccess" ] || [ -f "logs/.htaccess" ] || [ -f "uploads/.htaccess" ]; then
+          echo "✅ Security .htaccess files found"
+        else
+          echo "⚠️ Consider adding .htaccess protection to sensitive directories"
+        fi
+
+  # PHP Configuration Validation
+  php-config-check:
+    name: ⚙️ PHP Configuration Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.1
+        extensions: mysqli, pdo_mysql, session, json, openssl, mbstring, gd
+        
+    - name: ⚙️ Validate PHP Configuration
+      run: |
+        echo "🔍 Checking PHP configuration requirements..."
+        
+        php -m | grep -E "mysqli|pdo_mysql|session|json|openssl|mbstring|gd" || {
+          echo "❌ Missing required PHP extensions"
+          exit 1
+        }
+        
+        echo "✅ All required PHP extensions are available"
+        
+    - name: 📋 Environment Configuration Check
+      run: |
+        echo "🔍 Checking configuration files..."
+        
+        if [ -f "config/config.php" ]; then
+          echo "✅ Main config file found"
+          
+          # Check for environment-specific configs
+          if grep -q "ENVIRONMENT" config/config.php; then
+            echo "✅ Environment configuration found"
+          else
+            echo "⚠️ Consider adding environment-specific configuration"
+          fi
+        else
+          echo "⚠️ Main config file not found"
+        fi
+
+  # Build Status Summary
+  build-summary:
+    name: 📊 Build Summary
+    runs-on: ubuntu-latest
+    needs: [php-validation, database-validation, security-audit, php-config-check]
+    if: always()
+    
+    steps:
+    - name: 📊 Report Build Status
+      run: |
+        echo "🎯 CSIMS CI/CD Build Summary"
+        echo "========================="
+        echo "PHP Validation: ${{ needs.php-validation.result }}"
+        echo "Database Validation: ${{ needs.database-validation.result }}"
+        echo "Security Audit: ${{ needs.security-audit.result }}"
+        echo "PHP Config Check: ${{ needs.php-config-check.result }}"
+        echo ""
+        
+        if [[ "${{ needs.php-validation.result }}" == "success" && 
+              "${{ needs.database-validation.result }}" == "success" && 
+              "${{ needs.security-audit.result }}" == "success" && 
+              "${{ needs.php-config-check.result }}" == "success" ]]; then
+          echo "🎉 All checks passed! CSIMS is ready for deployment."
+          echo "::notice title=Build Success::CSIMS passed all CI/CD checks and is deployment-ready!"
+        else
+          echo "⚠️ Some checks failed. Review the logs above."
+          echo "::warning title=Build Issues::Some CI/CD checks failed. Please review the build logs."
+        fi

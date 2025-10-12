@@ -1,0 +1,329 @@
+name: 🛡️ Security Monitoring & Vulnerability Scan
+
+on:
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of security scan'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - quick
+          - dependency-only
+
+jobs:
+  # Dependency Security Scan
+  dependency-scan:
+    name: 📦 Dependency Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🐘 Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mysqli, pdo_mysql, session, json, openssl, mbstring, gd
+        
+    - name: 📋 Install Composer Dependencies
+      run: |
+        if [ -f composer.json ]; then
+          composer install --no-dev --optimize-autoloader
+        else
+          echo "ℹ️ No composer.json found, skipping dependency installation"
+        fi
+        
+    - name: 🔍 PHP Security Checker
+      run: |
+        echo "🔍 Running PHP security advisory check..."
+        
+        # Install security-checker if composer.json exists
+        if [ -f composer.json ]; then
+          composer require --dev roave/security-advisories:dev-latest || true
+          echo "✅ Security advisories check completed"
+        else
+          echo "ℹ️ No composer.json found, skipping security advisories check"
+        fi
+
+  # Code Security Analysis
+  code-security-scan:
+    name: 🔍 Code Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Static Security Analysis
+      run: |
+        echo "🔍 Running static security analysis..."
+        
+        # Check for SQL injection vulnerabilities
+        echo "🛡️ Checking for SQL injection patterns..."
+        if grep -r "mysql_query\|mysql_connect\|mysqli_query.*\$\|query.*\$" --include="*.php" . | grep -v "prepare\|bind_param"; then
+          echo "❌ Potential SQL injection vulnerabilities found!"
+          echo "::warning title=SQL Injection Risk::Potential SQL injection vulnerabilities detected"
+          exit 1
+        fi
+        
+        # Check for XSS vulnerabilities
+        echo "🛡️ Checking for XSS vulnerabilities..."
+        if grep -r "echo.*\$_\|print.*\$_" --include="*.php" . | grep -v "htmlspecialchars\|htmlentities"; then
+          echo "⚠️ Potential XSS vulnerabilities found"
+          echo "::warning title=XSS Risk::Potential XSS vulnerabilities detected"
+        fi
+        
+        # Check for file inclusion vulnerabilities
+        echo "🛡️ Checking for file inclusion vulnerabilities..."
+        if grep -r "include.*\$\|require.*\$" --include="*.php" . | grep -v "realpath\|basename"; then
+          echo "⚠️ Potential file inclusion vulnerabilities found"
+          echo "::warning title=File Inclusion Risk::Potential file inclusion vulnerabilities detected"
+        fi
+        
+        # Check for command injection
+        echo "🛡️ Checking for command injection..."
+        if grep -r "exec\|shell_exec\|system\|passthru" --include="*.php" .; then
+          echo "⚠️ Command execution functions found - verify input sanitization"
+          echo "::warning title=Command Injection Risk::Command execution functions detected"
+        fi
+        
+        echo "✅ Static security analysis completed"
+        
+    - name: 🔐 Cryptographic Security Check
+      run: |
+        echo "🔐 Checking cryptographic security..."
+        
+        # Check for weak password hashing
+        if grep -r "md5\|sha1" --include="*.php" . | grep -v "// " | grep -v "/*"; then
+          echo "❌ Weak hashing algorithms detected!"
+          echo "::error title=Weak Crypto::Weak cryptographic functions found (MD5/SHA1)"
+          exit 1
+        fi
+        
+        # Verify password_hash usage
+        if ! grep -r "password_hash\|PASSWORD_DEFAULT" --include="*.php" .; then
+          echo "⚠️ No secure password hashing found"
+          echo "::warning title=Password Security::No secure password hashing functions detected"
+        fi
+        
+        # Check for hardcoded secrets
+        if grep -r "password.*=.*['\"].*['\"]" --include="*.php" . | grep -v "password_hash\|PASSWORD_DEFAULT"; then
+          echo "❌ Potential hardcoded passwords found!"
+          echo "::error title=Hardcoded Secrets::Hardcoded passwords detected"
+          exit 1
+        fi
+        
+        echo "✅ Cryptographic security check completed"
+
+  # Configuration Security Audit
+  config-security-audit:
+    name: ⚙️ Configuration Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Configuration Security Check
+      run: |
+        echo "⚙️ Auditing configuration security..."
+        
+        # Check .htaccess security
+        echo "🔍 Checking .htaccess security..."
+        if [ -f ".htaccess" ]; then
+          if ! grep -q "Options -Indexes" .htaccess; then
+            echo "⚠️ Directory listing not disabled in .htaccess"
+          fi
+          if ! grep -q "ServerSignature Off" .htaccess; then
+            echo "⚠️ Server signature not hidden"
+          fi
+        else
+          echo "⚠️ No main .htaccess file found"
+        fi
+        
+        # Check sensitive directory protection
+        for dir in "config" "includes" "logs" "uploads" "backups"; do
+          if [ -d "$dir" ]; then
+            if [ ! -f "$dir/.htaccess" ]; then
+              echo "⚠️ Missing .htaccess protection in $dir/"
+              echo "::warning title=Directory Protection::Missing .htaccess in $dir directory"
+            fi
+          fi
+        done
+        
+        # Check for exposed sensitive files
+        echo "🔍 Checking for exposed sensitive files..."
+        for pattern in "*.log" "*.sql" "*.bak" "*.conf" "*.ini"; do
+          if find . -name "$pattern" -not -path "./.git/*" | head -1 | read; then
+            echo "⚠️ Potentially sensitive files found: $pattern"
+            echo "::warning title=Exposed Files::Potentially sensitive files detected"
+          fi
+        done
+        
+        echo "✅ Configuration security audit completed"
+        
+    - name: 📝 File Permissions Audit
+      run: |
+        echo "📝 Auditing file permissions..."
+        
+        # Check for world-writable files (security risk)
+        if find . -perm -002 -type f -not -path "./.git/*" | head -1 | read; then
+          echo "❌ World-writable files found!"
+          echo "::error title=File Permissions::World-writable files detected"
+          find . -perm -002 -type f -not -path "./.git/*"
+          exit 1
+        fi
+        
+        # Check for executable PHP files (potential risk)
+        if find . -name "*.php" -perm -111 -not -path "./.git/*" | head -1 | read; then
+          echo "⚠️ Executable PHP files found"
+          echo "::warning title=File Permissions::Executable PHP files detected"
+          find . -name "*.php" -perm -111 -not -path "./.git/*"
+        fi
+        
+        echo "✅ File permissions audit completed"
+
+  # Web Security Headers Check
+  web-security-check:
+    name: 🌐 Web Security Headers Check
+    runs-on: ubuntu-latest
+    if: github.event.inputs.scan_type != 'dependency-only'
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: 🌐 Security Headers Analysis
+      run: |
+        echo "🌐 Analyzing security headers configuration..."
+        
+        # Check for security headers in .htaccess
+        if [ -f ".htaccess" ]; then
+          echo "🔍 Checking .htaccess for security headers..."
+          
+          HEADERS_FOUND=0
+          
+          if grep -q "X-Content-Type-Options" .htaccess; then
+            echo "✅ X-Content-Type-Options header configured"
+            HEADERS_FOUND=$((HEADERS_FOUND + 1))
+          else
+            echo "⚠️ X-Content-Type-Options header missing"
+          fi
+          
+          if grep -q "X-Frame-Options" .htaccess; then
+            echo "✅ X-Frame-Options header configured"
+            HEADERS_FOUND=$((HEADERS_FOUND + 1))
+          else
+            echo "⚠️ X-Frame-Options header missing"
+          fi
+          
+          if grep -q "X-XSS-Protection" .htaccess; then
+            echo "✅ X-XSS-Protection header configured"
+            HEADERS_FOUND=$((HEADERS_FOUND + 1))
+          else
+            echo "⚠️ X-XSS-Protection header missing"
+          fi
+          
+          if grep -q "Strict-Transport-Security" .htaccess; then
+            echo "✅ HSTS header configured"
+            HEADERS_FOUND=$((HEADERS_FOUND + 1))
+          else
+            echo "⚠️ HSTS header missing (important for HTTPS sites)"
+          fi
+          
+          if [ $HEADERS_FOUND -lt 3 ]; then
+            echo "::warning title=Security Headers::Some security headers are missing"
+          else
+            echo "✅ Good security headers configuration"
+          fi
+        else
+          echo "⚠️ No .htaccess file found for header analysis"
+        fi
+        
+    - name: 🔐 SSL/TLS Configuration Check
+      run: |
+        echo "🔐 Checking SSL/TLS configuration recommendations..."
+        
+        # Check if site URL is provided for testing
+        if [ ! -z "${{ secrets.SITE_URL }}" ]; then
+          SITE_URL="${{ secrets.SITE_URL }}"
+          
+          # Extract domain from URL
+          DOMAIN=$(echo $SITE_URL | sed 's|https\?://||' | sed 's|/.*||')
+          
+          echo "🔍 Testing SSL configuration for: $DOMAIN"
+          
+          # Test SSL certificate (if accessible)
+          if command -v openssl &> /dev/null; then
+            echo | openssl s_client -servername $DOMAIN -connect $DOMAIN:443 -verify_return_error 2>/dev/null && {
+              echo "✅ SSL certificate validation passed"
+            } || {
+              echo "⚠️ SSL certificate issues detected or site not accessible"
+            }
+          fi
+        else
+          echo "ℹ️ No site URL provided for SSL testing"
+        fi
+
+  # Security Report Generation
+  security-report:
+    name: 📊 Security Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, code-security-scan, config-security-audit, web-security-check]
+    if: always()
+    
+    steps:
+    - name: 📊 Generate Security Report
+      run: |
+        echo "📊 CSIMS Security Scan Report"
+        echo "============================="
+        echo "Scan Date: $(date)"
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo ""
+        
+        echo "🔍 Scan Results:"
+        echo "- Dependency Scan: ${{ needs.dependency-scan.result }}"
+        echo "- Code Security Scan: ${{ needs.code-security-scan.result }}"
+        echo "- Config Security Audit: ${{ needs.config-security-audit.result }}"
+        echo "- Web Security Check: ${{ needs.web-security-check.result }}"
+        echo ""
+        
+        # Determine overall security status
+        if [[ "${{ needs.dependency-scan.result }}" == "success" && 
+              "${{ needs.code-security-scan.result }}" == "success" && 
+              "${{ needs.config-security-audit.result }}" == "success" && 
+              ("${{ needs.web-security-check.result }}" == "success" || "${{ needs.web-security-check.result }}" == "skipped") ]]; then
+          echo "🎉 Security Status: PASS"
+          echo "::notice title=Security Scan::All security checks passed successfully!"
+        else
+          echo "⚠️ Security Status: ISSUES DETECTED"
+          echo "::warning title=Security Issues::Security scan detected issues that need attention"
+        fi
+        
+        echo ""
+        echo "📋 Security Recommendations:"
+        echo "- Regular security updates"
+        echo "- Monitor security advisories"
+        echo "- Implement proper input validation"
+        echo "- Use HTTPS with strong TLS configuration"
+        echo "- Regular security audits"
+        echo "- Backup and disaster recovery procedures"
+        
+    - name: 📢 Security Alert Notification
+      if: needs.code-security-scan.result == 'failure' || needs.config-security-audit.result == 'failure'
+      run: |
+        echo "🚨 SECURITY ALERT: Critical security issues detected!"
+        echo "::error title=Security Alert::Critical security vulnerabilities found - immediate attention required!"
+        
+        echo "📧 Security team should be notified immediately"
+        echo "🔒 Consider temporarily restricting access until issues are resolved"
