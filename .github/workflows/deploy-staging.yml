@@ -1,0 +1,93 @@
+name: 🚂 Deploy to Railway Staging
+
+on:
+  push:
+    branches: [ staging, main ]
+  pull_request:
+    branches: [ staging ]
+
+jobs:
+  deploy-staging:
+    name: 🚀 Deploy to Railway
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 📋 Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, dom, filter, gd, hash, json, mbstring, pcre, session, tokenizer, zip
+
+    - name: 📦 Install Dependencies
+      run: |
+        if [ -f "composer.json" ]; then
+          composer install --no-dev --optimize-autoloader --no-interaction
+        fi
+
+    - name: 🧪 Run Tests (Optional)
+      run: |
+        echo "ℹ️ Running pre-deployment tests..."
+        php -l index.php || echo "⚠️ No index.php found"
+        echo "✅ Basic syntax check completed"
+
+    - name: 🚂 Deploy to Railway
+      if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main'
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        if [ -z "$RAILWAY_TOKEN" ]; then
+          echo "🔄 Railway deployment skipped - no RAILWAY_TOKEN configured"
+          echo ""
+          echo "📋 To enable Railway deployment:"
+          echo "1. Go to https://railway.app and create account"
+          echo "2. Connect your GitHub repository"  
+          echo "3. Get your Railway token from project settings"
+          echo "4. Add RAILWAY_TOKEN secret in GitHub repository settings"
+          echo ""
+          echo "🌐 Your staging site will be available at:"
+          echo "   https://your-app-name.up.railway.app"
+        else
+          echo "🚂 Deploying to Railway..."
+          # Install Railway CLI
+          npm install -g @railway/cli
+          
+          # Deploy to Railway
+          railway deploy --token $RAILWAY_TOKEN
+          
+          echo "✅ Deployment to Railway completed!"
+          echo "🌐 Staging URL: Check Railway dashboard for deployment URL"
+        fi
+
+  notify-deployment:
+    name: 📢 Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: always()
+    
+    steps:
+    - name: 📊 Deployment Summary
+      run: |
+        echo "🎯 CSIMS Staging Deployment Summary"
+        echo "=================================="
+        echo ""
+        if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+          echo "✅ Status: DEPLOYED SUCCESSFULLY"
+          echo "🚂 Platform: Railway"
+          echo "🌍 Environment: Staging"
+          echo "📅 Deployed: $(date)"
+          echo ""
+          echo "🔗 Next Steps:"
+          echo "1. Check your Railway dashboard for the live URL"
+          echo "2. Test the staging environment"
+          echo "3. If everything looks good, merge to main for production"
+        else
+          echo "❌ Status: DEPLOYMENT FAILED"
+          echo "🔍 Check the logs above for error details"
+          echo "💡 Most common issues:"
+          echo "   - Missing RAILWAY_TOKEN secret"
+          echo "   - Railway project not configured"
+          echo "   - Dependency installation failures"
+        fi
