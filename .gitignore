@@ -148,3 +148,4 @@ var/
 
 # PHPUnit
 .phpunit.cache
+cookie_admin.txt
