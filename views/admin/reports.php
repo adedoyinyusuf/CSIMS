@@ -4,13 +4,14 @@
  * Updated to use the CSIMS admin template system with Phase 1&2 integrations
  */
 
-session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/report_controller.php';
-require_once '../../includes/services/NotificationService.php';
 require_once '../../includes/services/SimpleBusinessRulesService.php';
 require_once '_admin_template_config.php';
+
+// Ensure unified session initialization and cookie usage
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -24,7 +25,6 @@ if (!$auth->isLoggedIn()) {
 $current_user = $auth->getCurrentUser();
 
 // Initialize common services
-$notificationService = new NotificationService();
 $businessRulesService = new SimpleBusinessRulesService();
 
 // Initialize report controller
@@ -85,7 +85,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $report_data) {
         case 'financial':
             echo "Financial Summary Report\n";
             echo "Category,Amount,Count\n";
-            echo "Total Contributions," . $report_data['contributions']['total_contributions'] . "," . $report_data['contributions']['total_transactions'] . "\n";
+            // Update CSV header label
+            echo "Total Savings," . $report_data['contributions']['total_contributions'] . "," . $report_data['contributions']['total_transactions'] . "\n";
             echo "Total Investments," . $report_data['investments']['total_investments'] . "," . $report_data['investments']['total_investment_count'] . "\n";
             echo "Total Loans," . $report_data['loans']['total_loans'] . "," . $report_data['loans']['total_loan_count'] . "\n";
             break;
@@ -155,7 +156,7 @@ function getDateRangeFromPreset($preset) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $pageTitle; ?> - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- CSIMS Color System -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <!-- Tailwind CSS -->
@@ -178,7 +179,7 @@ function getDateRangeFromPreset($preset) {
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div class="animate-slide-in">
                     <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">
-                        <i class="<?php echo $pageIcon; ?> mr-3" style="color: var(--persian-orange);"></i>
+                        <i class="<?php echo $pageIcon; ?> mr-3" style="color: #cb0b0a;"></i>
                         <?php echo $pageTitle; ?>
                     </h1>
                     <p style="color: var(--text-muted);"><?php echo $pageDescription; ?></p>
@@ -186,14 +187,14 @@ function getDateRangeFromPreset($preset) {
                 <div class="flex items-center space-x-3 mt-4 md:mt-0">
                     <?php if ($report_data): ?>
                         <a href="?export=csv&report_type=<?php echo urlencode($report_type); ?>&start_date=<?php echo urlencode($start_date); ?>&end_date=<?php echo urlencode($end_date); ?>" 
-                           class="btn btn-primary">
+                           class="btn btn-standard btn-primary">
                             <i class="fas fa-download mr-2"></i> Export CSV
                         </a>
                     <?php endif; ?>
-                    <button type="button" class="btn btn-outline" onclick="exportData()">
+                    <button type="button" class="btn btn-standard btn-outline" onclick="exportData()">
                         <i class="fas fa-file-export mr-2"></i> Export
                     </button>
-                    <button type="button" class="btn btn-outline" onclick="printData()">
+                    <button type="button" class="btn btn-standard btn-outline" onclick="printData()">
                         <i class="fas fa-print mr-2"></i> Print
                     </button>
                 </div>
@@ -203,7 +204,7 @@ function getDateRangeFromPreset($preset) {
             <?php if (!empty($success_message)): ?>
                 <div class="alert alert-success flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-check-circle mr-3" style="color: var(--success);"></i>
+                        <i class="fas fa-check-circle mr-3 icon-success"></i>
                         <span><?php echo htmlspecialchars($success_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -215,7 +216,7 @@ function getDateRangeFromPreset($preset) {
             <?php if (!empty($error_message)): ?>
                 <div class="alert alert-error flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <i class="fas fa-exclamation-circle mr-3 icon-error"></i>
                         <span><?php echo htmlspecialchars($error_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -228,7 +229,7 @@ function getDateRangeFromPreset($preset) {
             <div class="card card-admin animate-fade-in mb-6">
                 <div class="card-header">
                     <h3 class="text-lg font-semibold flex items-center">
-                        <i class="fas fa-chart-bar mr-2" style="color: var(--lapis-lazuli);"></i>
+                        <i class="fas fa-chart-bar mr-2 icon-lapis"></i>
                         Generate Report
                     </h3>
                 </div>
@@ -400,7 +401,7 @@ function getDateRangeFromPreset($preset) {
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Contributions</div>
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Savings</div>
                                             <div class="h5 mb-0 font-weight-bold text-gray-800">₦<?php echo number_format($report_data['contributions']['total_contributions'], 2); ?></div>
                                         </div>
                                         <div class="col-auto">
@@ -477,7 +478,7 @@ function getDateRangeFromPreset($preset) {
                                     </thead>
                                     <tbody>
                                         <tr>
-                                            <td>Contributions</td>
+                                            <td>Savings</td>
                                             <td>₦<?php echo number_format($report_data['contributions']['total_contributions'], 2); ?></td>
                                             <td><?php echo number_format($report_data['contributions']['total_transactions']); ?></td>
                                             <td>₦<?php echo number_format($report_data['contributions']['average_contribution'], 2); ?></td>
@@ -624,7 +625,7 @@ function getDateRangeFromPreset($preset) {
                                 <div class="card-body">
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">New Contributions</div>
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">New Savings Records</div>
                                             <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($report_data['new_contributions']); ?></div>
                                         </div>
                                         <div class="col-auto">
@@ -682,7 +683,7 @@ function getDateRangeFromPreset($preset) {
                                             <span class="badge bg-primary rounded-pill"><?php echo number_format($report_data['new_members']); ?></span>
                                         </li>
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            New Contribution Records
+                                            New Savings Records
                                             <span class="badge bg-success rounded-pill"><?php echo number_format($report_data['new_contributions']); ?></span>
                                         </li>
                                     </ul>
@@ -812,18 +813,8 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
 </script>
 
 <style>
-.border-left-primary {
-    border-left: 0.25rem solid #4e73df !important;
-}
-.border-left-success {
-    border-left: 0.25rem solid #1cc88a !important;
-}
-.border-left-info {
-    border-left: 0.25rem solid #36b9cc !important;
-}
-.border-left-warning {
-    border-left: 0.25rem solid #f6c23e !important;
-}
+/* border-left-* classes provided globally in assets/css/style.css */
+
 .text-xs {
     font-size: 0.7rem;
 }

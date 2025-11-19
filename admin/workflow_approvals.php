@@ -1,18 +1,22 @@
 <?php
 session_start();
-require_once '../classes/DatabaseConnection.php';
+require_once '../config/config.php';
+require_once '../config/database.php';
+require_once '../controllers/auth_controller.php';
 require_once '../classes/WorkflowService.php';
-require_once '../classes/UserManagement.php';
 
-// Check admin authentication
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ../login.php');
+// Check admin authentication using AuthController and consistent session keys
+$auth = new AuthController();
+if (!$auth->isLoggedIn() || (($_SESSION['user_type'] ?? '') !== 'admin')) {
+    header('Location: /views/auth/login.php');
     exit();
 }
+$current_user = $auth->getCurrentUser();
+$currentUser = $current_user['admin_id'] ?? ($_SESSION['admin_id'] ?? null);
 
 $workflowService = new WorkflowService();
-$userManagement = new UserManagement();
-$currentUser = $_SESSION['user_id'];
+// Ensure currentUser is set to the admin id used for approvals
+$currentUser = $currentUser ?? ($_SESSION['admin_id'] ?? null);
 
 // Handle AJAX requests for approval actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -70,18 +74,18 @@ $loanStats = $workflowService->getWorkflowStats('loan');
 $memberStats = $workflowService->getWorkflowStats('member_registration');
 
 // Get recent workflows for overview
-$db = DatabaseConnection::getInstance()->getConnection();
+$db = (new PdoDatabase())->getConnection();
 $recentWorkflows = [];
 
 try {
-    $sql = "SELECT wa.*, wt.template_name, wt.entity_type, u.username as requested_by_name,
+    $sql = "SELECT wa.*, wt.template_name, wt.entity_type, a.username as requested_by_name,
                    CASE WHEN wa.status = 'pending' THEN 
                         CONCAT('Level ', wa.current_level, ' of ', wa.total_levels)
                         ELSE UPPER(wa.status)
                    END as status_display
             FROM workflow_approvals wa
             JOIN workflow_templates wt ON wa.template_id = wt.id
-            LEFT JOIN users u ON wa.requested_by = u.id
+            LEFT JOIN admins a ON wa.requested_by = a.admin_id
             ORDER BY wa.created_at DESC 
             LIMIT 20";
     
@@ -192,9 +196,9 @@ try {
                         <span class="badge bg-danger me-3">
                             <?= count($pendingApprovals) ?> Pending
                         </span>
-                        <a href="dashboard.php" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
-                        </a>
+                        <a href="/views/admin/dashboard.php" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+            </a>
                     </div>
                 </div>
             </div>

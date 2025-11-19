@@ -17,7 +17,7 @@ try {
         // Prevent redirect loops by checking if we're in a redirect cycle
         if (!isset($_SESSION['redirect_check'])) {
             $_SESSION['redirect_check'] = true;
-            header('Location: simple_dashboard.php');
+            header('Location: views/admin/dashboard.php');
             exit();
         }
     }
@@ -31,8 +31,8 @@ try {
     
     // Check for admin login with simple session
     if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
-        header('Location: simple_dashboard.php');
-        exit();
+        header('Location: views/admin/dashboard.php');
+    exit();
     }
 }
 
@@ -57,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $loginResult = $authController->login($username, $password);
             
             if ($loginResult['success']) {
-                // Successful login - redirect to simple dashboard
-                header('Location: simple_dashboard.php');
+                // Successful login - redirect to working dashboard
+                header('Location: views/admin/dashboard.php');
                 exit();
             } else {
                 $error = $loginResult['message'];
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $updateStmt = $conn->prepare("UPDATE admins SET last_login = NOW() WHERE admin_id = ?");
                         $updateStmt->bind_param("i", $admin['admin_id']);
                         $updateStmt->execute();
-                        header('Location: simple_dashboard.php');
+                        header('Location: views/admin/dashboard.php');
                         exit();
                     } else {
                         $error = 'Invalid username or password.';
@@ -154,22 +154,36 @@ try {
             }
         }
     </script>
+    <style>
+        /* Static banner helpers (no animation) */
+        .banner-vignette { box-shadow: inset 0 0 120px rgba(0,0,0,0.22); }
+        .pattern-overlay { position: relative; }
+        .pattern-overlay::before {
+            content: "";
+            position: absolute; inset: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+            background-size: 22px 22px;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body class="min-h-screen flex items-center justify-center font-sans" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 25%, #cbd5e1 50%, #94a3b8 75%, #64748b 100%);">
-    <div class="w-full max-w-5xl mx-auto flex flex-col md:flex-row rounded-3xl shadow-2xl overflow-hidden border border-white/20 glass animate-slide-in">
-        <div class="md:w-1/2 w-full flex flex-col justify-center items-center p-10 relative overflow-hidden" style="background: linear-gradient(135deg, #1A5599 0%, #336699 50%, #334155 100%);">
-            <div id="curtain-left" class="absolute inset-0 z-20 transition-transform duration-1000" style="background: linear-gradient(135deg, #336699 0%, #475569 100%); transform:translateX(0);"></div>
-            <div id="curtain-right" class="absolute inset-0 z-10 transition-transform duration-1000" style="background: linear-gradient(135deg, #475569 0%, #64748b 100%); transform:translateX(0);"></div>
-            <div class="mb-8 text-center z-30 relative animate-text-fade-up">
-                <h1 class="text-4xl font-bold mb-2">
-                    <i class="fas fa-shield-alt"></i> <?php echo APP_SHORT_NAME; ?>
+    <div class="w-full max-w-5xl mx-auto flex flex-col md:flex-row rounded-3xl shadow-2xl overflow-hidden border border-white/20 glass">
+        <div class="md:w-1/2 w-full flex flex-col justify-center items-center p-10 banner-vignette pattern-overlay" style="background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);">
+            <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white/95 shadow-lg flex items-center justify-center mb-4 border border-white/60">
+                <?php if (defined('APP_LOGO_URL') && APP_LOGO_URL): ?>
+                    <img src="<?php echo APP_LOGO_URL; ?>" alt="CTLStaff Logo" class="w-16 h-16 md:w-20 md:h-20 object-contain" />
+                <?php else: ?>
+                    <i class="fas fa-shield-alt text-3xl text-primary-800"></i>
+                <?php endif; ?>
+            </div>
+            <div class="mb-6 text-center">
+                <h1 class="text-5xl md:text-6xl font-extrabold mb-3 text-white tracking-tight">
+                    <?php echo APP_SHORT_NAME; ?>
                 </h1>
-                <p class="text-lg opacity-80">Welcome to <?php echo APP_NAME; ?> Admin Portal</p>
+                <p class="text-lg md:text-xl text-white/90">Welcome to <?php echo APP_NAME; ?> Admin Portal</p>
             </div>
-            <div class="w-3/4 max-w-xs mb-6 rounded-xl shadow-lg z-30 relative overflow-hidden">
-                <img id="animated-image" src="assets/images/login-illustration.jpg" alt="Login Illustration" class="w-full h-auto rounded-xl shadow-lg animate-image-scale">
-            </div>
-            <p class="text-base opacity-80 z-30 relative animate-text-fade-up" style="animation-delay:0.6s;">Secure, modern, and easy to use. Manage your cooperative with confidence.</p>
+            <p class="text-base md:text-lg text-white/85 text-center max-w-xl">Secure, modern, and easy to use. Manage your cooperative with confidence.</p>
         </div>
         <div class="md:w-1/2 w-full flex flex-col justify-center p-10">
             <div class="mb-8 text-center">
@@ -232,10 +246,10 @@ try {
                 </div>
                 <hr class="my-6" style="border-color: rgba(180, 136, 235, 0.3);">
                 <div class="flex gap-3">
-                    <a href="views/member_login.php" class="flex-1 glass-dark text-white py-3 px-4 rounded-lg text-center transition-all duration-300 hover:transform hover:scale-105 font-medium">
+                    <a href="views/member_login.php" class="flex-1 glass-dark text-white py-3 px-4 rounded-lg text-center font-medium">
                         <i class="fas fa-user mr-1"></i> Member Login
                     </a>
-                    <a href="views/member_register.php" class="flex-1 btn-secondary py-3 px-4 text-center transition-all duration-300 hover:transform hover:scale-105 font-medium">
+                    <a href="views/member_register.php" class="flex-1 btn-secondary py-3 px-4 text-center font-medium">
                         <i class="fas fa-user-plus mr-1"></i> Join
                     </a>
                 </div>
@@ -244,29 +258,4 @@ try {
     </div>
 </body>
 </html>
-<style>
-@keyframes textFadeUp {
-  0% { opacity: 0; transform: translateY(30px); }
-  50% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-30px); }
-}
-.animate-text-fade-up {
-  animation: textFadeUp 2.5s cubic-bezier(0.4,0,0.2,1) infinite;
-}
-@keyframes imageScale {
-  0% { transform: scale(1.1); }
-  50% { transform: scale(1); }
-  100% { transform: scale(1.1); }
-}
-.animate-image-scale {
-  animation: imageScale 2.5s cubic-bezier(0.4,0,0.2,1) infinite;
-}
-</style>
-<script>
-window.addEventListener('DOMContentLoaded', function() {
-    setTimeout(function() {
-        document.getElementById('curtain-left').style.transform = 'translateX(-100%)';
-        document.getElementById('curtain-right').style.transform = 'translateX(100%)';
-    }, 500);
-});
-</script>
+<!-- Removed animations and transitions for left panel to keep static banner -->

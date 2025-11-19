@@ -159,8 +159,8 @@ class CronRunner {
             $stmt = $db->query("SELECT COUNT(*) as total_members FROM members WHERE status = 'active'");
             $totalMembers = $stmt->fetch_assoc()['total_members'];
             
-            // Update contribution statistics
-            $stmt = $db->query("SELECT COUNT(*) as total_contributions, SUM(amount) as total_amount FROM contributions");
+            // Update savings deposit statistics
+            $stmt = $db->query("SELECT COUNT(*) as total_contributions, SUM(amount) as total_amount FROM savings_transactions WHERE transaction_type = 'Deposit' AND transaction_status = 'Completed'");
             $contributionStats = $stmt->fetch_assoc();
             
             // Update loan statistics

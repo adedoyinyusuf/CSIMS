@@ -270,7 +270,9 @@ class ConfigurationManager
             'secure_cookies' => false,
             'max_login_attempts' => 5,
             'login_lockout_time' => 900,
-            'password_min_length' => 8
+            'password_min_length' => 8,
+            'two_factor_enabled' => false,
+            'test_2fa_code' => '000000'
         ]);
     }
 }

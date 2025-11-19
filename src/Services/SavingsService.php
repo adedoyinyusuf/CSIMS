@@ -4,12 +4,15 @@ namespace CSIMS\Services;
 
 use CSIMS\Models\SavingsAccount;
 use CSIMS\Models\SavingsTransaction;
+use CSIMS\Models\Member;
 use CSIMS\Repositories\SavingsAccountRepository;
 use CSIMS\Repositories\SavingsTransactionRepository;
 use CSIMS\Repositories\MemberRepository;
+use CSIMS\Services\AuditLogger;
 use CSIMS\Exceptions\ValidationException;
 use CSIMS\Exceptions\DatabaseException;
 use CSIMS\Exceptions\BusinessException;
+use CSIMS\Exceptions\ServiceException;
 use DateTime;
 use Exception;
 
@@ -25,6 +28,7 @@ class SavingsService
     private MemberRepository $memberRepository;
     private SecurityService $securityService;
     private NotificationService $notificationService;
+    private AuditLogger $auditLogger;
     
     public function __construct(
         SavingsAccountRepository $accountRepository,
@@ -38,6 +42,7 @@ class SavingsService
         $this->memberRepository = $memberRepository;
         $this->securityService = $securityService;
         $this->notificationService = $notificationService;
+        $this->auditLogger = new AuditLogger();
     }
     
     /**
@@ -78,11 +83,12 @@ class SavingsService
         
         // Validate account
         if (!$account->isValid()) {
-            throw new ValidationException('Invalid account data: ' . implode(', ', $account->validate()));
+            $errors = $account->validate()->getAllErrors();
+            throw new ValidationException('Invalid account data: ' . implode(', ', $errors));
         }
         
-        // Save account
-        $savedAccount = $this->accountRepository->create($account);
+        // Save account with typed helper
+        $savedAccount = $this->saveAccount($account);
         
         // Create opening transaction if initial balance > 0
         if ($validatedData['opening_balance'] > 0) {
@@ -98,8 +104,11 @@ class SavingsService
         // Log activity
         $this->logActivity('account_created', $savedAccount->getAccountId(), $createdBy);
         
-        // Send notification
-        $this->notificationService->sendAccountCreatedNotification($savedAccount);
+        // Send notification via unified savings notification API
+        $this->notificationService->sendSavingsNotification(
+            'account_created',
+            $this->buildAccountNotificationData($savedAccount)
+        );
         
         return $savedAccount;
     }
@@ -120,11 +129,8 @@ class SavingsService
             throw new ValidationException('Deposit amount must be positive');
         }
         
-        // Get account
-        $account = $this->accountRepository->find($accountId);
-        if (!$account) {
-            throw new ValidationException('Account not found');
-        }
+        // Get account (typed)
+        $account = $this->requireSavingsAccount($accountId);
         
         // Check if account allows deposits
         if (!$account->allowsDeposits()) {
@@ -154,12 +160,13 @@ class SavingsService
         
         // Validate transaction
         if (!$transaction->isValid()) {
-            throw new ValidationException('Invalid transaction data: ' . implode(', ', $transaction->validate()));
+            $errors = $transaction->validate()->getAllErrors();
+            throw new ValidationException('Invalid transaction data: ' . implode(', ', $errors));
         }
         
         try {
             // Save transaction
-            $savedTransaction = $this->transactionRepository->create($transaction);
+            $savedTransaction = $this->saveTransaction($transaction);
             
             // Update account balance
             $this->accountRepository->updateBalance($accountId, $newBalance);
@@ -168,7 +175,15 @@ class SavingsService
             $this->logActivity('deposit', $accountId, $processedBy, $amount);
             
             // Send notification
-            $this->notificationService->sendTransactionNotification($savedTransaction, 'deposit');
+            $this->notificationService->sendSavingsNotification(
+                'deposit_successful',
+                $this->buildAccountNotificationData($account),
+                [
+                    'amount' => (string) $amount,
+                    'new_balance' => (string) $newBalance,
+                    'account_number' => $account->getAccountNumber(),
+                ]
+            );
             
             return $savedTransaction;
         } catch (Exception $e) {
@@ -193,11 +208,8 @@ class SavingsService
             throw new ValidationException('Withdrawal amount must be positive');
         }
         
-        // Get account
-        $account = $this->accountRepository->find($accountId);
-        if (!$account) {
-            throw new ValidationException('Account not found');
-        }
+        // Get account (typed)
+        $account = $this->requireSavingsAccount($accountId);
         
         // Check if account allows withdrawals
         if (!$account->allowsWithdrawals()) {
@@ -225,8 +237,8 @@ class SavingsService
             throw new BusinessException('Withdrawal including fees would violate minimum balance requirement');
         }
         
-        // Create transaction
-        $transaction = new SavingsTransaction([
+        // Build transaction data first (status checked after instantiation)
+        $transactionData = [
             'account_id' => $accountId,
             'member_id' => $account->getMemberId(),
             'transaction_type' => 'Withdrawal',
@@ -240,18 +252,26 @@ class SavingsService
             'description' => $description,
             'processed_by' => $processedBy,
             'fees_charged' => $fees,
-            'transaction_status' => $requireApproval && $transaction->requiresApproval() ? 'Pending' : 'Completed',
+            'transaction_status' => $requireApproval ? 'Pending' : 'Completed',
             'receipt_number' => $this->transactionRepository->generateUniqueReceiptNumber()
-        ]);
+        ];
+
+        $transaction = new SavingsTransaction($transactionData);
+        if ($requireApproval && $transaction->requiresApproval()) {
+            $transaction->setTransactionStatus('Pending');
+        } else {
+            $transaction->setTransactionStatus('Completed');
+        }
         
         // Validate transaction
         if (!$transaction->isValid()) {
-            throw new ValidationException('Invalid transaction data: ' . implode(', ', $transaction->validate()));
+            $errors = $transaction->validate()->getAllErrors();
+            throw new ValidationException('Invalid transaction data: ' . implode(', ', $errors));
         }
         
         try {
             // Save transaction
-            $savedTransaction = $this->transactionRepository->create($transaction);
+            $savedTransaction = $this->saveTransaction($transaction);
             
             // If approved, update account balance immediately
             if ($transaction->getTransactionStatus() === 'Completed') {
@@ -267,7 +287,15 @@ class SavingsService
             $this->logActivity('withdrawal', $accountId, $processedBy, $amount);
             
             // Send notification
-            $this->notificationService->sendTransactionNotification($savedTransaction, 'withdrawal');
+            $this->notificationService->sendSavingsNotification(
+                'withdrawal_successful',
+                $this->buildAccountNotificationData($account),
+                [
+                    'amount' => (string) $amount,
+                    'new_balance' => (string) $finalBalance,
+                    'account_number' => $account->getAccountNumber(),
+                ]
+            );
             
             return $savedTransaction;
         } catch (Exception $e) {
@@ -291,13 +319,9 @@ class SavingsService
             throw new ValidationException('Transfer amount must be positive');
         }
         
-        // Get accounts
-        $fromAccount = $this->accountRepository->find($fromAccountId);
-        $toAccount = $this->accountRepository->find($toAccountId);
-        
-        if (!$fromAccount || !$toAccount) {
-            throw new ValidationException('One or both accounts not found');
-        }
+        // Get accounts (typed)
+        $fromAccount = $this->requireSavingsAccount($fromAccountId);
+        $toAccount = $this->requireSavingsAccount($toAccountId);
         
         // Validate accounts
         if (!$fromAccount->allowsWithdrawals()) {
@@ -370,8 +394,26 @@ class SavingsService
             $this->logActivity('transfer_in', $toAccountId, $processedBy, $amount);
             
             // Send notifications
-            $this->notificationService->sendTransactionNotification($savedOutTransaction, 'transfer_out');
-            $this->notificationService->sendTransactionNotification($savedInTransaction, 'transfer_in');
+            $this->notificationService->sendSavingsNotification(
+                'transfer_out',
+                $this->buildAccountNotificationData($fromAccount),
+                [
+                    'amount' => (string) $amount,
+                    'new_balance' => (string) ($fromAccount->getBalance() - $amount),
+                    'account_number' => $fromAccount->getAccountNumber(),
+                    'to_account_number' => $toAccount->getAccountNumber(),
+                ]
+            );
+            $this->notificationService->sendSavingsNotification(
+                'transfer_in',
+                $this->buildAccountNotificationData($toAccount),
+                [
+                    'amount' => (string) $amount,
+                    'new_balance' => (string) ($toAccount->getBalance() + $amount),
+                    'account_number' => $toAccount->getAccountNumber(),
+                    'from_account_number' => $fromAccount->getAccountNumber(),
+                ]
+            );
             
             return [$savedOutTransaction, $savedInTransaction];
         } catch (Exception $e) {
@@ -458,7 +500,7 @@ class SavingsService
         
         try {
             // Save transaction
-            $savedTransaction = $this->transactionRepository->create($transaction);
+            $savedTransaction = $this->saveTransaction($transaction);
             
             // Update account balance and last interest date
             $this->accountRepository->updateBalance($account->getAccountId(), $principal + $interestAmount);
@@ -510,10 +552,7 @@ class SavingsService
      */
     public function closeAccount(int $accountId, string $reason, int $processedBy): bool
     {
-        $account = $this->accountRepository->find($accountId);
-        if (!$account) {
-            throw new ValidationException('Account not found');
-        }
+        $account = $this->requireSavingsAccount($accountId);
         
         if (!$account->canBeClosed()) {
             throw new BusinessException('Account cannot be closed in current status');
@@ -544,7 +583,10 @@ class SavingsService
         $this->logActivity('account_closed', $accountId, $processedBy);
         
         // Send notification
-        $this->notificationService->sendAccountClosedNotification($account);
+        $this->notificationService->sendSavingsNotification(
+            'account_closed',
+            $this->buildAccountNotificationData($account)
+        );
         
         return true;
     }
@@ -554,10 +596,7 @@ class SavingsService
      */
     public function getAccountSummary(int $accountId): array
     {
-        $account = $this->accountRepository->find($accountId);
-        if (!$account) {
-            throw new ValidationException('Account not found');
-        }
+        $account = $this->requireSavingsAccount($accountId);
         
         // Get recent transactions
         $recentTransactions = $this->transactionRepository->getAccountHistory($accountId, 10);
@@ -599,10 +638,29 @@ class SavingsService
             'interest_calculation' => 'string|in:simple,compound,daily,monthly,quarterly,annually',
             'target_amount' => 'numeric|min:0',
             'monthly_target' => 'numeric|min:0',
-            'auto_deduct' => 'boolean'
+            'auto_deduct' => 'boolean',
+            'maturity_date' => 'date'
         ];
-        
-        return $this->securityService->validateInput($data, $rules)->getData();
+        $result = $this->securityService->validateInput($data, $rules);
+        if (!$result->isValid()) {
+            $errors = $result->getAllErrors();
+            throw new ValidationException('Invalid account data: ' . implode(', ', $errors));
+        }
+        // Normalize and whitelist expected fields
+        return [
+            'member_id' => (int)($data['member_id'] ?? 0),
+            'account_type' => (string)($data['account_type'] ?? 'Regular'),
+            'account_name' => (string)($data['account_name'] ?? ''),
+            'opening_balance' => isset($data['opening_balance']) ? (float)$data['opening_balance'] : 0.00,
+            'minimum_balance' => isset($data['minimum_balance']) ? (float)$data['minimum_balance'] : 0.00,
+            'interest_rate' => isset($data['interest_rate']) ? (float)$data['interest_rate'] : 0.00,
+            'interest_calculation' => (string)($data['interest_calculation'] ?? 'monthly'),
+            'maturity_date' => $data['maturity_date'] ?? null,
+            'target_amount' => isset($data['target_amount']) ? (float)$data['target_amount'] : null,
+            'monthly_target' => isset($data['monthly_target']) ? (float)$data['monthly_target'] : null,
+            'auto_deduct' => !empty($data['auto_deduct']),
+            'notes' => $data['notes'] ?? null,
+        ];
     }
     
     /**
@@ -625,7 +683,7 @@ class SavingsService
      */
     private function createFeeTransaction(int $accountId, float $amount, string $description, int $processedBy): SavingsTransaction
     {
-        $account = $this->accountRepository->find($accountId);
+        $account = $this->requireSavingsAccount($accountId);
         
         $transaction = new SavingsTransaction([
             'account_id' => $accountId,
@@ -659,7 +717,79 @@ class SavingsService
      */
     private function logActivity(string $action, int $accountId, int $userId, float $amount = null): void
     {
-        // Implementation for activity logging
-        // This would typically log to a separate activity log table
+        $details = [
+            'performed_by' => (string)$userId,
+            'amount' => $amount,
+        ];
+        $this->auditLogger->log($action, 'savings_account', $accountId, $details);
+    }
+
+    /**
+     * Ensure we always work with a typed SavingsAccount
+     */
+    private function requireSavingsAccount(int $accountId): SavingsAccount
+    {
+        $account = $this->accountRepository->find($accountId);
+        if (!$account || !($account instanceof SavingsAccount)) {
+            throw new ValidationException('Account not found');
+        }
+        return $account;
+    }
+
+    /**
+     * Persist a SavingsAccount and return typed instance
+     */
+    private function saveAccount(SavingsAccount $account): SavingsAccount
+    {
+        $saved = $this->accountRepository->create($account);
+        if (!($saved instanceof SavingsAccount)) {
+            throw new ServiceException('Repository returned unexpected model type');
+        }
+        return $saved;
+    }
+
+    /**
+     * Persist a SavingsTransaction and return typed instance
+     */
+    private function saveTransaction(SavingsTransaction $transaction): SavingsTransaction
+    {
+        $saved = $this->transactionRepository->create($transaction);
+        if (!($saved instanceof SavingsTransaction)) {
+            throw new ServiceException('Repository returned unexpected model type');
+        }
+        return $saved;
+    }
+
+    /**
+     * Build notification data for savings account
+     */
+    private function buildAccountNotificationData(SavingsAccount $account): array
+    {
+        $member = $this->requireMember($account->getMemberId());
+        $memberName = $member->getFullName();
+        $memberEmail = $member->getEmail();
+        $memberPhone = $member->getPhone();
+
+        return [
+            'member_id' => $account->getMemberId(),
+            'member_name' => $memberName,
+            'member_email' => $memberEmail,
+            'member_phone' => $memberPhone,
+            'account_name' => $account->getAccountName(),
+            'account_number' => $account->getAccountNumber(),
+            'balance' => (string) $account->getBalance(),
+        ];
+    }
+
+    /**
+     * Ensure we always work with a typed Member
+     */
+    private function requireMember(int $memberId): Member
+    {
+        $member = $this->memberRepository->find($memberId);
+        if (!$member || !($member instanceof Member)) {
+            throw new ValidationException('Member not found');
+        }
+        return $member;
     }
 }

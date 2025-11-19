@@ -338,7 +338,8 @@ class AuthenticationService
      */
     public function getCurrentUser(): ?User
     {
-        $sessionId = session_id();
+        error_log('AuthService getCurrentUser: php_sess=' . session_id() . ' custom_sess=' . ($_SESSION['session_id'] ?? 'none'));
+        $sessionId = $_SESSION['session_id'] ?? session_id();
         
         if (!$sessionId) {
             return null;
@@ -482,7 +483,8 @@ class AuthenticationService
             throw new DatabaseException('Failed to prepare statement: ' . $this->connection->error);
         }
         
-        $stmt->bind_param('sisss', $sessionId, $user->getId(), $ipAddress, $userAgent, $expiresAt);
+        $userId = $user->getId();
+        $stmt->bind_param('sisss', $sessionId, $userId, $ipAddress, $userAgent, $expiresAt);
         
         if (!$stmt->execute()) {
             throw new DatabaseException('Failed to create session: ' . $stmt->error);

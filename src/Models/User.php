@@ -600,7 +600,7 @@ class User implements ModelInterface
      * @param array $data
      * @return self
      */
-    public function fromArray(array $data): self
+    public function hydrate(array $data): self
     {
         if (isset($data['user_id'])) {
             $this->userId = (int)$data['user_id'];
@@ -685,7 +685,7 @@ class User implements ModelInterface
      */
     public static function fromArray(array $data): static
     {
-        return (new static())->fromArray($data);
+        return (new static())->hydrate($data);
     }
     
     /**

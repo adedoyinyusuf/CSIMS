@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/config/database.php';
 require_once '../includes/config/SystemConfigService.php';
@@ -14,7 +14,7 @@ if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
 
 // Initialize services
 try {
-    $database = new Database();
+    $database = new PdoDatabase();
     $pdo = $database->getConnection();
     $config = SystemConfigService::getInstance($pdo);
     $businessRules = new BusinessRulesService($pdo);
@@ -40,6 +40,7 @@ $loanConfig = [
     'guarantor_threshold' => $config->getGuarantorRequirementThreshold(),
     'min_guarantors' => $config->getMinGuarantorsRequired(),
     'auto_approval_limit' => $config->getAutoApprovalLimit(),
+    'default_interest_rate' => (float)$config->get('DEFAULT_INTEREST_RATE', 12.0),
 ];
 
 // Handle form submission
@@ -48,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $requestedAmount = (float)($_POST['amount'] ?? 0);
     $purpose = trim($_POST['purpose'] ?? '');
     $termMonths = (int)($_POST['term_months'] ?? 0);
+    $agreedTerms = ($_POST['agree_terms'] ?? '') === '1';
 
     // Validate basic form data
     if ($requestedAmount <= 0) {
@@ -58,6 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($termMonths <= 0 || $termMonths > 60) {
         $errors[] = 'Please enter a valid loan term (1-60 months).';
+    }
+
+    // Require explicit agreement to interest rate and terms
+    if (!$agreedTerms) {
+        $errors[] = 'Please agree to the interest rate and terms before submitting.';
     }
 
     // Run business rules validation
@@ -99,11 +106,11 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Apply for Loan - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/csims-colors.css" rel="stylesheet">
     <style>
         body {
-            background: var(--member-bg);
+            background: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .form-card {
@@ -156,43 +163,11 @@ try {
     </style>
 </head>
 <body>
+    <?php include __DIR__ . '/includes/member_header.php'; ?>
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0">
-                <div class="d-flex flex-column flex-shrink-0 p-3 text-white" style="background: linear-gradient(180deg, var(--admin-primary) 0%, var(--admin-secondary) 100%); min-height: 100vh;">
-                    <a href="member_dashboard.php" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-                        <i class="fas fa-university me-2"></i>
-                        <span class="fs-4">CSIMS</span>
-                    </a>
-                    <hr>
-                    <ul class="nav nav-pills flex-column mb-auto">
-                        <li class="nav-item">
-                            <a href="member_dashboard.php" class="nav-link text-white">
-                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="member_loan_application_business_rules.php" class="nav-link active">
-                                <i class="fas fa-plus me-2"></i> Apply for Loan
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="member_loans.php" class="nav-link text-white">
-                                <i class="fas fa-money-bill-wave me-2"></i> My Loans
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="member_savings.php" class="nav-link text-white">
-                                <i class="fas fa-piggy-bank me-2"></i> My Savings
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
+            <!-- Main Content (offcanvas handles navigation) -->
+            <div class="col-12">
                 <div class="container py-4">
                     <!-- Header -->
                     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -224,6 +199,7 @@ try {
                                         <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Max loan: <?php echo $loanConfig['loan_to_savings_multiplier']; ?>x your savings</li>
                                         <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Loans ≥₦<?php echo number_format($loanConfig['guarantor_threshold'], 2); ?> need <?php echo $loanConfig['min_guarantors']; ?> guarantors</li>
                                         <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Auto-approval: ≤₦<?php echo number_format($loanConfig['auto_approval_limit'], 2); ?></li>
+                                        <li class="mb-2"><i class="fas fa-percent me-2"></i>Current annual interest: <?php echo number_format($loanConfig['default_interest_rate'], 2); ?>%</li>
                                     </ul>
                                 </div>
                             </div>
@@ -316,6 +292,14 @@ try {
                                             <label for="purpose" class="form-label">Purpose of Loan</label>
                                             <textarea class="form-control" id="purpose" name="purpose" rows="3" 
                                                       placeholder="Please describe the purpose of your loan..." required><?php echo htmlspecialchars($_POST['purpose'] ?? ''); ?></textarea>
+                                        </div>
+
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" value="1" id="agree_terms" name="agree_terms" <?php echo isset($_POST['agree_terms']) && $_POST['agree_terms'] === '1' ? 'checked' : ''; ?>>
+                                            <label class="form-check-label" for="agree_terms">
+                                                I agree to the current interest rate and loan terms
+                                            </label>
+                                            <div class="form-text">You must agree before submitting your application.</div>
                                         </div>
 
                                         <div class="d-flex gap-3">
@@ -432,10 +416,24 @@ try {
             document.getElementById('amount').addEventListener('input', calculateMonthlyPayment);
             document.getElementById('term_months').addEventListener('change', calculateMonthlyPayment);
             document.getElementById('loan_type_id').addEventListener('change', calculateMonthlyPayment);
+            const agreeTerms = document.getElementById('agree_terms');
+            const submitBtn = document.getElementById('submitBtn');
+            function updateSubmitState() {
+                if (agreeTerms && submitBtn) {
+                    submitBtn.disabled = !agreeTerms.checked;
+                }
+            }
+            if (agreeTerms) {
+                agreeTerms.addEventListener('change', updateSubmitState);
+                // Initialize state on load
+                updateSubmitState();
+            }
             
             // Initial calculation
             calculateMonthlyPayment();
         });
     </script>
+    <!-- Bootstrap JS for offcanvas -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

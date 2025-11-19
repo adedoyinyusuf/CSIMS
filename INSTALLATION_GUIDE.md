@@ -121,6 +121,18 @@ location ~ ^/api/(.*)$ {
     try_files $uri /api.php?$query_string;
 }
 
+### Development Server (Built-in)
+
+For local development without Apache/Nginx, start PHP's built-in server using the dev router:
+
+```bash
+php -S 127.0.0.1:8080 dev-router.php
+```
+
+- The dev router forwards all `/api/*` requests to the unified entry `api.php`.
+- Access the app at `http://127.0.0.1:8080/` and the API at `http://127.0.0.1:8080/api/...`.
+- Ensure `APP_URL` in `.env` reflects your chosen host and port.
+
 location ~ /\. {
     deny all;
 }
@@ -231,7 +243,7 @@ The system creates a default admin user:
 - `GET /api/loans/overdue` - Get overdue loans
 - `GET /api/loans/statistics` - Get loan statistics
 
-### Contributions
+### Contributions (Legacy)
 - `GET /api/contributions` - List contributions
 - `GET /api/contributions/{id}` - Get specific contribution
 - `POST /api/contributions` - Create new contribution
@@ -242,6 +254,8 @@ The system creates a default admin user:
 - `GET /api/contributions/statistics` - Get contribution statistics
 - `POST /api/contributions/bulk-import` - Bulk import contributions
 - `GET /api/contributions/report` - Generate contribution report
+\
+Note: These endpoints originate from the legacy system and may not be enabled in the unified Router-based API. Migrate to the new savings-related endpoints or bind legacy controllers as needed.
 
 ### Dashboard
 - `GET /api/dashboard/stats` - Get dashboard statistics
@@ -369,7 +383,9 @@ Set `APP_DEBUG=false` in `.env` for:
 2. **API Returns 404**
    - Check web server configuration
    - Verify URL rewrite rules are working
-   - Ensure `api.php` file exists and is accessible
+   - Ensure `api.php` exists and is accessible
+   - If using PHP's built-in server, start it with `dev-router.php`
+   - For Apache/Nginx, confirm `/api/*` routes point to `api.php`
 
 3. **CSRF Token Error**
    - Include valid `csrf_token` in POST/PUT/DELETE requests
@@ -404,6 +420,9 @@ The new API can coexist with the old system during migration:
 2. Gradually migrate functionality
 3. Update frontend to use new endpoints
 4. Retire old endpoints once migration is complete
+
+See also: `documentation/LEGACY_API_MIGRATION.md` for endpoint mapping and migration steps from legacy `api/index.php` to unified `api.php` + Router.
+See also: `documentation/MIGRATION_CHECKLIST.md` for verification steps to confirm a successful migration.
 
 ## Support and Maintenance
 

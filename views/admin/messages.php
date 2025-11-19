@@ -23,14 +23,14 @@ $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $limit = 10;
 
 // Get messages data
-$result = $messageController->getAllMessages($page, $limit, $search, $filter);
+$result = $messageController->getAllDirectMessages($page, $limit, $search, $filter);
 $messages = $result['messages'];
 $total_pages = $result['total_pages'];
 $current_page = $result['current_page'];
 $total_records = $result['total_records'];
 
 // Get message statistics
-$stats = $messageController->getMessageStats();
+$stats = $messageController->getDirectMessageStats();
 ?>
 
 <!DOCTYPE html>
@@ -40,7 +40,7 @@ $stats = $messageController->getMessageStats();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messages - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
@@ -50,7 +50,7 @@ $stats = $messageController->getMessageStats();
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Messages Management</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
@@ -136,10 +136,10 @@ $stats = $messageController->getMessageStats();
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary me-2">
+                                <button type="submit" class="btn btn-standard btn-primary me-2">
                                     <i class="fas fa-search"></i> Search
                                 </button>
-                                <a href="messages.php" class="btn btn-secondary">
+                                <a href="messages.php" class="btn btn-standard btn-secondary">
                                     <i class="fas fa-times"></i> Clear
                                 </a>
                             </div>

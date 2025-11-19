@@ -333,7 +333,8 @@ class Config
                         'driver' => 'mysql',
                         'host' => $_ENV['DB_HOST'] ?? 'localhost',
                         'port' => (int)($_ENV['DB_PORT'] ?? 3306),
-                        'database' => $_ENV['DB_DATABASE'] ?? 'csims',
+                        // Align default DB name with legacy config/database.php to avoid environment mismatches
+                        'database' => $_ENV['DB_DATABASE'] ?? 'csims_db',
                         'username' => $_ENV['DB_USERNAME'] ?? 'root',
                         'password' => $_ENV['DB_PASSWORD'] ?? '',
                         'charset' => $_ENV['DB_CHARSET'] ?? 'utf8mb4',
@@ -455,11 +456,27 @@ class Config
         
         $files = glob($configDir . '/*.php');
         
+        // Skip guard/side-effect files that should never be executed during config loading
+        $blacklist = [
+            'index.php',
+            'config.php',
+            'database.php',
+            'auth_check.php',
+            'member_auth_check.php',
+            'init_db.php',
+            'production_config.php'
+        ];
+        
         foreach ($files as $file) {
-            $key = basename($file, '.php');
-            $config = include $file;
+            $basename = basename($file);
+            if (in_array($basename, $blacklist, true)) {
+                continue;
+            }
             
+            // Only merge files that return an array configuration
+            $config = include $file;
             if (is_array($config)) {
+                $key = basename($file, '.php');
                 $this->config[$key] = array_merge($this->config[$key] ?? [], $config);
             }
         }

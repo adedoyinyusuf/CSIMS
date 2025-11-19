@@ -2,6 +2,8 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -108,7 +110,7 @@ $membership_types = $memberController->getMembershipTypes();
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
 </head>
@@ -122,7 +124,7 @@ $membership_types = $memberController->getMembershipTypes();
             <?php include '../../views/includes/sidebar.php'; ?>
             
             <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4 main-content mt-16">
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/admin/dashboard.php">Dashboard</a></li>

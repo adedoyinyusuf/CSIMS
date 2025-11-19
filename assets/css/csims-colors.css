@@ -1,131 +1,127 @@
 /**
- * CSIMS Color System - Professional Blue-Gray & Orange-Red Palette
- * UX Design Principles Applied
- * 
- * Color Psychology & Usage:
- * - Blue-Gray Family: Professional authority, trust, sophistication (admin areas)
- * - Light Blues: Approachability, clarity, friendliness (member areas)
- * - Orange-Red Spectrum: Action hierarchy, status communication, urgency
- * - Strategic Contrast: High accessibility with semantic meaning
+ * CSIMS Color System - Vibrant Cyan & Sunset Orange Palette
+ * High-contrast, accessible, and energetic
  */
 
 :root {
-  /* === PRIMARY PALETTE === */
-  --paynes-gray: #4f6d7a;
-  --columbia-blue: #c0d6df;
-  --alice-blue: #dbe9ee;
-  --true-blue: #4a6fa5;
-  --lapis-lazuli: #166088;
-  --persian-orange: #ea8c55;
-  --jasper: #c75146;
-  --fire-brick: #ad2e24;
-  --falu-red: #81171b;
-  --rosewood: #540804;
+  /* Vibrant Base Palette */
+  --rich-black: #0f172a; /* Slate 900 for strong text */
+  --midnight-green: #0e7490; /* Teal 700 */
+  --dark-cyan: #0891b2; /* Cyan 700 */
+  --tiffany-blue: #22d3ee; /* Cyan 400 */
+  --columbia-blue: #a5f3fc; /* Cyan 200 */
+  --alice-blue: #ecfeff; /* Cyan 50 */
+  --vanilla: #fff7ed; /* Orange 50 */
+  --gamboge: #f59e0b; /* Amber 500 */
+  --alloy-orange: #f97316; /* Orange 500 */
+  --rust: #ea580c; /* Orange 600 */
+  --rufous: #ef4444; /* Red 500 */
+  --auburn: #b91c1c; /* Red 700 */
 
-  /* === SEMANTIC COLOR SYSTEM === */
-  
-  /* Primary Brand Colors (Blue-Gray Spectrum) */
+  /* Base named colors remapped to new palette */
+  --paynes-gray: var(--rich-black);
+  --true-blue: #013a63; /* Deep brand blue */
+  --lapis-lazuli: #013a63; /* Deep brand blue */
+  --persian-orange: #e59a17; /* Rich amber */
+  --jasper: #ff7a1a; /* Energetic orange */
+  --fire-brick: var(--rufous);
+  --falu-red: #dc2626; /* Red 600 */
+  --rosewood: var(--auburn);
+
+  /* Primary Brand Colors (mapped to vibrant cyan) */
   --primary-50: var(--alice-blue);
   --primary-100: var(--columbia-blue);
-  --primary-200: #a8c5d1;
-  --primary-300: #8fb3c4;
+  --primary-200: var(--tiffany-blue);
+  --primary-300: var(--lapis-lazuli);
   --primary-400: var(--true-blue);
-  --primary-500: var(--lapis-lazuli);
-  --primary-600: var(--paynes-gray);
-  --primary-700: #3e5a66;
-  --primary-800: #2d4752;
-  --primary-900: #1c343e;
+  --primary-500: var(--dark-cyan);
+  --primary-rgb: 14, 116, 144; /* RGB for --dark-cyan */
+  --primary-600: var(--midnight-green);
+  --primary-700: var(--paynes-gray);
+  --primary-800: #083344; /* Deep teal */
+  --primary-900: #052e3a; /* Darker teal */
 
-  /* Secondary Colors (Orange-Red Spectrum) */
-  --secondary-50: #fef7f3;
-  --secondary-100: #fde8d7;
-  --secondary-200: var(--persian-orange);
-  --secondary-300: #e07a44;
-  --secondary-400: var(--jasper);
-  --secondary-500: var(--fire-brick);
+  /* Secondary Colors (mapped to energetic oranges) */
+  --secondary-50: var(--vanilla);
+  --secondary-100: #fde68a; /* Amber 200 */
+  --secondary-200: #fdba74; /* Orange 300 */
+  --secondary-300: var(--alloy-orange);
+  --secondary-400: var(--gamboge);
+  --secondary-500: var(--rust);
   --secondary-600: var(--falu-red);
   --secondary-700: var(--rosewood);
-  --secondary-800: #3d0603;
-  --secondary-900: #290402;
+  --secondary-800: var(--auburn);
+  --secondary-900: #7c2d12; /* Deep orange */
 
-  /* Admin Theme Colors (Professional Accents Only) */
+  /* Admin & Member Theme (noticeable gradients) */
   --admin-primary: var(--lapis-lazuli);
-  --admin-secondary: var(--paynes-gray);
-  --admin-accent: var(--true-blue);
-  --admin-bg: #ffffff;
+  --admin-secondary: var(--true-blue);
+  --admin-accent: var(--tiffany-blue);
+  --admin-bg: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);
   --admin-card-bg: #ffffff;
-  --admin-sidebar: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--paynes-gray) 100%);
+  --admin-sidebar: linear-gradient(135deg, var(--dark-cyan) 0%, var(--true-blue) 100%);
 
-  /* Member Theme Colors (Professional Accents Only) */
   --member-primary: var(--true-blue);
   --member-secondary: var(--columbia-blue);
   --member-accent: var(--alice-blue);
-  --member-bg: #ffffff;
+  --member-bg: linear-gradient(135deg, var(--columbia-blue) 0%, var(--alice-blue) 100%);
   --member-card-bg: #ffffff;
 
-  /* Action Colors (Strategic Orange-Red System) */
-  --success: var(--persian-orange);
-  --success-bg: rgba(234, 140, 85, 0.1);
-  --success-border: rgba(234, 140, 85, 0.3);
-  
-  --warning: var(--jasper);
-  --warning-bg: rgba(199, 81, 70, 0.1);
-  --warning-border: rgba(199, 81, 70, 0.3);
-  
-  --error: var(--fire-brick);
-  --error-bg: rgba(173, 46, 36, 0.1);
-  --error-border: rgba(173, 46, 36, 0.3);
-  
-  --info: var(--true-blue);
-  --info-bg: rgba(74, 111, 165, 0.1);
-  --info-border: rgba(74, 111, 165, 0.3);
-  
-  --danger: var(--falu-red);
-  --danger-bg: rgba(129, 23, 27, 0.1);
-  --danger-border: rgba(129, 23, 27, 0.3);
-  
-  --critical: var(--rosewood);
-  --critical-bg: rgba(84, 8, 4, 0.1);
-  --critical-border: rgba(84, 8, 4, 0.3);
+  /* Action Colors */
+  --success: #004b23;
+  --success-bg: rgba(0, 75, 35, 0.12);
+  --success-border: rgba(0, 75, 35, 0.32);
 
-  /* Interactive States (Sophisticated Hover System) */
-  --hover-primary: var(--true-blue);
-  --hover-secondary: var(--jasper);
-  --active-primary: var(--lapis-lazuli);
-  --active-secondary: var(--fire-brick);
-  --hover-light: var(--alice-blue);
-  --hover-dark: var(--paynes-gray);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.32);
 
-  /* Text Colors (Professional Typography) */
-  --text-primary: var(--paynes-gray);
-  --text-secondary: var(--lapis-lazuli);
-  --text-muted: #708a96;
-  --text-white: #ffffff;
+  --error: #ef4444;
+  --error-bg: rgba(239, 68, 68, 0.12);
+  --error-border: rgba(239, 68, 68, 0.32);
+
+  --info: #38bdf8;
+  --info-bg: rgba(56, 189, 248, 0.12);
+  --info-border: rgba(56, 189, 248, 0.32);
+
+  --danger: var(--rufous);
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --danger-border: rgba(239, 68, 68, 0.32);
+
+  --critical: var(--auburn);
+  --critical-bg: rgba(185, 28, 28, 0.12);
+  --critical-border: rgba(185, 28, 28, 0.32);
+
+  /* Text Colors */
+  --text-primary: var(--rich-black);
+  --text-secondary: #334155; /* Slate 700 */
+  --text-muted: #64748b; /* Slate 500 */
+  --text-white: rgba(255, 255, 255, 1);
   --text-light: rgba(255, 255, 255, 0.9);
-  --text-dark: var(--rosewood);
+  --text-dark: var(--auburn);
 
-  /* Background & Surface Colors (White-First Approach) */
-  --bg-primary: #ffffff;
-  --bg-secondary: #ffffff;
-  --bg-muted: #ffffff;
-  --surface-primary: #ffffff;
-  --surface-elevated: #ffffff;
-  --surface-glass: #ffffff;
+  /* Background & Surfaces (subtle tints for visible change) */
+  --bg-primary: #f0f9ff; /* Sky 50 */
+  --bg-secondary: #fff7ed; /* Orange 50 */
+  --bg-muted: #f8fafc; /* Slate 50 */
+  --surface-primary: #f8fafc; /* App base surface */
+  --surface-elevated: #ffffff; /* Elevated components */
+  --surface-glass: #eff6ff; /* Light blue tint */
   --surface-card: #ffffff;
   --surface-modal: #ffffff;
-  --surface-sidebar: #ffffff;
+  --surface-sidebar: #0e7490; /* Teal 700 */
 
-  /* Border & Divider Colors (Subtle Elegance) */
-  --border-light: rgba(192, 214, 223, 0.4);
-  --border-medium: rgba(192, 214, 223, 0.6);
-  --border-strong: var(--columbia-blue);
+  /* Borders & Dividers (aligned to vibrant palette) */
+  --border-light: rgba(14, 116, 144, 0.18);
+  --border-medium: rgba(14, 116, 144, 0.32);
+  --border-strong: var(--true-blue);
   --border-focus: var(--true-blue);
-  
-  /* Shadow Colors (Sophisticated Depth) */
-  --shadow-sm: rgba(79, 109, 122, 0.1);
-  --shadow-md: rgba(79, 109, 122, 0.15);
-  --shadow-lg: rgba(79, 109, 122, 0.2);
-  --shadow-xl: rgba(79, 109, 122, 0.25);
+
+  /* Shadows */
+  --shadow-sm: rgba(2, 44, 53, 0.08);
+  --shadow-md: rgba(2, 44, 53, 0.14);
+  --shadow-lg: rgba(2, 44, 53, 0.2);
+  --shadow-xl: rgba(2, 44, 53, 0.25);
 }
 
 /* === GRADIENT DEFINITIONS === */
@@ -134,19 +130,19 @@
 }
 
 .gradient-secondary {
-  background: linear-gradient(135deg, var(--persian-orange) 0%, var(--jasper) 100%);
+  background: linear-gradient(135deg, var(--persian-orange) 0%, var(--gamboge) 100%);
 }
 
 .gradient-admin {
-  background: var(--admin-bg);
+  background: #ffffff !important;
 }
 
 .gradient-member {
-  background: var(--member-bg);
+  background: #ffffff !important;
 }
 
 .gradient-success {
-  background: linear-gradient(135deg, var(--persian-orange) 0%, #f4a674 100%);
+  background: linear-gradient(135deg, var(--success) 0%, var(--success) 100%);
 }
 
 .gradient-warning {
@@ -172,8 +168,8 @@
 .bg-primary-light { background-color: var(--primary-100); }
 .bg-primary-dark { background-color: var(--primary-800); }
 .bg-secondary { background-color: var(--secondary-500); }
-.bg-admin { background: var(--admin-bg); }
-.bg-member { background: var(--member-bg); }
+.bg-admin { background: #ffffff !important; }
+.bg-member { background: #ffffff !important; }
 
 /* Text Colors */
 .text-primary { color: var(--text-primary); }
@@ -266,12 +262,16 @@
 
 /* Cards (Clean White Background with Professional Accents) */
 .card {
-  background: #ffffff;
+  background: var(--surface-primary);
   border: 1px solid var(--border-light);
   border-radius: 16px;
   box-shadow: 0 4px 20px var(--shadow-sm);
   transition: all 0.3s ease;
   overflow: hidden;
+  /* Card-scoped orange overrides */
+  --persian-orange: #6f1d1b;
+  --jasper: #6f1d1b;
+  --gamboge: #6f1d1b;
 }
 
 .card:hover {
@@ -281,7 +281,7 @@
 }
 
 .card-header {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-bottom: 2px solid var(--border-light);
   padding: 20px;
   font-weight: 600;
@@ -289,20 +289,23 @@
 }
 
 .card-admin .card-header {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-bottom: 2px solid var(--admin-primary);
   color: var(--admin-primary);
 }
 
 .card-member .card-header {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-bottom: 2px solid var(--member-primary);
   color: var(--member-primary);
 }
 
+/* Card-specific text color override for warning (orange) */
+.card .text-warning { color: #6f1d1b !important; }
+
 /* Forms (Professional & Clean) */
 .form-control {
-  background: #ffffff;
+  background: var(--surface-primary);
   border: 2px solid var(--border-light);
   border-radius: 12px;
   padding: 14px 16px;
@@ -315,7 +318,7 @@
   outline: none;
   border-color: var(--lapis-lazuli);
   box-shadow: 0 0 0 3px rgba(26, 85, 153, 0.15);
-  background: #ffffff;
+  background: var(--surface-primary);
 }
 
 .form-control:hover {
@@ -353,7 +356,7 @@
 
 /* Alerts (Professional Status Communication) */
 .alert {
-  background: #ffffff;
+  background: var(--surface-primary);
   padding: 16px 20px;
   border-radius: 12px;
   border-left: 4px solid;
@@ -364,28 +367,28 @@
 }
 
 .alert-success {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-left-color: var(--success-color);
   border-color: var(--success-color);
   color: var(--paynes-gray);
 }
 
 .alert-warning {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-left-color: var(--jasper);
   border-color: var(--jasper);
   color: var(--paynes-gray);
 }
 
 .alert-error, .alert-danger {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-left-color: var(--fire-brick);
   border-color: var(--fire-brick);
   color: var(--paynes-gray);
 }
 
 .alert-info {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-left-color: var(--lapis-lazuli);
   border-color: var(--lapis-lazuli);
   color: var(--paynes-gray);
@@ -393,13 +396,13 @@
 
 /* Navigation (White Background with Optimized Font Colors) */
 .navbar {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-bottom: 2px solid var(--border-light);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .navbar-member {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-bottom: 2px solid var(--border-light);
 }
 
@@ -427,45 +430,45 @@
 
 /* Navbar buttons with optimized colors */
 .navbar button {
-  color: #4b5563; /* Tailwind gray-600 for better readability */
+  color: var(--text-secondary); /* Tailwind gray-600 for better readability */
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .navbar button:hover {
-  background: rgba(59, 130, 246, 0.08); /* Light blue background */
+  background: rgba(1, 58, 99, 0.08); /* Brand blue tint */
   color: var(--lapis-lazuli);
   transform: translateY(-1px);
 }
 
 .navbar button:active {
   transform: translateY(0);
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(1, 58, 99, 0.12);
 }
 
 /* Search input optimization */
 .navbar input {
-  background: #f8fafc; /* Slightly off-white for better definition */
+  background: var(--surface-primary); /* Slightly off-white for better definition */
   border: 1px solid var(--border-light);
-  color: #1f2937; /* Dark gray for excellent readability */
+  color: var(--text-primary); /* Dark gray for excellent readability */
   font-weight: 400;
   transition: all 0.2s ease;
 }
 
 .navbar input:focus {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-color: var(--lapis-lazuli);
-  color: #111827; /* Even darker for focused state */
+  color: var(--text-primary); /* Even darker for focused state */
 }
 
 .navbar input::placeholder {
-  color: #6b7280; /* Medium gray for good contrast */
+  color: var(--text-muted); /* Medium gray for good contrast */
   font-weight: 400;
 }
 
 /* User name display */
 .navbar .user-name {
-  color: #374151; /* Dark gray for user name */
+  color: var(--text-secondary); /* Dark gray for user name */
   font-weight: 600;
   transition: color 0.2s ease;
 }
@@ -476,14 +479,14 @@
 
 /* Sidebar (White Background with Optimized Font Colors) */
 .sidebar {
-  background: #ffffff;
+  background: var(--surface-primary);
   border-right: 2px solid var(--border-light);
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Optimized section titles for better hierarchy */
 .sidebar-section-title {
-  color: #6b7280 !important; /* Medium gray for subtle section headers */
+  color: var(--text-muted) !important; /* Medium gray for subtle section headers */
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
@@ -494,7 +497,7 @@
 
 /* Enhanced sidebar item styling */
 .sidebar-item {
-  color: #4b5563; /* Dark gray for main navigation text */
+  color: var(--text-secondary); /* Dark gray for main navigation text */
   font-weight: 500;
   padding: 12px 20px;
   border-radius: 12px;
@@ -540,7 +543,7 @@
 
 /* Sidebar link styling optimization */
 .sidebar-link {
-  color: #4b5563; /* Consistent with sidebar-item */
+  color: var(--text-secondary); /* Consistent with sidebar-item */
   font-weight: 500;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 12px;
@@ -556,7 +559,7 @@
 
 /* Icon styling for better visual consistency */
 .sidebar-icon {
-  color: #6b7280; /* Medium gray for icons */
+  color: var(--text-muted); /* Medium gray for icons */
   transition: all 0.3s ease;
   font-size: 16px;
 }
@@ -574,7 +577,7 @@
 
 /* Badge styling for notification counts */
 .sidebar .badge {
-  background: #ef4444; /* Red background for alerts */
+  background: var(--error); /* Red background for alerts */
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -653,7 +656,7 @@
 }
 
 .badge-success {
-  background: linear-gradient(135deg, var(--success-color) 0%, rgba(40, 167, 69, 0.8) 100%);
+  background: linear-gradient(135deg, var(--success) 0%, var(--success) 100%);
   color: var(--text-white);
 }
 
@@ -703,11 +706,11 @@
 /* Dark Mode Support (Optional) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary: #1a0033;
-    --bg-secondary: var(--russian-violet);
+    --bg-primary: #ffffff;
+    --bg-secondary: #ffffff;
     --text-primary: var(--pink-lavender);
     --text-secondary: var(--plum-web);
-    --surface-primary: rgba(60, 9, 108, 0.8);
+    --surface-primary: #ffffff;
   }
 }
 
@@ -724,8 +727,8 @@
 
 /* Modals (Professional Dialog Boxes) */
 .modal-overlay {
-  background: rgba(51, 65, 85, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -736,6 +739,8 @@
   align-items: center;
   justify-content: center;
 }
+/* Ensure hidden state actually hides overlay despite base display:flex on .modal-overlay */
+.modal-overlay.hidden { display: none !important; }
 
 .modal {
   background: var(--surface-primary);
@@ -889,14 +894,14 @@
 /* === COMPREHENSIVE COMPONENT STYLING === */
 
 /* Navigation Components */
-.navbar-brand {
-  color: var(--text-white) !important;
+.navbar .navbar-brand {
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 1.5rem;
 }
 
-.nav-link {
-  color: rgba(255, 255, 255, 0.9) !important;
+.navbar .nav-link {
+  color: var(--text-secondary);
   font-weight: 500;
   transition: all 0.3s ease;
   border-radius: 8px;
@@ -904,15 +909,15 @@
   padding: 8px 16px !important;
 }
 
-.nav-link:hover {
-  color: var(--text-white) !important;
-  background: rgba(255, 255, 255, 0.1);
+.navbar .nav-link:hover {
+  color: var(--lapis-lazuli);
+  background: rgba(59, 130, 246, 0.08);
   transform: translateY(-1px);
 }
 
-.nav-link.active {
-  color: var(--text-white) !important;
-  background: rgba(255, 255, 255, 0.15);
+.navbar .nav-link.active {
+  color: var(--lapis-lazuli);
+  background: rgba(59, 130, 246, 0.12);
 }
 
 /* Dropdown Menus */
@@ -1194,7 +1199,7 @@
 }
 
 .modal-header {
-  background: linear-gradient(135deg, var(--primary-100) 0%, var(--primary-50) 100%);
+  background: #ffffff;
   border-bottom: 1px solid var(--border-light);
   padding: 20px 24px;
 }
@@ -1654,11 +1659,11 @@
 .form-control:focus,
 .form-select:focus {
   outline: none !important;
-  box-shadow: 0 0 0 4px rgba(26, 85, 153, 0.2) !important;
+  box-shadow: 0 0 0 4px rgba(1, 58, 99, 0.2) !important;
 }
 
 .accordion-header button:focus {
-  box-shadow: 0 0 0 4px rgba(26, 85, 153, 0.2) !important;
+  box-shadow: 0 0 0 4px rgba(1, 58, 99, 0.2) !important;
 }
 
 /* Override any CSS variables that might contain purple values */
@@ -1672,7 +1677,7 @@
 
 /* Override modal backdrop that uses purple */
 .modal-backdrop {
-  background: rgba(26, 85, 153, 0.4) !important;
+  background: rgba(1, 58, 99, 0.4) !important;
   backdrop-filter: blur(4px) !important;
 }
 
@@ -1682,19 +1687,19 @@
 /* Override any hardcoded white text in navbar/sidebar for white backgrounds */
 .navbar .text-white,
 .sidebar .text-white {
-  color: #374151 !important; /* Dark gray for better readability */
+  color: var(--text-secondary) !important; /* Dark gray for better readability */
 }
 
 .navbar .text-white.text-opacity-80 {
-  color: #4b5563 !important; /* Medium gray */
+  color: var(--text-secondary) !important; /* Medium gray */
 }
 
 .navbar .text-white.text-opacity-90 {
-  color: #374151 !important; /* Darker gray for higher opacity */
+  color: var(--text-secondary) !important; /* Darker gray for higher opacity */
 }
 
 .navbar .text-white.text-opacity-70 {
-  color: #6b7280 !important; /* Light gray for lower opacity */
+  color: var(--text-muted) !important; /* Light gray for lower opacity */
 }
 
 /* Override glass-dark backgrounds in white navbar */
@@ -1710,30 +1715,30 @@
 
 /* Override any bg-opacity styles that assume dark backgrounds */
 .navbar .bg-white.bg-opacity-10 {
-  background: rgba(59, 130, 246, 0.06) !important; /* Very subtle blue */
+  background: rgba(1, 58, 99, 0.06) !important; /* Very subtle brand blue */
 }
 
 .navbar .bg-white.bg-opacity-20 {
-  background: rgba(59, 130, 246, 0.08) !important; /* Slightly more blue */
+  background: rgba(1, 58, 99, 0.08) !important; /* Slightly more brand blue */
 }
 
 /* Override hover states for white backgrounds with optimized colors */
 .navbar button:hover {
-  background: rgba(59, 130, 246, 0.08) !important;
+  background: rgba(1, 58, 99, 0.08) !important;
   color: var(--lapis-lazuli) !important;
   transform: translateY(-1px) !important;
 }
 
 .sidebar-item:hover {
-  background: rgba(59, 130, 246, 0.06) !important;
+  background: rgba(1, 58, 99, 0.06) !important;
   color: var(--lapis-lazuli) !important;
   transform: translateX(3px) !important;
-  border-color: rgba(59, 130, 246, 0.2) !important;
+  border-color: rgba(1, 58, 99, 0.2) !important;
 }
 
 /* Ensure placeholder text is optimized for white backgrounds */
 .navbar input::placeholder {
-  color: #6b7280 !important; /* Medium gray for good contrast */
+  color: var(--text-muted) !important; /* Medium gray for good contrast */
   opacity: 1 !important;
   font-weight: 400 !important;
 }
@@ -1758,7 +1763,7 @@
 .navbar .fas,
 .navbar .far,
 .navbar .fab {
-  color: #4b5563 !important; /* Consistent gray for all icons */
+  color: var(--text-secondary) !important; /* Consistent gray for all icons */
   transition: all 0.2s ease !important;
 }
 
@@ -1776,7 +1781,7 @@
 /* User name and text optimization */
 .navbar .user-name,
 .navbar .font-medium {
-  color: #374151 !important; /* Dark gray for user names */
+  color: var(--text-secondary) !important; /* Dark gray for user names */
   font-weight: 600 !important;
   transition: color 0.2s ease !important;
 }
@@ -1789,7 +1794,7 @@
 /* Sidebar section title overrides */
 .sidebar .sidebar-section-title,
 .sidebar .text-xs {
-  color: #6b7280 !important; /* Medium gray for section headers */
+  color: var(--text-muted) !important; /* Medium gray for section headers */
   font-weight: 600 !important;
 }
 
@@ -1797,13 +1802,13 @@
 .navbar .text-gray-700,
 .navbar .text-gray-600,
 .navbar .text-gray-500 {
-  color: #4b5563 !important;
+  color: var(--text-secondary) !important;
 }
 
 .sidebar .text-gray-700,
 .sidebar .text-gray-600,
 .sidebar .text-gray-500 {
-  color: #4b5563 !important;
+  color: var(--text-secondary) !important;
 }
 
 /* Enhanced contrast for active states */
@@ -1863,8 +1868,8 @@
 }
 
 .modal-admin .modal-header {
-  background: var(--admin-bg);
-  color: var(--text-white);
+  background: #ffffff;
+  color: var(--text-primary);
 }
 
 .modal-member .modal-content {
@@ -1872,8 +1877,8 @@
 }
 
 .modal-member .modal-header {
-  background: var(--member-bg);
-  color: var(--text-white);
+  background: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Modal Sizes */
@@ -1901,4 +1906,40 @@
   height: 100vh;
   border: none;
   border-radius: 0;
+}
+
+/* === UX Optimization: White Background Normalization & Neutral Text === */
+:root {
+  /* Surfaces: force pure white */
+  --bg-primary: #ffffff;
+  --bg-secondary: #ffffff;
+  --bg-muted: #ffffff;
+  --surface-primary: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-glass: #ffffff;
+  --surface-card: #ffffff;
+  --surface-modal: #ffffff;
+
+  /* Text: near-black for superior legibility */
+  --text-primary: #111827; /* gray-900 */
+  --text-secondary: #374151; /* gray-700 */
+  --text-muted: #6b7280; /* gray-500 */
+
+  /* Borders: neutral gray, not teal-tinted */
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-medium: rgba(0, 0, 0, 0.16);
+}
+
+/* Modal Overlay & Surfaces: ensure neutral, readable appearance */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.30) !important;
+  backdrop-filter: none !important;
+}
+
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
 }

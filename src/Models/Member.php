@@ -23,6 +23,7 @@ class Member implements ModelInterface
     private ?string $passwordHash = null;
     private string $status = 'pending';
     private ?string $memberType = null;
+    private ?int $memberTypeId = null;
     private ?string $gender = null;
     private ?string $dateOfBirth = null;
     private ?string $address = null;
@@ -69,6 +70,7 @@ class Member implements ModelInterface
             'password' => $this->passwordHash,
             'status' => $this->status,
             'member_type' => $this->memberType,
+            'member_type_id' => $this->memberTypeId,
             'gender' => $this->gender,
             'dob' => $this->dateOfBirth,
             'address' => $this->address,
@@ -110,7 +112,8 @@ class Member implements ModelInterface
         $this->username = $data['username'] ?? null;
         $this->passwordHash = $data['password'] ?? null;
         $this->status = $data['status'] ?? 'pending';
-        $this->memberType = $data['member_type'] ?? null;
+        $this->memberType = $data['member_type'] ?? $data['member_type_label'] ?? null;
+        $this->memberTypeId = $data['member_type_id'] ?? null;
         $this->gender = $data['gender'] ?? null;
         $this->dateOfBirth = $data['dob'] ?? $data['date_of_birth'] ?? null;
         $this->address = $data['address'] ?? null;
@@ -203,8 +206,10 @@ class Member implements ModelInterface
     public function getPhone(): ?string { return $this->phone; }
     public function getIppis(): ?string { return $this->ippis; }
     public function getUsername(): ?string { return $this->username; }
+    public function getPasswordHash(): ?string { return $this->passwordHash; }
     public function getStatus(): string { return $this->status; }
     public function getMemberType(): ?string { return $this->memberType; }
+    public function getMemberTypeId(): ?int { return $this->memberTypeId; }
     public function getGender(): ?string { return $this->gender; }
     public function getDateOfBirth(): ?string { return $this->dateOfBirth; }
     public function getAddress(): ?string { return $this->address; }
@@ -227,6 +232,7 @@ class Member implements ModelInterface
     public function setPasswordHash(?string $passwordHash): self { $this->passwordHash = $passwordHash; return $this; }
     public function setStatus(string $status): self { $this->status = $status; return $this; }
     public function setMemberType(?string $memberType): self { $this->memberType = $memberType; return $this; }
+    public function setMemberTypeId(?int $memberTypeId): self { $this->memberTypeId = $memberTypeId; return $this; }
     public function setGender(?string $gender): self { $this->gender = $gender; return $this; }
     public function setDateOfBirth(?string $dateOfBirth): self { $this->dateOfBirth = $dateOfBirth; return $this; }
     public function setAddress(?string $address): self { $this->address = $address; return $this; }

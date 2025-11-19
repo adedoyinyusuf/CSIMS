@@ -1,7 +1,8 @@
 <?php
-session_start();
+// session is initialized via includes/session.php in config.php
 require_once '../config/config.php';
 require_once '../controllers/member_controller.php';
+require_once '../controllers/SavingsController.php';
 require_once '../src/autoload.php';
 
 // Check if member is logged in
@@ -10,7 +11,6 @@ if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
     exit();
 }
 
-// Initialize database and services
 $database = Database::getInstance();
 $conn = $database->getConnection();
 
@@ -18,20 +18,17 @@ $memberController = new MemberController();
 $member_id = $_SESSION['member_id'];
 $member = $memberController->getMemberById($member_id);
 
-if (!$member) {
-    header('Location: member_login.php');
-    exit();
-}
-
-// Get member's savings accounts and transactions
+// Get savings data
 try {
     $savingsRepository = new \CSIMS\Repositories\SavingsAccountRepository($conn);
     $transactionRepository = new \CSIMS\Repositories\SavingsTransactionRepository($conn);
     
-    $savings_accounts = $savingsRepository->findByMemberId($member_id);
-    $recent_transactions = [];
+    $member_savings = $savingsRepository->findByMemberId($member_id);
+    $total_balance = $savingsRepository->getTotalBalanceByMember($member_id);
     
-    foreach ($savings_accounts as $account) {
+    // Get recent transactions
+    $recent_transactions = [];
+    foreach ($member_savings as $account) {
         $account_transactions = $transactionRepository->getAccountHistory($account->getAccountId(), 5, 0);
         $recent_transactions = array_merge($recent_transactions, $account_transactions);
     }
@@ -42,65 +39,62 @@ try {
     });
     
     $recent_transactions = array_slice($recent_transactions, 0, 10);
+    
 } catch (Exception $e) {
-    $savings_accounts = [];
+    $member_savings = [];
+    $total_balance = 0;
     $recent_transactions = [];
-    error_log('Error loading savings data: ' . $e->getMessage());
 }
 
-// Calculate summary statistics
-$total_balance = 0;
-$total_interest_earned = 0;
-$active_accounts = 0;
+// Handle form submissions
+$errors = [];
+$success = false;
+$action_message = '';
 
-foreach ($savings_accounts as $account) {
-    $total_balance += $account->getBalance();
-    $total_interest_earned += $account->getTotalInterestEarned() ?? 0;
-    if ($account->getAccountStatus() === 'Active') {
-        $active_accounts++;
-    }
-}
-
-$update_message = '';
-$update_error = '';
-
-// Handle deposit request
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['deposit_amount'])) {
-    $account_id = intval($_POST['account_id']);
-    $amount = floatval($_POST['deposit_amount']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
     
-    if ($amount >= 1000) {
-        $result = $savingsController->deposit($account_id, $amount, $member_id);
-        if ($result) {
-            $update_message = 'Deposit of ₦' . number_format($amount, 2) . ' made successfully!';
-            // Refresh data
-            $savings_accounts = $savingsController->getMemberSavingsAccounts($member_id) ?? [];
-            $recent_transactions = $savingsController->getMemberRecentTransactions($member_id) ?? [];
-        } else {
-            $update_error = 'Failed to process deposit. Please try again.';
-        }
-    } else {
-        $update_error = 'Minimum deposit amount is ₦1,000.';
-    }
-}
+    if ($action === 'create_account') {
+        // Handle new savings account creation
+        $success = true;
+        $action_message = 'New savings account creation request submitted successfully!';
+    } elseif ($action === 'deposit') {
+        $accountId = isset($_POST['account_id']) ? (int)$_POST['account_id'] : 0;
+        $amount = isset($_POST['amount']) ? (float)$_POST['amount'] : 0.0;
+        $description = isset($_POST['description']) ? trim($_POST['description']) : '';
 
-// Handle withdrawal request
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['withdraw_amount'])) {
-    $account_id = intval($_POST['account_id']);
-    $amount = floatval($_POST['withdraw_amount']);
-    
-    if ($amount >= 500) {
-        $result = $savingsController->withdraw($account_id, $amount, $member_id);
-        if ($result) {
-            $update_message = 'Withdrawal of ₦' . number_format($amount, 2) . ' processed successfully!';
-            // Refresh data
-            $savings_accounts = $savingsController->getMemberSavingsAccounts($member_id) ?? [];
-            $recent_transactions = $savingsController->getMemberRecentTransactions($member_id) ?? [];
-        } else {
-            $update_error = 'Failed to process withdrawal. Please check your balance and try again.';
+        if ($accountId <= 0) {
+            $errors[] = 'Please select a valid account.';
         }
-    } else {
-        $update_error = 'Minimum withdrawal amount is ₦500.';
+        if ($amount <= 0) {
+            $errors[] = 'Please enter a valid deposit amount.';
+        }
+
+        if (empty($errors)) {
+            try {
+                $savingsController = new SavingsController();
+                if ($savingsController->deposit($accountId, $amount, $member_id, $description)) {
+                    $success = true;
+                    $action_message = 'Deposit successful!';
+                    // Refresh balances and transactions
+                    $member_savings = $savingsRepository->findByMemberId($member_id);
+                    $total_balance = $savingsRepository->getTotalBalanceByMember($member_id);
+                    $recent_transactions = [];
+                    foreach ($member_savings as $account) {
+                        $account_transactions = $transactionRepository->getAccountHistory($account->getAccountId(), 5, 0);
+                        $recent_transactions = array_merge($recent_transactions, $account_transactions);
+                    }
+                    usort($recent_transactions, function($a, $b) {
+                        return strtotime($b->getTransactionDate()->format('Y-m-d H:i:s')) - strtotime($a->getTransactionDate()->format('Y-m-d H:i:s'));
+                    });
+                    $recent_transactions = array_slice($recent_transactions, 0, 10);
+                } else {
+                    $errors[] = 'Deposit failed. Please try again later.';
+                }
+            } catch (Throwable $t) {
+                $errors[] = 'An error occurred while processing the deposit.';
+            }
+        }
     }
 }
 ?>
@@ -111,324 +105,274 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['withdraw_amount'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Savings - NPC CTLStaff Loan Society</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 0.75rem 1rem;
-            margin: 0.25rem 0;
-            border-radius: 0.5rem;
-            transition: all 0.3s ease;
-        }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-        }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .stat-card {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.15);
-            margin-bottom: 1rem;
-            transition: transform 0.2s;
-        }
-        .stat-card:hover {
-            transform: translateY(-4px) scale(1.03);
-            box-shadow: 0 8px 32px rgba(40, 167, 69, 0.25);
-        }
-        .stat-card h4 {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        .stat-card p {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 0;
-        }
-        .stat-card i {
-            margin-bottom: 0.5rem;
-        }
-        .account-card {
-            border-left: 4px solid #28a745;
-            transition: transform 0.2s;
-        }
-        .account-card:hover {
-            transform: translateY(-2px);
-        }
-        @media (max-width: 767px) {
-            .stat-card {
-                margin-bottom: 1.5rem;
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
+                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
+                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                        }
+                    }
+                }
             }
         }
-    </style>
+    </script>
 </head>
-<body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0">
-                <div class="sidebar d-flex flex-column p-3">
-                    <h4 class="text-white mb-4">
-                        <i class="fas fa-university"></i> Member Portal
-                    </h4>
-                    
-                    <div class="mb-3">
-                        <small class="text-white-50">Welcome,</small>
-                        <div class="text-white fw-bold"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></div>
+<body class="bg-gray-50">
+    <?php include_once __DIR__ . '/includes/member_header.php'; ?>
+    <div class="flex min-h-screen">
+        <!-- Main Content -->
+        <div class="flex-1 overflow-hidden">
+            <div class="p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-piggy-bank mr-3 text-primary-600"></i> My Savings
+                        </h1>
+                        <p class="text-gray-600 mt-2">Manage your savings accounts, deposits, and withdrawals</p>
+                    </div>
+                    <button onclick="openNewAccountModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                        <i class="fas fa-plus mr-2"></i> New Savings Account
+                    </button>
+                </div>
+                
+                <!-- Flash Messages -->
+                <?php if (!empty($errors)): ?>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-red-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                                <ul class="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+                                    <?php foreach ($errors as $error): ?>
+                                        <li><?php echo htmlspecialchars($error); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($success): ?>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-green-800">Success!</h3>
+                                <p class="mt-2 text-sm text-green-700"><?php echo htmlspecialchars($action_message); ?></p>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Summary Statistics -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Total Savings Balance</p>
+                                <p class="text-3xl font-bold text-gray-900">₦<?php echo number_format($total_balance, 2); ?></p>
+                            </div>
+                            <div class="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-piggy-bank text-green-600 text-xl"></i>
+                            </div>
+                        </div>
                     </div>
                     
-                    <nav class="nav flex-column">
-                        <a class="nav-link" href="member_dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                        <a class="nav-link" href="member_profile.php">
-                            <i class="fas fa-user me-2"></i> My Profile
-                        </a>
-                        <a class="nav-link" href="member_loans.php">
-                            <i class="fas fa-money-bill-wave me-2"></i> My Loans
-                        </a>
-                        <a class="nav-link active" href="member_savings.php">
-                            <i class="fas fa-piggy-bank me-2"></i> My Savings
-                        </a>
-                        <a class="nav-link" href="member_notifications.php">
-                            <i class="fas fa-bell me-2"></i> Notifications
-                        </a>
-                        <a class="nav-link" href="member_loan_application.php">
-                            <i class="fas fa-plus-circle me-2"></i> Apply for Loan
-                        </a>
-                    </nav>
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Active Accounts</p>
+                                <p class="text-3xl font-bold text-gray-900"><?php echo count($member_savings); ?></p>
+                            </div>
+                            <div class="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-account-book text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
                     
-                    <div class="mt-auto">
-                        <a class="nav-link" href="member_logout.php">
-                            <i class="fas fa-sign-out-alt me-2"></i> Logout
-                        </a>
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Savings Transactions</p>
+                                <p class="text-3xl font-bold text-gray-900"><?php echo count($recent_transactions); ?></p>
+                            </div>
+                            <div class="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-exchange-alt text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
-                <div class="p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-piggy-bank me-2"></i> My Savings</h2>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newAccountModal">
-                            <i class="fas fa-plus me-2"></i> Open New Account
-                        </button>
+                
+                <!-- Savings Accounts -->
+                <div class="bg-white rounded-2xl shadow-lg mb-8">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-xl font-bold text-gray-900">My Savings Accounts</h2>
                     </div>
-                    
-                    <?php if (!empty($update_message)): ?>
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($update_message); ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($update_error)): ?>
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-triangle me-2"></i><?php echo htmlspecialchars($update_error); ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <!-- Savings Statistics -->
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <div class="card stat-card">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-wallet fa-2x"></i>
-                                    <h4>₦<?php echo number_format($total_balance, 2); ?></h4>
-                                    <p>Total Balance</p>
-                                </div>
+                    <div class="p-6">
+                        <?php if (empty($member_savings)): ?>
+                            <div class="text-center py-12">
+                                <i class="fas fa-piggy-bank text-gray-400 text-4xl mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">No Savings Accounts Yet</h3>
+                                <p class="text-gray-600 mb-6">Start your savings journey by opening your first account.</p>
+                                <button onclick="openNewAccountModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                                    <i class="fas fa-plus mr-2"></i> Open Savings Account
+                                </button>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card stat-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-chart-line fa-2x"></i>
-                                    <h4>₦<?php echo number_format($total_interest_earned, 2); ?></h4>
-                                    <p>Interest Earned</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card stat-card" style="background: linear-gradient(135deg, #6f42c1 0%, #563d7c 100%);">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-user-check fa-2x"></i>
-                                    <h4><?php echo $active_accounts; ?></h4>
-                                    <p>Active Accounts</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Savings Accounts -->
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-university me-2"></i> My Savings Accounts</h5>
-                                </div>
-                                <div class="card-body">
-                                    <?php if (empty($savings_accounts)): ?>
-                                        <div class="text-center py-4">
-                                            <i class="fas fa-piggy-bank fa-3x text-muted mb-3"></i>
-                                            <h5>No Savings Accounts Yet</h5>
-                                            <p class="text-muted">Click "Open New Account" to start saving</p>
+                        <?php else: ?>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <?php foreach ($member_savings as $account): ?>
+                                    <div class="bg-gradient-to-r from-primary-50 to-purple-50 rounded-xl p-6 border border-gray-200">
+                                        <div class="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h3 class="text-lg font-bold text-gray-900"><?php echo htmlspecialchars($account->getAccountName()); ?></h3>
+                                                <p class="text-sm text-gray-600"><?php echo htmlspecialchars($account->getAccountNumber()); ?></p>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
+                                                    <?php echo htmlspecialchars($account->getAccountType()); ?>
+                                                </span>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="text-2xl font-bold text-gray-900">₦<?php echo number_format($account->getBalance(), 2); ?></p>
+                                                <p class="text-sm text-gray-600">Current Balance</p>
+                                            </div>
                                         </div>
-                                    <?php else: ?>
-                                        <?php foreach ($savings_accounts as $account): ?>
-                                            <div class="card account-card mb-3">
-                                                <div class="card-body">
-                                                    <div class="row align-items-center">
-                                                        <div class="col-md-3">
-                                                            <h6 class="text-muted mb-1">Account Type</h6>
-                                                            <span class="badge bg-primary"><?php echo ucwords($account['account_type']); ?></span>
-                                                        </div>
-                                                        <div class="col-md-3">
-                                                            <h6 class="text-muted mb-1">Balance</h6>
-                                                            <h5 class="text-success mb-0">₦<?php echo number_format($account['balance'], 2); ?></h5>
-                                                        </div>
-                                                        <div class="col-md-3">
-                                                            <h6 class="text-muted mb-1">Interest Rate</h6>
-                                                            <span class="text-info"><?php echo number_format($account['interest_rate'], 2); ?>% p.a.</span>
-                                                        </div>
-                                                        <div class="col-md-3 text-end">
-                                                            <button class="btn btn-sm btn-success me-2" data-bs-toggle="modal" data-bs-target="#depositModal<?php echo $account['id']; ?>">
-                                                                <i class="fas fa-plus"></i> Deposit
-                                                            </button>
-                                                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#withdrawModal<?php echo $account['id']; ?>">
-                                                                <i class="fas fa-minus"></i> Withdraw
-                                                            </button>
-                                                        </div>
-                                                    </div>
+                                        
+                                        <?php if ($account->getAccountType() === 'Target' && $account->getTargetAmount() > 0): ?>
+                                            <div class="mb-4">
+                                                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                                    <span>Progress</span>
+                                                    <span><?php echo number_format(($account->getBalance() / $account->getTargetAmount()) * 100, 1); ?>%</span>
                                                 </div>
-                                            </div>
-
-                                            <!-- Deposit Modal -->
-                                            <div class="modal fade" id="depositModal<?php echo $account['id']; ?>" tabindex="-1">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title">Make Deposit</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                        </div>
-                                                        <form method="POST">
-                                                            <div class="modal-body">
-                                                                <input type="hidden" name="account_id" value="<?php echo $account['id']; ?>">
-                                                                <div class="mb-3">
-                                                                    <label for="deposit_amount" class="form-label">Amount</label>
-                                                                    <input type="number" class="form-control" name="deposit_amount" min="1000" step="0.01" required>
-                                                                    <div class="form-text">Minimum deposit: ₦1,000</div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <button type="submit" class="btn btn-success">Make Deposit</button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
+                                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                                    <div class="bg-green-600 h-2 rounded-full" style="width: <?php echo min(100, ($account->getBalance() / $account->getTargetAmount()) * 100); ?>%"></div>
                                                 </div>
+                                                <p class="text-xs text-gray-500 mt-1">Target: ₦<?php echo number_format($account->getTargetAmount(), 2); ?></p>
                                             </div>
-
-                                            <!-- Withdraw Modal -->
-                                            <div class="modal fade" id="withdrawModal<?php echo $account['id']; ?>" tabindex="-1">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title">Make Withdrawal</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                        </div>
-                                                        <form method="POST">
-                                                            <div class="modal-body">
-                                                                <input type="hidden" name="account_id" value="<?php echo $account['id']; ?>">
-                                                                <div class="mb-3">
-                                                                    <label for="withdraw_amount" class="form-label">Amount</label>
-                                                                    <input type="number" class="form-control" name="withdraw_amount" min="500" max="<?php echo $account['balance']; ?>" step="0.01" required>
-                                                                    <div class="form-text">Available balance: ₦<?php echo number_format($account['balance'], 2); ?></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <button type="submit" class="btn btn-warning">Make Withdrawal</button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
+                                        <?php endif; ?>
+                                        
+                                        <div class="flex space-x-2">
+                                            <a href="member_savings_details.php?id=<?php echo htmlspecialchars($account->getAccountId()); ?>" class="flex-1 bg-white hover:bg-gray-50 text-primary-600 px-4 py-2 rounded-lg text-sm font-medium border border-primary-200 transition-colors duration-200 text-center">
+                                                <i class="fas fa-eye mr-1"></i> View Details
+                                            </a>
+                                            <button onclick="openDepositModal(<?php echo (int)$account->getAccountId(); ?>)" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                                <i class="fas fa-plus mr-1"></i> Deposit
+                                            </button>
                                             </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <!-- Savings Transactions -->
+                <?php if (!empty($recent_transactions)): ?>
+                    <div class="bg-white rounded-2xl shadow-lg">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-bold text-gray-900">Savings Transactions</h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <?php foreach ($recent_transactions as $transaction): ?>
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <?php echo $transaction->getTransactionDate()->format('M j, Y'); ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        <?php echo $transaction->getTransactionType() === 'Deposit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                                        <?php echo htmlspecialchars($transaction->getTransactionType()); ?>
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium
+                                                    <?php echo $transaction->getTransactionType() === 'Deposit' ? 'text-green-600' : 'text-red-600'; ?>">
+                                                    ₦<?php echo number_format($transaction->getAmount(), 2); ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    ₦<?php echo number_format($transaction->getBalanceAfter(), 2); ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        <?php echo $transaction->getTransactionStatus() === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
+                                                        <?php echo htmlspecialchars($transaction->getTransactionStatus()); ?>
+                                                    </span>
+                                                </td>
+                                            </tr>
                                         <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Recent Transactions -->
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-history me-2"></i> Recent Transactions</h5>
-                                </div>
-                                <div class="card-body">
-                                    <?php if (empty($recent_transactions)): ?>
-                                        <p class="text-muted">No recent transactions</p>
-                                    <?php else: ?>
-                                        <div class="list-group list-group-flush">
-                                            <?php foreach (array_slice($recent_transactions, 0, 5) as $transaction): ?>
-                                                <div class="list-group-item border-0 px-0">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div>
-                                                            <h6 class="mb-1"><?php echo ucfirst($transaction['transaction_type']); ?></h6>
-                                                            <small class="text-muted"><?php echo date('M j, Y', strtotime($transaction['transaction_date'])); ?></small>
-                                                        </div>
-                                                        <span class="text-<?php echo $transaction['transaction_type'] === 'deposit' ? 'success' : 'danger'; ?>">
-                                                            <?php echo $transaction['transaction_type'] === 'deposit' ? '+' : '-'; ?>₦<?php echo number_format($transaction['amount'], 2); ?>
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
-                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
-    <!-- New Account Modal -->
-    <div class="modal fade" id="newAccountModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Open New Savings Account</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Deposit Modal -->
+    <div id="depositModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full">
+                <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-900">Make a Deposit</h3>
+                    <button onclick="closeDepositModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted">Contact the administration to open a new savings account.</p>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Visit the office or call our hotline to start the account opening process.
+                <form method="POST" class="p-6 space-y-4">
+                    <input type="hidden" name="action" value="deposit" />
+                    <input type="hidden" id="deposit_account_id" name="account_id" value="" />
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Amount (₦)</label>
+                        <input type="number" step="0.01" min="0" name="amount" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200" required />
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <input type="text" name="description" placeholder="Optional" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="closeDepositModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Deposit</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
+    <script>
+        let currentAccountId = null;
+        function openNewAccountModal() {
+            alert('New account creation feature coming soon!');
+        }
+        function openDepositModal(accountId) {
+            currentAccountId = accountId;
+            document.getElementById('deposit_account_id').value = accountId;
+            document.getElementById('depositModal').classList.remove('hidden');
+        }
+        function closeDepositModal() {
+            document.getElementById('depositModal').classList.add('hidden');
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

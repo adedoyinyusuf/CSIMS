@@ -44,9 +44,9 @@ class AuthService
         $username = $this->security->sanitizeInput($username);
         $clientId = $this->security->getClientIP() . '_' . $username;
         
-        // Rate limiting check
+        // Rate limiting check (identifier + action)
         $securityConfig = $this->config->getSecurityConfig();
-        if (!$this->security->checkRateLimit($clientId, $securityConfig['max_login_attempts'], $securityConfig['login_lockout_time'])) {
+        if (!$this->security->isRateLimitAllowed($clientId, 'login', $securityConfig['max_login_attempts'], $securityConfig['login_lockout_time'])) {
             throw new SecurityException('Too many login attempts. Please try again later.');
         }
         
@@ -61,8 +61,8 @@ class AuthService
             ];
         }
         
-        // Verify password
-        if (!password_verify($password, $member->toArray()['password'] ?? '')) {
+        // Verify password using model's stored hash
+        if (!password_verify($password, $member->getPasswordHash())) {
             $this->logFailedAttempt($username, 'Invalid password');
             return [
                 'success' => false,
@@ -229,10 +229,13 @@ class AuthService
         if (!$member) {
             throw new SecurityException('User not found');
         }
+        // Ensure correct model type for static analysis and safety
+        if (!$member instanceof \CSIMS\Models\Member) {
+            throw new SecurityException('Invalid user entity');
+        }
         
-        // Verify current password
-        $memberData = $member->toArray();
-        if (!password_verify($currentPassword, $memberData['password'] ?? '')) {
+        // Verify current password using model's stored hash
+        if (!password_verify($currentPassword, $member->getPasswordHash())) {
             throw new SecurityException('Current password is incorrect');
         }
         
@@ -245,6 +248,7 @@ class AuthService
         }
         
         // Update password
+        /** @var \CSIMS\Models\Member $member */
         $member->setPasswordHash(password_hash($newPassword, PASSWORD_DEFAULT));
         $this->memberRepository->update($member);
         
@@ -311,9 +315,8 @@ class AuthService
      */
     private function isTwoFactorEnabled(Member $member): bool
     {
-        // This would check if 2FA is enabled for the user
-        // For now, return false as placeholder
-        return false;
+        // Config-level toggle (per-user support can be added later)
+        return (bool)$this->config->get('security.two_factor_enabled', false);
     }
     
     /**
@@ -325,9 +328,16 @@ class AuthService
      */
     private function verifyTwoFactorCode(Member $member, string $code): bool
     {
-        // This would verify the 2FA code
-        // For now, return true as placeholder
-        return true;
+        // In non-production environments, allow a test code for development convenience
+        $env = $this->config->getEnvironment();
+        if ($env !== 'production') {
+            $testCode = (string)$this->config->get('security.test_2fa_code', '000000');
+            return hash_equals($testCode, $code);
+        }
+        
+        // Production path should implement TOTP/SMS verification integrated with member data
+        // Since per-user secrets are not yet modeled, reject by default when enabled
+        return false;
     }
     
     /**

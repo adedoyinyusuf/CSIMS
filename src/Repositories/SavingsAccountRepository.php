@@ -552,7 +552,7 @@ class SavingsAccountRepository implements RepositoryInterface
             $types .= 's';
         }
         
-        $sql .= " ORDER BY sa.created_at DESC";
+        $sql .= " ORDER BY sa.opening_date DESC";
         
         if (!empty($filters['limit'])) {
             $sql .= " LIMIT ?";

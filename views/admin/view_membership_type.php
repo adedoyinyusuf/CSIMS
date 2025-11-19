@@ -37,7 +37,7 @@ if (!$membership_type) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Membership Type - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
@@ -47,7 +47,7 @@ if (!$membership_type) {
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Membership Type Details</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
@@ -120,7 +120,7 @@ if (!$membership_type) {
                                 <?php if (isset($membership_type['monthly_contribution']) && $membership_type['monthly_contribution'] > 0): ?>
                                 <div class="row mb-3">
                                     <div class="col-sm-3">
-                                        <strong>Monthly Contribution:</strong>
+                                        <strong>Monthly Savings Requirement:</strong>
                                     </div>
                                     <div class="col-sm-9">
                                         <span class="badge bg-primary">₦<?php echo number_format($membership_type['monthly_contribution'], 2); ?></span>

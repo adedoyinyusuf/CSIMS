@@ -3,8 +3,10 @@
 namespace CSIMS\API;
 
 use CSIMS\Container\Container;
+use CSIMS\Services\AuthService;
 use CSIMS\Services\LoanService;
-use CSIMS\Services\ContributionService;
+use CSIMS\Services\AuthenticationService;
+
 use CSIMS\Services\SecurityService;
 use CSIMS\Exceptions\ValidationException;
 use CSIMS\Exceptions\DatabaseException;
@@ -61,17 +63,8 @@ class Router
         $this->get('/api/loans/overdue', [$this, 'getOverdueLoans']);
         $this->get('/api/loans/statistics', [$this, 'getLoanStatistics']);
         
-        // Contribution routes
-        $this->get('/api/contributions', [$this, 'getContributions']);
-        $this->get('/api/contributions/{id}', [$this, 'getContribution']);
-        $this->post('/api/contributions', [$this, 'createContribution']);
-        $this->put('/api/contributions/{id}', [$this, 'updateContribution']);
-        $this->delete('/api/contributions/{id}', [$this, 'deleteContribution']);
-        $this->post('/api/contributions/{id}/confirm', [$this, 'confirmContribution']);
-        $this->post('/api/contributions/{id}/reject', [$this, 'rejectContribution']);
-        $this->get('/api/contributions/statistics', [$this, 'getContributionStatistics']);
-        $this->post('/api/contributions/bulk-import', [$this, 'bulkImportContributions']);
-        $this->get('/api/contributions/report', [$this, 'generateContributionReport']);
+        // Contribution routes removed
+        // (All contribution endpoints have been removed as part of migration to Savings)
         
         // Dashboard routes
         $this->get('/api/dashboard/stats', [$this, 'getDashboardStats']);
@@ -184,8 +177,28 @@ class Router
                 $this->validateCSRF($requestData);
             }
             
-            // Execute handler
-            $result = call_user_func_array($route['handler'], array_merge($matches, [$requestData]));
+            // Execute handler, only pass request data if handler expects it
+            $handler = $route['handler'];
+            $args = $matches;
+
+            try {
+                if (is_array($handler) && isset($handler[0], $handler[1])) {
+                    $ref = new \ReflectionMethod($handler[0], $handler[1]);
+                    $expectedParams = $ref->getNumberOfParameters();
+                } else {
+                    $ref = new \ReflectionFunction($handler);
+                    $expectedParams = $ref->getNumberOfParameters();
+                }
+            } catch (\Throwable $e) {
+                // Fallback: assume handler accepts request data to be safe for POST/PUT/DELETE
+                $expectedParams = count($matches) + (in_array($method, ['POST', 'PUT', 'DELETE']) ? 1 : 0);
+            }
+
+            if ($expectedParams > count($matches)) {
+                $args[] = $requestData;
+            }
+
+            $result = call_user_func_array($handler, $args);
             
             if (is_array($result)) {
                 $this->sendResponse($result);
@@ -217,7 +230,7 @@ class Router
                 'message' => $e->getMessage()
             ], 500);
             
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             error_log('Unexpected error: ' . $e->getMessage());
             $this->sendResponse([
                 'error' => 'Internal error',
@@ -252,6 +265,32 @@ class Router
         if (!isset($requestData['csrf_token']) || !$securityService->validateCsrfToken($requestData['csrf_token'])) {
             throw new SecurityException('Invalid CSRF token');
         }
+    }
+
+    /**
+     * Require authentication and return current user ID
+     */
+    private function requireAuthenticatedUserId(): int
+    {
+        if (!isset($_SESSION)) { @session_start(); }
+        $uid = null;
+        // Prefer unified session keys; fall back to admin/member
+        if (isset($_SESSION['user_id'])) { $uid = (int)$_SESSION['user_id']; }
+        elseif (isset($_SESSION['admin_user']['admin_id'])) { $uid = (int)$_SESSION['admin_user']['admin_id']; }
+        elseif (isset($_SESSION['member_user']['member_id'])) { $uid = (int)$_SESSION['member_user']['member_id']; }
+        if (!$uid) { throw new SecurityException('Not authenticated'); }
+        return $uid;
+    }
+
+    /**
+     * Enforce permission for current user
+     */
+    private function requirePermission(string $permission): int
+    {
+        $userId = $this->requireAuthenticatedUserId();
+        $authz = $this->container->resolve(AuthenticationService::class);
+        $authz->requirePermission($userId, $permission);
+        return $userId;
     }
     
     /**
@@ -290,6 +329,7 @@ class Router
      */
     public function getLoans(array $requestData): array
     {
+        $this->requirePermission('view_loans');
         $loanService = $this->container->resolve(LoanService::class);
         
         $page = (int)($requestData['page'] ?? 1);
@@ -330,6 +370,7 @@ class Router
      */
     public function getLoan(string $id): array
     {
+        $this->requirePermission('view_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $loan = $loanService->getLoan((int)$id);
         
@@ -352,6 +393,7 @@ class Router
      */
     public function createLoan(array $requestData): array
     {
+        $this->requirePermission('create_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $loan = $loanService->createLoan($requestData);
         
@@ -368,6 +410,7 @@ class Router
      */
     public function updateLoan(string $id, array $requestData): array
     {
+        $this->requirePermission('update_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $loan = $loanService->updateLoan((int)$id, $requestData);
         
@@ -383,6 +426,7 @@ class Router
      */
     public function deleteLoan(string $id, array $requestData): array
     {
+        $this->requirePermission('delete_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $deleted = $loanService->deleteLoan((int)$id);
         
@@ -397,6 +441,7 @@ class Router
      */
     public function approveLoan(string $id, array $requestData): array
     {
+        $this->requirePermission('approve_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $approved = $loanService->approveLoan((int)$id, $requestData['approved_by'] ?? 'System');
         
@@ -411,6 +456,7 @@ class Router
      */
     public function rejectLoan(string $id, array $requestData): array
     {
+        $this->requirePermission('reject_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $rejected = $loanService->rejectLoan(
             (int)$id, 
@@ -429,6 +475,7 @@ class Router
      */
     public function disburseLoan(string $id, array $requestData): array
     {
+        $this->requirePermission('disburse_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $disbursed = $loanService->disburseLoan((int)$id, $requestData['disbursed_by'] ?? 'System');
         
@@ -443,6 +490,7 @@ class Router
      */
     public function processLoanPayment(string $id, array $requestData): array
     {
+        $this->requirePermission('process_payments');
         $loanService = $this->container->resolve(LoanService::class);
         $processed = $loanService->processPayment(
             (int)$id,
@@ -461,6 +509,7 @@ class Router
      */
     public function getLoanSchedule(string $id): array
     {
+        $this->requirePermission('view_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $schedule = $loanService->calculatePaymentSchedule((int)$id);
         
@@ -475,6 +524,7 @@ class Router
      */
     public function getOverdueLoans(): array
     {
+        $this->requirePermission('view_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $loans = $loanService->getOverdueLoans();
         
@@ -489,6 +539,7 @@ class Router
      */
     public function getLoanStatistics(): array
     {
+        $this->requirePermission('view_loans');
         $loanService = $this->container->resolve(LoanService::class);
         $stats = $loanService->getLoanStatistics();
         
@@ -499,172 +550,22 @@ class Router
     }
     
     /**
-     * Get contributions with filtering and pagination
-     */
-    public function getContributions(array $requestData): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        
-        $page = (int)($requestData['page'] ?? 1);
-        $limit = min((int)($requestData['limit'] ?? 10), 100);
-        $filters = [];
-        $orderBy = ['contribution_date' => 'DESC'];
-        
-        // Apply filters
-        if (isset($requestData['member_id'])) {
-            $filters['member_id'] = $requestData['member_id'];
-        }
-        if (isset($requestData['type'])) {
-            $filters['contribution_type'] = $requestData['type'];
-        }
-        if (isset($requestData['status'])) {
-            $filters['status'] = $requestData['status'];
-        }
-        if (isset($requestData['date_from'])) {
-            $filters['date_from'] = $requestData['date_from'];
-        }
-        if (isset($requestData['date_to'])) {
-            $filters['date_to'] = $requestData['date_to'];
-        }
-        
-        // Apply sorting
-        if (isset($requestData['sort_by'])) {
-            $orderBy = [$requestData['sort_by'] => $requestData['sort_order'] ?? 'DESC'];
-        }
-        
-        if (isset($requestData['search'])) {
-            $result = $contributionService->searchContributions($requestData['search'], $filters, $page, $limit);
-        } else {
-            $result = $contributionService->getContributions($filters, $page, $limit, $orderBy);
-        }
-        
-        return [
-            'success' => true,
-            'data' => array_map(fn($contribution) => $contribution->toArray(), $result['data']),
-            'pagination' => $result['pagination']
-        ];
-    }
-    
-    /**
-     * Get single contribution
-     */
-    public function getContribution(string $id): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        $contribution = $contributionService->getContribution((int)$id);
-        
-        if (!$contribution) {
-            return [
-                'success' => false,
-                'message' => 'Contribution not found',
-                'error' => 'NOT_FOUND'
-            ];
-        }
-        
-        return [
-            'success' => true,
-            'data' => $contribution->toArray()
-        ];
-    }
-    
-    /**
-     * Create new contribution
-     */
-    public function createContribution(array $requestData): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        $contribution = $contributionService->createContribution($requestData);
-        
-        return [
-            'success' => true,
-            'message' => 'Contribution created successfully',
-            'data' => $contribution->toArray(),
-            'id' => $contribution->getId()
-        ];
-    }
-    
-    /**
-     * Update contribution
-     */
-    public function updateContribution(string $id, array $requestData): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        $contribution = $contributionService->updateContribution((int)$id, $requestData);
-        
-        return [
-            'success' => true,
-            'message' => 'Contribution updated successfully',
-            'data' => $contribution->toArray()
-        ];
-    }
-    
-    /**
-     * Delete contribution
-     */
-    public function deleteContribution(string $id, array $requestData): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        $deleted = $contributionService->deleteContribution((int)$id);
-        
-        return [
-            'success' => $deleted,
-            'message' => $deleted ? 'Contribution deleted successfully' : 'Failed to delete contribution'
-        ];
-    }
-    
-    /**
-     * Get contribution statistics
-     */
-    public function getContributionStatistics(): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        $stats = $contributionService->getContributionStatistics();
-        
-        return [
-            'success' => true,
-            'data' => $stats
-        ];
-    }
-    
-    /**
-     * Generate contribution report
-     */
-    public function generateContributionReport(array $requestData): array
-    {
-        $contributionService = $this->container->resolve(ContributionService::class);
-        
-        $startDate = $requestData['start_date'] ?? date('Y-m-01');
-        $endDate = $requestData['end_date'] ?? date('Y-m-t');
-        $type = $requestData['type'] ?? null;
-        
-        $report = $contributionService->generateContributionReport($startDate, $endDate, $type);
-        
-        return [
-            'success' => true,
-            'data' => $report
-        ];
-    }
-    
-    /**
      * Get dashboard statistics
      */
     public function getDashboardStats(): array
     {
+        $this->requirePermission('view_dashboard');
         $loanService = $this->container->resolve(LoanService::class);
-        $contributionService = $this->container->resolve(ContributionService::class);
         
         $loanStats = $loanService->getLoanStatistics();
-        $contributionStats = $contributionService->getContributionStatistics();
         
         return [
             'success' => true,
             'data' => [
                 'loans' => $loanStats,
-                'contributions' => $contributionStats,
                 'summary' => [
-                    'total_members' => $loanStats['total_loans'] + $contributionStats['contributing_members'] ?? 0,
-                    'total_portfolio' => ($loanStats['active_amount'] ?? 0) + ($contributionStats['confirmed_amount'] ?? 0),
-                    'monthly_collections' => $contributionStats['contributions_last_30_days'] ?? 0,
+                    // Without contributions, portfolio reflects loans only for now
+                    'total_portfolio' => ($loanStats['active_amount'] ?? 0),
                     'overdue_loans' => $loanStats['overdue_loans'] ?? 0
                 ]
             ]
@@ -676,83 +577,204 @@ class Router
      */
     public function login(array $requestData): array
     {
-        // TODO: Implement proper authentication
-        return [
-            'success' => true,
-            'message' => 'Login successful',
-            'token' => 'placeholder_token'
-        ];
+        $auth = $this->container->resolve(AuthService::class);
+
+        $username = (string)($requestData['username'] ?? $requestData['email'] ?? '');
+        $password = (string)($requestData['password'] ?? '');
+        $twoFactor = isset($requestData['two_factor_code']) ? (string)$requestData['two_factor_code'] : null;
+
+        if ($username === '' || $password === '') {
+            throw new ValidationException('Username/email and password are required');
+        }
+
+        $result = $auth->authenticate($username, $password, $twoFactor);
+        return $result;
     }
     
     public function logout(array $requestData): array
     {
-        return [
-            'success' => true,
-            'message' => 'Logged out successfully'
-        ];
+        $auth = $this->container->resolve(AuthService::class);
+        return $auth->logout();
     }
     
     public function getCurrentUser(): array
     {
+        $auth = $this->container->resolve(AuthService::class);
+        $member = $auth->getCurrentUser();
+        if (!$member) {
+            return [
+                'success' => false,
+                'error' => 'UNAUTHORIZED',
+                'message' => 'Not authenticated'
+            ];
+        }
+        $data = $member->toArray();
+        unset($data['password']);
         return [
             'success' => true,
-            'data' => [
-                'user_id' => 1,
-                'username' => 'admin',
-                'role' => 'Admin'
-            ]
+            'data' => $data
         ];
     }
     
     // Placeholder member methods
     public function getMembers(array $requestData): array
     {
-        return ['success' => true, 'message' => 'Members endpoint - to be implemented'];
+        $this->requirePermission('view_members');
+        $repo = $this->container->resolve(\CSIMS\Repositories\MemberRepository::class);
+        $page = (int)($requestData['page'] ?? 1);
+        $limit = min((int)($requestData['limit'] ?? 10), 100);
+        $filters = [];
+        if (isset($requestData['status'])) {
+            $filters['status'] = $requestData['status'];
+        }
+        $result = $repo->getPaginated($page, $limit, $filters);
+        return [
+            'success' => true,
+            'data' => array_map(fn($m) => $m->toArray(), $result['data']),
+            'pagination' => $result['pagination']
+        ];
     }
     
     public function getMember(string $id): array
     {
-        return ['success' => true, 'message' => 'Get member endpoint - to be implemented'];
+        $this->requirePermission('view_members');
+        $repo = $this->container->resolve(\CSIMS\Repositories\MemberRepository::class);
+        $member = $repo->find((int)$id);
+        if (!$member) {
+            return [
+                'success' => false,
+                'error' => 'NOT_FOUND',
+                'message' => 'Member not found'
+            ];
+        }
+        $data = $member->toArray();
+        unset($data['password']);
+        return [
+            'success' => true,
+            'data' => $data
+        ];
     }
     
     public function createMember(array $requestData): array
     {
-        return ['success' => true, 'message' => 'Create member endpoint - to be implemented'];
+        $this->requirePermission('create_members');
+        // Reuse AuthService::register for validation and hashing
+        $auth = $this->container->resolve(AuthService::class);
+        $result = $auth->register($requestData);
+        return $result;
     }
     
     public function updateMember(string $id, array $requestData): array
     {
-        return ['success' => true, 'message' => 'Update member endpoint - to be implemented'];
+        $this->requirePermission('update_members');
+        $repo = $this->container->resolve(\CSIMS\Repositories\MemberRepository::class);
+        $security = $this->container->resolve(SecurityService::class);
+        $existing = $repo->find((int)$id);
+        if (!$existing) {
+            return [
+                'success' => false,
+                'error' => 'NOT_FOUND',
+                'message' => 'Member not found'
+            ];
+        }
+        // Sanitize and merge
+        $sanitized = [];
+        foreach ($requestData as $k => $v) { $sanitized[$k] = $security->sanitizeInput($v); }
+        $data = array_merge($existing->toArray(), $sanitized);
+        // Avoid overwriting password unless explicitly provided
+        if (!isset($sanitized['password'])) { unset($data['password']); }
+        $member = \CSIMS\Models\Member::fromArray($data);
+        $member->setId((int)$id);
+        $validation = $member->validate();
+        if (!$validation->isValid()) {
+            throw new ValidationException('Validation failed: ' . implode(', ', $validation->getErrors()));
+        }
+        $updated = $repo->update($member);
+        $out = $updated->toArray();
+        unset($out['password']);
+        return [
+            'success' => true,
+            'message' => 'Member updated successfully',
+            'data' => $out
+        ];
     }
     
     public function deleteMember(string $id, array $requestData): array
     {
-        return ['success' => true, 'message' => 'Delete member endpoint - to be implemented'];
+        $this->requirePermission('delete_members');
+        $repo = $this->container->resolve(\CSIMS\Repositories\MemberRepository::class);
+        $deleted = $repo->delete((int)$id);
+        return [
+            'success' => $deleted,
+            'message' => $deleted ? 'Member deleted successfully' : 'Failed to delete member'
+        ];
     }
     
     public function getMemberSummary(string $id): array
     {
-        return ['success' => true, 'message' => 'Member summary endpoint - to be implemented'];
+        $this->requirePermission('view_members');
+        $repo = $this->container->resolve(\CSIMS\Repositories\MemberRepository::class);
+        $loanService = $this->container->resolve(LoanService::class);
+        $member = $repo->find((int)$id);
+        if (!$member) {
+            return [
+                'success' => false,
+                'error' => 'NOT_FOUND',
+                'message' => 'Member not found'
+            ];
+        }
+        $loans = $loanService->getLoansByMember((int)$id);
+        $guaranteed = method_exists($loanService, 'getLoansGuaranteedByMember') ? $loanService->getLoansGuaranteedByMember((int)$id) : [];
+        $totalAmount = array_reduce($loans, fn($sum, $loan) => $sum + ($loan->toArray()['amount'] ?? 0), 0.0);
+        return [
+            'success' => true,
+            'data' => [
+                'member' => (function($m){ $d = $m->toArray(); unset($d['password']); return $d; })($member),
+                'loan_count' => count($loans),
+                'total_loan_amount' => $totalAmount,
+                'guaranteed_loan_count' => is_array($guaranteed) ? count($guaranteed) : 0
+            ]
+        ];
     }
     
     public function searchMembers(array $requestData): array
     {
-        return ['success' => true, 'message' => 'Search members endpoint - to be implemented'];
+        $this->requirePermission('view_members');
+        $repo = $this->container->resolve(\CSIMS\Repositories\MemberRepository::class);
+        $q = (string)($requestData['q'] ?? $requestData['query'] ?? '');
+        $page = (int)($requestData['page'] ?? 1);
+        $limit = min((int)($requestData['limit'] ?? 10), 100);
+        $filters = [];
+        if (isset($requestData['status'])) { $filters['status'] = $requestData['status']; }
+        if ($q === '') {
+            // Fallback to paginated listing when no query provided
+            $result = $repo->getPaginated($page, $limit, $filters);
+        } else {
+            $result = $repo->search($q, $page, $limit, $filters);
+        }
+        return [
+            'success' => true,
+            'data' => array_map(fn($m) => $m->toArray(), $result['data']),
+            'pagination' => $result['pagination']
+        ];
     }
     
     public function confirmContribution(string $id, array $requestData): array
     {
-        return ['success' => true, 'message' => 'Confirm contribution endpoint - to be implemented'];
+        // This legacy endpoint has been removed
+        return ['success' => false, 'error' => 'NOT_FOUND', 'message' => 'Endpoint removed'];
     }
     
     public function rejectContribution(string $id, array $requestData): array
     {
-        return ['success' => true, 'message' => 'Reject contribution endpoint - to be implemented'];
+        // This legacy endpoint has been removed
+        return ['success' => false, 'error' => 'NOT_FOUND', 'message' => 'Endpoint removed'];
     }
     
     public function bulkImportContributions(array $requestData): array
     {
-        return ['success' => true, 'message' => 'Bulk import endpoint - to be implemented'];
+        // This legacy endpoint has been removed
+        return ['success' => false, 'error' => 'NOT_FOUND', 'message' => 'Endpoint removed'];
     }
     
     public function getRecentActivities(): array

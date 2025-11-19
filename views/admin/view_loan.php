@@ -52,11 +52,47 @@ $loanStatuses = $loanController->getLoanStatuses();
 // Get payment methods
 $paymentMethods = $loanController->getPaymentMethods();
 
-// Calculate loan summary
-$totalPaid = $loan['amount_paid'] ?? 0;
-$loanAmount = $loan['amount'] ?? 0;
-$remainingBalance = $loanAmount - $totalPaid;
-$percentPaid = ($loanAmount > 0) ? ($totalPaid / $loanAmount) * 100 : 0;
+// Calculate loan summary using schema-resilient logic
+$loanAmount = (float)($loan['amount'] ?? ($loan['principal_amount'] ?? ($loan['total_amount'] ?? 0)));
+
+// Detect available columns
+$has_amount_paid = false; $has_total_repaid = false; $has_remaining_balance = false;
+try {
+    $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'amount_paid'");
+    if ($col && $col->num_rows > 0) { $has_amount_paid = true; }
+    $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'total_repaid'");
+    if ($col && $col->num_rows > 0) { $has_total_repaid = true; }
+    $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'remaining_balance'");
+    if ($col && $col->num_rows > 0) { $has_remaining_balance = true; }
+} catch (Exception $e) { /* ignore schema detection errors */ }
+
+// Compute total paid preferring schema columns, else sum repayments
+$totalPaid = 0.0;
+if ($has_amount_paid && isset($loan['amount_paid'])) {
+    $totalPaid = (float)$loan['amount_paid'];
+} elseif ($has_total_repaid && isset($loan['total_repaid'])) {
+    $totalPaid = (float)$loan['total_repaid'];
+} else {
+    $repayment_total = 0.0;
+    if (!empty($repayments) && is_array($repayments)) {
+        foreach ($repayments as $r) {
+            $amt = null;
+            if (isset($r['amount'])) { $amt = $r['amount']; }
+            elseif (isset($r['payment_amount'])) { $amt = $r['payment_amount']; }
+            elseif (isset($r['paid_amount'])) { $amt = $r['paid_amount']; }
+            elseif (isset($r['repayment_amount'])) { $amt = $r['repayment_amount']; }
+            if ($amt !== null) { $repayment_total += (float)$amt; }
+        }
+    }
+    $totalPaid = (float)$repayment_total;
+}
+
+// Prefer remaining_balance when present, else compute from amount and paid
+$remainingBalance = ($has_remaining_balance && isset($loan['remaining_balance']))
+    ? (float)$loan['remaining_balance']
+    : max(0.0, $loanAmount - $totalPaid);
+
+$percentPaid = ($loanAmount > 0) ? (($totalPaid / $loanAmount) * 100) : 0;
 
 // Calculate due date based on disbursement date and term
 $due_date = null;
@@ -106,7 +142,7 @@ $pageTitle = "Loan Details #" . $loan_id;
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     
     <!-- Custom Tailwind Configuration -->
     <script>
@@ -140,8 +176,8 @@ $pageTitle = "Loan Details #" . $loan_id;
             <?php include_once '../includes/header.php'; ?>
             
             <!-- Main Content -->
-            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6 pl-12">
-                <div class="max-w-5xl mx-auto ml-12">
+            <main id="mainContent" class="flex-1 md:ml-64 mt-16 p-6 bg-gray-50 overflow-x-hidden">
+                <div class="max-w-5xl mx-auto">
                     <!-- Page Header -->
                     <div class="bg-gradient-to-r from-primary-600 to-primary-800 text-white p-8 rounded-2xl mb-8 shadow-lg">
                         <div class="flex justify-between items-center">
@@ -189,6 +225,20 @@ $pageTitle = "Loan Details #" . $loan_id;
             <?php include_once __DIR__ . '/../includes/flash_messages.php'; ?>
             
             <!-- Loan Status Badge -->
+            <?php 
+                // Safe date formatter to prevent deprecated strtotime(null) warnings
+                $formatDisplayDate = function($dateStr) {
+                    if (empty($dateStr)) { return null; }
+                    $ts = strtotime($dateStr);
+                    return ($ts !== false) ? date('M d, Y', $ts) : null;
+                };
+                // Safe month-year formatter for strings like YYYY-MM
+                $formatMonthYear = function($monthStr) {
+                    if (empty($monthStr)) { return null; }
+                    $ts = strtotime($monthStr . '-01');
+                    return ($ts !== false) ? date('F Y', $ts) : null;
+                };
+            ?>
             <div class="mb-8">
                 <div class="bg-<?php 
                     echo match($loan['status']) {
@@ -253,7 +303,14 @@ $pageTitle = "Loan Details #" . $loan_id;
                             </div>
                         </div>
                     <?php elseif ($loan['status'] === 'Approved'): ?>
-                        <p class="text-blue-700 mb-4">This loan has been approved on <?php echo date('M d, Y', strtotime($loan['approval_date'])); ?> and is awaiting disbursement.</p>
+                        <?php $approvedOn = $formatDisplayDate($loan['approval_date'] ?? null); ?>
+                        <p class="text-blue-700 mb-4">
+                            <?php if ($approvedOn): ?>
+                                This loan has been approved on <?php echo $approvedOn; ?> and is awaiting disbursement.
+                            <?php else: ?>
+                                This loan has been approved and is awaiting disbursement.
+                            <?php endif; ?>
+                        </p>
                         <div class="border-t border-blue-200 pt-4">
                             <div class="flex gap-3">
                                 <a href="<?php echo BASE_URL; ?>/views/admin/process_loan.php?id=<?php echo $loan_id; ?>&action=disburse" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
@@ -262,7 +319,14 @@ $pageTitle = "Loan Details #" . $loan_id;
                             </div>
                         </div>
                     <?php elseif (in_array($loan['status'], ['Disbursed', 'Paid'])): ?>
-                        <p class="text-indigo-700 mb-4">This loan is active. Disbursed on <?php echo date('M d, Y', strtotime($loan['disbursement_date'])); ?>.</p>
+                        <?php $disbursedOn = $formatDisplayDate($loan['disbursement_date'] ?? null); ?>
+                        <p class="text-indigo-700 mb-4">
+                            <?php if ($disbursedOn): ?>
+                                This loan is active. Disbursed on <?php echo $disbursedOn; ?>.
+                            <?php else: ?>
+                                This loan is active.
+                            <?php endif; ?>
+                        </p>
                         <div class="border-t border-indigo-200 pt-4">
                             <div class="flex gap-3">
                                 <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
@@ -271,7 +335,14 @@ $pageTitle = "Loan Details #" . $loan_id;
                             </div>
                         </div>
                     <?php elseif ($loan['status'] === 'paid'): ?>
-                        <p class="text-green-700 mb-4">This loan has been fully paid off. Last payment on <?php echo date('M d, Y', strtotime($loan['last_payment_date'])); ?>.</p>
+                        <?php $lastPaidOn = $formatDisplayDate($loan['last_payment_date'] ?? null); ?>
+                        <p class="text-green-700 mb-4">
+                            <?php if ($lastPaidOn): ?>
+                                This loan has been fully paid off. Last payment on <?php echo $lastPaidOn; ?>.
+                            <?php else: ?>
+                                This loan has been fully paid off.
+                            <?php endif; ?>
+                        </p>
                     <?php elseif ($loan['status'] === 'rejected'): ?>
                         <p class="text-red-700 mb-4">This loan application was rejected.</p>
                         <div class="border-t border-red-200 pt-4">
@@ -327,7 +398,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-calendar text-gray-600 mr-2"></i>Application Date
                                             </label>
-                                            <div class="text-lg font-medium text-gray-800"><?php echo date('F d, Y', strtotime($loan['application_date'])); ?></div>
+                                            <div class="text-lg font-medium text-gray-800"><?php echo $formatDisplayDate($loan['application_date'] ?? null) ?? 'N/A'; ?></div>
                                         </div>
                                         
                                         <!-- Additional Member Information -->
@@ -345,7 +416,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                             <label class="block text-sm font-medium text-green-700 mb-1">
                                                 <i class="fas fa-calendar-plus text-green-600 mr-2"></i>Deduction Start Month
                                             </label>
-                                            <div class="text-lg font-medium text-green-800"><?php echo date('F Y', strtotime($loan['month_deduction_started'] . '-01')); ?></div>
+                                            <div class="text-lg font-medium text-green-800"><?php echo $formatMonthYear($loan['month_deduction_started'] ?? null) ?? 'N/A'; ?></div>
                                         </div>
                                         <?php endif; ?>
                                         
@@ -354,7 +425,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                             <label class="block text-sm font-medium text-red-700 mb-1">
                                                 <i class="fas fa-calendar-minus text-red-600 mr-2"></i>Deduction End Month
                                             </label>
-                                            <div class="text-lg font-medium text-red-800"><?php echo date('F Y', strtotime($loan['month_deduction_end'] . '-01')); ?></div>
+                                            <div class="text-lg font-medium text-red-800"><?php echo $formatMonthYear($loan['month_deduction_end'] ?? null) ?? 'N/A'; ?></div>
                                         </div>
                                         <?php endif; ?>
                                     </div>
@@ -403,7 +474,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                     </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6 col-xl-4">
+                                <div class="xl:col-span-1">
                                     <div class="loan-details-section">
                                         <div class="detail-item mb-4">
                                             <label class="detail-label"><i class="bi bi-cash-coin text-success me-2"></i>Monthly Payment</label>
@@ -411,7 +482,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         </div>
                                         <div class="detail-item mb-4">
                                             <label class="detail-label"><i class="bi bi-calendar-check text-info me-2"></i>Due Date</label>
-                                            <div class="detail-value"><?php echo $due_date ? date('F d, Y', strtotime($due_date)) : 'Not set'; ?></div>
+                                            <div class="detail-value"><?php echo $formatDisplayDate($due_date ?? null) ?? 'Not set'; ?></div>
                                         </div>
                                         <div class="detail-item mb-4">
                                             <label class="detail-label"><i class="bi bi-flag text-primary me-2"></i>Status</label>
@@ -446,63 +517,56 @@ $pageTitle = "Loan Details #" . $loan_id;
                     
                     <?php if (in_array($loan['status'], ['disbursed', 'active', 'paid'])): ?>
                     <!-- Repayment Progress -->
-                    <div class="card mb-4 shadow-sm border-0 slide-in">
-                        <div class="card-header bg-light border-0">
-                            <h5 class="card-title mb-0 d-flex align-items-center">
-                                <i class="bi bi-graph-up me-2 text-success"></i>
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 mb-8 overflow-hidden slide-in">
+                        <div class="bg-gradient-to-r from-green-50 to-green-100 px-6 py-4 border-b border-gray-200">
+                            <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+                                <i class="bi bi-graph-up mr-2 text-green-600"></i>
                                 Repayment Progress
                             </h5>
                         </div>
-                        <div class="card-body p-4">
-                            <div class="row align-items-center g-4">
-                                <div class="col-md-6">
-                                    <div class="progress-container">
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span class="text-muted">Progress</span>
-                                            <span class="fw-bold text-<?php echo $percentPaid >= 100 ? 'success' : ($percentPaid >= 50 ? 'warning' : 'danger'); ?>"><?php echo round($percentPaid); ?>%</span>
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                                <div>
+                                    <div>
+                                        <div class="flex justify-between mb-2">
+                                            <span class="text-gray-600">Progress</span>
+                                            <span class="font-semibold text-<?php echo $percentPaid >= 100 ? 'green-600' : ($percentPaid >= 50 ? 'yellow-600' : 'blue-600'); ?>"><?php echo round($percentPaid); ?>%</span>
                                         </div>
-                                        <div class="progress" style="height: 30px; border-radius: 15px;">
-                                            <div class="progress-bar bg-gradient bg-<?php echo $percentPaid >= 100 ? 'success' : ($percentPaid >= 50 ? 'warning' : 'info'); ?>" 
-                                                 role="progressbar" 
-                                                 style="width: <?php echo min(100, $percentPaid); ?>%; border-radius: 15px;" 
-                                                 aria-valuenow="<?php echo $percentPaid; ?>" aria-valuemin="0" aria-valuemax="100">
-                                                <span class="fw-bold"><?php echo round($percentPaid); ?>%</span>
+                                        <div class="w-full h-8 bg-gray-200 rounded-full overflow-hidden">
+                                            <div class="h-8 rounded-full bg-<?php echo $percentPaid >= 100 ? 'green-500' : ($percentPaid >= 50 ? 'yellow-500' : 'blue-500'); ?> flex items-center justify-center text-white text-sm font-semibold" style="width: <?php echo min(100, $percentPaid); ?>%;">
+                                                <?php echo round($percentPaid); ?>%
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="payment-summary">
-                                        <div class="summary-item mb-3">
-                                            <div class="d-flex justify-content-between align-items-center p-4">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="icon-wrapper bg-success bg-opacity-10 p-3 rounded-circle me-3">
-                                                        <i class="bi bi-cash-stack text-success fs-4"></i>
-                                                    </div>
-                                                    <div>
-                                                        <span class="fw-bold text-muted d-block">Total Paid</span>
-                                                        <span class="fw-bold text-success fs-4">=N=<?php echo number_format($totalPaid, 2); ?></span>
-                                                    </div>
+                                <div>
+                                    <div class="space-y-3">
+                                        <div class="p-4 border border-gray-200 rounded-xl flex items-center justify-between">
+                                            <div class="flex items-center">
+                                                <div class="p-3 rounded-full bg-green-100 mr-3">
+                                                    <i class="bi bi-cash-stack text-green-600 text-xl"></i>
                                                 </div>
-                                                <div class="text-end">
-                                                    <small class="text-muted"><?php echo number_format(($totalPaid / $loanAmount) * 100, 1); ?>% of loan</small>
+                                                <div>
+                                                    <span class="font-semibold text-gray-600 block">Total Paid</span>
+                                                    <span class="font-bold text-green-700 text-xl">=N=<?php echo number_format($totalPaid, 2); ?></span>
                                                 </div>
                                             </div>
+                                            <div class="text-right">
+                                                <small class="text-gray-500"><?php echo number_format(($totalPaid / $loanAmount) * 100, 1); ?>% of loan</small>
+                                            </div>
                                         </div>
-                                        <div class="summary-item">
-                                            <div class="d-flex justify-content-between align-items-center p-4">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="icon-wrapper <?php echo $remainingBalance > 0 ? 'bg-warning' : 'bg-success'; ?> bg-opacity-10 p-3 rounded-circle me-3">
-                                                        <i class="bi bi-hourglass-split <?php echo $remainingBalance > 0 ? 'text-warning' : 'text-success'; ?> fs-4"></i>
-                                                    </div>
-                                                    <div>
-                                                        <span class="fw-bold text-muted d-block">Remaining Balance</span>
-                                                        <span class="fw-bold <?php echo $remainingBalance <= 0 ? 'text-success' : 'text-warning'; ?> fs-4">=N=<?php echo number_format($remainingBalance, 2); ?></span>
-                                                    </div>
+                                        <div class="p-4 border border-gray-200 rounded-xl flex items-center justify-between">
+                                            <div class="flex items-center">
+                                                <div class="p-3 rounded-full <?php echo $remainingBalance > 0 ? 'bg-yellow-100' : 'bg-green-100'; ?> mr-3">
+                                                    <i class="bi bi-hourglass-split <?php echo $remainingBalance > 0 ? 'text-yellow-600' : 'text-green-600'; ?> text-xl"></i>
                                                 </div>
-                                                <div class="text-end">
-                                                    <small class="text-muted"><?php echo $remainingBalance > 0 ? number_format((($loanAmount - $remainingBalance) / $loanAmount) * 100, 1) . '% paid' : 'Fully paid'; ?></small>
+                                                <div>
+                                                    <span class="font-semibold text-gray-600 block">Remaining Balance</span>
+                                                    <span class="font-bold <?php echo $remainingBalance <= 0 ? 'text-green-700' : 'text-yellow-700'; ?> text-xl">=N=<?php echo number_format($remainingBalance, 2); ?></span>
                                                 </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <small class="text-gray-500"><?php echo $remainingBalance > 0 ? number_format((($loanAmount - $remainingBalance) / $loanAmount) * 100, 1) . '% paid' : 'Fully paid'; ?></small>
                                             </div>
                                         </div>
                                     </div>
@@ -512,41 +576,41 @@ $pageTitle = "Loan Details #" . $loan_id;
                     </div>
                     
                     <!-- Repayment History -->
-                    <div class="card mb-4 shadow-sm border-0 fade-in">
-                        <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0 d-flex align-items-center">
-                                <i class="bi bi-clock-history me-2 text-info"></i>
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 mb-8 overflow-hidden fade-in">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-blue-100">
+                            <h5 class="text-lg font-semibold text-gray-900 flex items-center mb-0">
+                                <i class="bi bi-clock-history mr-2 text-blue-600"></i>
                                 Repayment History
                             </h5>
                             <?php if (in_array($loan['status'], ['disbursed', 'active'])): ?>
-                            <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="btn btn-sm btn-success shadow-sm">
+                            <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm text-sm inline-flex items-center gap-2">
                                 <i class="bi bi-plus-circle"></i> Add Repayment
                             </a>
                             <?php endif; ?>
                         </div>
-                        <div class="card-body">
+                        <div class="p-6">
                             <?php if (empty($repayments)): ?>
-                                <p class="text-center">No repayments recorded yet.</p>
+                                <p class="text-center text-gray-600">No repayments recorded yet.</p>
                             <?php else: ?>
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover">
-                                        <thead>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
                                             <tr>
-                                                <th>Date</th>
-                                                <th>Amount</th>
-                                                <th>Payment Method</th>
-                                                <th>Receipt #</th>
-                                                <th>Notes</th>
+                                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment Method</th>
+                                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Receipt #</th>
+                                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody class="bg-white divide-y divide-gray-100">
                                             <?php foreach ($repayments as $repayment): ?>
-                                                <tr>
-                                                    <td><?php echo date('M d, Y', strtotime($repayment['payment_date'])); ?></td>
-                                                    <td>=N=<?php echo number_format($repayment['amount'] ?? 0, 2); ?></td>
-                                                    <td><?php echo htmlspecialchars($repayment['payment_method']); ?></td>
-                                                    <td><?php echo !empty($repayment['receipt_number']) ? htmlspecialchars($repayment['receipt_number']) : '-'; ?></td>
-                                                    <td><?php echo !empty($repayment['notes']) ? htmlspecialchars($repayment['notes']) : '-'; ?></td>
+                                                <tr class="odd:bg-white even:bg-gray-50">
+                                                    <td class="px-4 py-2 text-sm text-gray-800"><?php echo date('M d, Y', strtotime($repayment['payment_date'])); ?></td>
+                                                    <td class="px-4 py-2 text-sm text-gray-800">=N=<?php echo number_format($repayment['amount'] ?? 0, 2); ?></td>
+                                                    <td class="px-4 py-2 text-sm text-gray-800"><?php echo htmlspecialchars($repayment['payment_method']); ?></td>
+                                                    <td class="px-4 py-2 text-sm text-gray-800"><?php echo !empty($repayment['receipt_number']) ? htmlspecialchars($repayment['receipt_number']) : '-'; ?></td>
+                                                    <td class="px-4 py-2 text-sm text-gray-800"><?php echo !empty($repayment['notes']) ? htmlspecialchars($repayment['notes']) : '-'; ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         </tbody>
@@ -559,15 +623,15 @@ $pageTitle = "Loan Details #" . $loan_id;
                 </div>
                 
                 <!-- Member Information -->
-                <div class="col-md-4 col-xl-4 slide-in">
-                    <div class="card mb-4 shadow-sm border-0">
-                        <div class="card-header bg-light border-0">
-                            <h5 class="card-title mb-0 d-flex align-items-center">
-                                <i class="bi bi-person-circle me-2 text-primary"></i>
+                <div class="xl:col-span-1 slide-in">
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 mb-8 overflow-hidden">
+                        <div class="bg-gradient-to-r from-primary-50 to-primary-100 px-6 py-4 border-b border-gray-200">
+                            <h5 class="text-lg font-semibold text-gray-900 flex items-center mb-0">
+                                <i class="bi bi-person-circle mr-2 text-primary-600"></i>
                                 Member Information
                             </h5>
                         </div>
-                        <div class="card-body p-4">
+                        <div class="p-6">
                             <?php if ($member): ?>
                                 <div class="text-center mb-3">
                                     <?php 
@@ -578,42 +642,40 @@ $pageTitle = "Loan Details #" . $loan_id;
                                     <?php if (!empty($member['photo']) && $photo_file_exists): ?>
                                         <img src="<?php echo $photo_path; ?>" 
                                              alt="<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>" 
-                                             class="img-fluid rounded-circle mb-2" 
-                                             style="width: 100px; height: 100px; object-fit: cover; border: 3px solid #e9ecef;">
+                                             class="rounded-full mb-2 w-24 h-24 object-cover border-4 border-gray-200 mx-auto" >
                                     <?php else: ?>
-                                        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center mx-auto mb-2" 
-                                             style="width: 100px; height: 100px; border: 3px solid #e9ecef;">
-                                            <span class="text-white fs-1 fw-bold">
+                                        <div class="rounded-full bg-primary-600 flex items-center justify-center mx-auto mb-2 w-24 h-24 border-4 border-gray-200">
+                                            <span class="text-white text-3xl font-bold">
                                                 <?php echo strtoupper(substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1)); ?>
                                             </span>
                                         </div>
                                     <?php endif; ?>
-                                    <h5 class="mb-0"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></h5>
-                                    <p class="text-muted">Member ID: <?php echo $member['member_id']; ?></p>
+                                    <h5 class="mb-0 text-lg font-semibold text-gray-900"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></h5>
+                                    <p class="text-gray-500">Member ID: <?php echo $member['member_id']; ?></p>
                                 </div>
                                 
-                                <table class="table table-borderless">
-                                    <tr>
-                                        <th><i class="bi bi-envelope"></i> Email:</th>
-                                        <td><?php echo htmlspecialchars($member['email']); ?></td>
-                                    </tr>
-                                    <tr>
-                                        <th><i class="bi bi-telephone"></i> Phone:</th>
-                                        <td><?php echo htmlspecialchars($member['phone']); ?></td>
-                                    </tr>
-                                    <tr>
-                                        <th><i class="bi bi-geo-alt"></i> Address:</th>
-                                        <td><?php echo htmlspecialchars($member['address']); ?></td>
-                                    </tr>
-                                </table>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex items-start justify-between py-2 border-b border-gray-100">
+                                        <div class="font-medium text-gray-700"><i class="bi bi-envelope mr-2"></i> Email</div>
+                                        <div class="text-gray-800 text-right break-words ml-4"><?php echo htmlspecialchars($member['email']); ?></div>
+                                    </div>
+                                    <div class="flex items-start justify-between py-2 border-b border-gray-100">
+                                        <div class="font-medium text-gray-700"><i class="bi bi-telephone mr-2"></i> Phone</div>
+                                        <div class="text-gray-800 text-right break-words ml-4"><?php echo htmlspecialchars($member['phone']); ?></div>
+                                    </div>
+                                    <div class="flex items-start justify-between py-2">
+                                        <div class="font-medium text-gray-700"><i class="bi bi-geo-alt mr-2"></i> Address</div>
+                                        <div class="text-gray-800 text-right break-words ml-4"><?php echo htmlspecialchars($member['address']); ?></div>
+                                    </div>
+                                </div>
                                 
-                                <div class="d-grid gap-2 mt-3">
-                                    <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-outline-primary">
+                                <div class="grid gap-2 mt-3">
+                                    <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 inline-flex items-center justify-center">
                                         View Full Profile
                                     </a>
                                 </div>
                             <?php else: ?>
-                                <p class="text-center">Member information not available.</p>
+                                <p class="text-center text-gray-600">Member information not available.</p>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -873,82 +935,7 @@ $pageTitle = "Loan Details #" . $loan_id;
         }
     }
     
-    /* Enhanced Mobile responsive */
-    @media (max-width: 992px) {
-        .main-content {
-            margin-left: 0;
-            width: 100%;
-            max-width: 100%;
-            padding: 1rem;
-            padding-top: 1.5rem;
-            padding-bottom: 3rem;
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .main-content {
-            padding: 0.75rem;
-            padding-top: 1rem;
-            padding-bottom: 2.5rem;
-        }
-    }
-    
-    /* Sidebar collapsed state */
-    .main-content.sidebar-collapsed {
-        margin-left: 4rem;
-        width: calc(100% - 4rem);
-        max-width: calc(100% - 4rem);
-        padding-bottom: 3rem;
-    }
-    
-    @media (max-width: 992px) {
-        .main-content.sidebar-collapsed {
-            margin-left: 0;
-            width: 100%;
-            max-width: 100%;
-            padding-bottom: 3rem;
-        }
-    }
-    
-    /* Container and Row Enhancements */
-    .container-fluid {
-        padding: 0;
-        margin: 0;
-        width: 100%;
-        max-width: 100%;
-        overflow: hidden;
-    }
-    
-    .row {
-        margin: 0;
-        width: 100%;
-        max-width: 100%;
-        overflow: hidden;
-    }
-    
-    .row > .col-md-8,
-    .row > .col-md-4 {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-        max-width: 100%;
-        overflow: hidden;
-        box-sizing: border-box;
-    }
-    
-    @media (max-width: 768px) {
-        .row > .col-md-8,
-        .row > .col-md-4 {
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-        }
-    }
-    
-    /* Ensure cards stay within bounds */
-    .main-content .card {
-        max-width: 100%;
-        overflow: hidden;
-        box-sizing: border-box;
-    }
+    /* Removed conflicting layout overrides for .main-content, Bootstrap rows/cols to rely on Tailwind spacing and sidebar offset */
     
     /* Page Header Styling */
     .page-header {
@@ -1067,24 +1054,7 @@ $pageTitle = "Loan Details #" . $loan_id;
         padding: 2rem;
     }
     
-    /* Ensure equal height cards */
-    .row .col-md-8,
-    .row .col-md-4 {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .row .col-md-8 .card,
-    .row .col-md-4 .card {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .row .col-md-8 .card-body,
-    .row .col-md-4 .card-body {
-        flex: 1;
-    }
+    /* Equal-height card styles removed to avoid interfering with Tailwind grid */
     
     @media (max-width: 576px) {
         .card {
@@ -1126,14 +1096,7 @@ $pageTitle = "Loan Details #" . $loan_id;
         }
     }
     
-    /* Fix for main row container */
-    main .row {
-        margin-bottom: 2rem;
-    }
-    
-    main .row:last-child {
-        margin-bottom: 3rem;
-    }
+    /* Bootstrap row spacing rules removed */
     
     /* Detail Items Enhancement */
     .detail-item {
@@ -1335,8 +1298,8 @@ $pageTitle = "Loan Details #" . $loan_id;
         border-radius: 20px;
         position: relative;
         overflow: hidden;
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        background: linear-gradient(135deg, var(--success) 0%, var(--success) 100%);
+        box-shadow: 0 2px 8px rgba(0, 75, 35, 0.3);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1463,8 +1426,8 @@ $pageTitle = "Loan Details #" . $loan_id;
     }
     
     .btn-success:hover {
-        background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
-        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5);
+        background: linear-gradient(135deg, var(--success) 0%, var(--success) 100%);
+        box-shadow: 0 6px 20px rgba(0, 75, 35, 0.5);
     }
     
     .btn-warning {

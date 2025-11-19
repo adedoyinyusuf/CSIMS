@@ -28,10 +28,10 @@ class UserRepository implements RepositoryInterface
      * Find user by ID
      * 
      * @param mixed $id
-     * @return ModelInterface|null
+     * @return User|null
      * @throws DatabaseException
      */
-    public function find(mixed $id): ?ModelInterface
+    public function find(mixed $id): ?User
     {
         $query = QueryBuilder::table($this->table)
             ->select(['*'])

@@ -325,9 +325,9 @@ header("Content-Security-Policy: default-src 'self'");
 ## API Endpoints
 
 ### Authentication Endpoints
-- `POST /auth/login` - User login
-- `POST /auth/logout` - User logout
-- `POST /auth/reset-password` - Password reset
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/me` - Get current authenticated user
 
 ### Member Management
 - `GET /api/members` - List members
@@ -336,8 +336,8 @@ header("Content-Security-Policy: default-src 'self'");
 - `DELETE /api/members/{id}` - Delete member
 
 ### Financial Operations
-- `GET /api/contributions` - List contributions
-- `POST /api/contributions` - Add contribution
+- `GET /api/contributions` - List contributions (legacy)
+- `POST /api/contributions` - Add contribution (legacy)
 - `GET /api/loans` - List loans
 - `POST /api/loans` - Create loan application
 
@@ -437,3 +437,39 @@ The following fields are now included in the loan application process:
 - `remarks`: Additional remarks
 
 These fields are available in both the API and the user interface.
+
+## Updated Architecture (Router + DI)
+
+### Modern File Structure
+```
+CSIMS/
+├── api.php                  # Unified API entry point
+├── dev-router.php           # Dev server router forwarding /api/* to api.php
+├── src/
+│   ├── API/Router.php       # Central API router
+│   ├── bootstrap.php        # Dependency Injection container bindings
+│   ├── Services/            # Business services (AuthService, LoanService, etc.)
+│   ├── Repositories/        # Data access layers
+│   └── Controllers/         # HTTP controllers (when applicable)
+└── documentation/           # Docs (API, technical, etc.)
+```
+
+### Unified API Entry and Routing
+- All API requests are served through `api.php`, which bootstraps the app and dispatches via `CSIMS\API\Router`.
+- During development, start the built-in server with `dev-router.php` to route `/api/*` to `api.php`.
+- Web servers (Apache/Nginx) should rewrite `/api/*` requests to `api.php`.
+
+### Dependency Injection (DI) Container
+- `src/bootstrap.php` registers and binds shared services using a simple `Container`.
+- Key bindings include `ConfigurationManager` (singleton), `SecurityService`, repositories, and `AuthService`.
+- This enables controllers and the `Router` to resolve dependencies consistently across the application.
+
+### Router-Managed Endpoints
+- Authentication: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`.
+- Members: `/api/members`, `/api/members/{id}`, `/api/members/search`, `/api/members/{id}/summary`.
+- Loans: `/api/loans`, `/api/loans/{id}` and related operations.
+- System: `/api/system/health` for health checks.
+
+### Legacy Endpoints
+- Contribution endpoints under `/api/contributions/*` are considered legacy and may be disabled.
+- Migrate usage to new savings-related endpoints or update bindings if legacy controllers are required.

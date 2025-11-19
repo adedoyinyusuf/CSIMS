@@ -17,6 +17,8 @@ use CSIMS\Container\Container;
 use CSIMS\Config\Config;
 use CSIMS\Services\SecurityService;
 use CSIMS\Services\LoanService;
+use CSIMS\Services\AuthService;
+use CSIMS\Services\ConfigurationManager;
 use CSIMS\Services\AuthenticationService;
 use CSIMS\Repositories\LoanRepository;
 use CSIMS\Repositories\MemberRepository;
@@ -26,6 +28,8 @@ use CSIMS\Database\QueryBuilder;
 use CSIMS\Cache\CacheInterface;
 use CSIMS\Cache\FileCache;
 use CSIMS\Exceptions\CSIMSException;
+use CSIMS\Exceptions\DatabaseException;
+use CSIMS\Exceptions\ContainerException;
 use mysqli;
 
 // Autoloader (you'll need Composer or a custom autoloader)
@@ -65,7 +69,9 @@ function bootstrap(): Container
         // Setup database connection
         $container->bind(mysqli::class, function() use ($config) {
             $dbConfig = $config->getDatabase();
-            
+            // Runtime instrumentation to verify DB credentials being used
+            // error_log('DB_CONFIG: ' . json_encode($dbConfig));
+        
             $connection = new mysqli(
                 $dbConfig['host'],
                 $dbConfig['username'],
@@ -75,7 +81,7 @@ function bootstrap(): Container
             );
             
             if ($connection->connect_error) {
-                throw new CSIMSException('Database connection failed: ' . $connection->connect_error);
+                throw new DatabaseException('Database connection failed: ' . $connection->connect_error);
             }
             
             $connection->set_charset($dbConfig['charset']);
@@ -84,9 +90,17 @@ function bootstrap(): Container
         });
         
         // Register core services
+        // SecurityService does not require a database connection in its constructor.
+        // Passing arguments to a class without a constructor causes an ArgumentCountError (Throwable),
+        // which led to the "Internal error" response on endpoints resolving AuthService.
         $container->bind(SecurityService::class, function(Container $c) {
-            return new SecurityService($c->resolve(mysqli::class));
+            return new SecurityService();
         });
+
+        // Register configuration manager (singleton)
+        $container->bind(ConfigurationManager::class, function(Container $c) {
+            return ConfigurationManager::getInstance();
+        }, true);
         
         // Register repositories
         $container->bind(MemberRepository::class, function(Container $c) {
@@ -107,6 +121,15 @@ function bootstrap(): Container
                 $c->resolve(LoanRepository::class),
                 $c->resolve(MemberRepository::class),
                 $c->resolve(SecurityService::class)
+            );
+        });
+
+        // Register new AuthService for member authentication flows
+        $container->bind(AuthService::class, function(Container $c) {
+            return new AuthService(
+                $c->resolve(SecurityService::class),
+                $c->resolve(MemberRepository::class),
+                $c->resolve(ConfigurationManager::class)
             );
         });
         
@@ -136,7 +159,7 @@ function bootstrap(): Container
         return $container;
         
     } catch (\Exception $e) {
-        throw new CSIMSException('Bootstrap failed: ' . $e->getMessage(), 0, $e);
+        throw new ContainerException('Bootstrap failed: ' . $e->getMessage(), 0, $e);
     }
 }
 

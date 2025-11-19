@@ -1,20 +1,24 @@
 <?php
-session_start();
-require_once '../config/database.php';
-require_once '../controllers/loan_controller.php';
-require_once '../controllers/member_controller.php';
-
-// Check if member is logged in
-if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
-    header('Location: member_login.php');
-    exit();
-}
-
+require_once '../config/config.php';
+require_once '../config/member_auth_check.php';
 require_once __DIR__ . '/../controllers/loan_controller.php';
+require_once __DIR__ . '/../controllers/member_controller.php';
+require_once __DIR__ . '/../includes/config/database.php';
+require_once __DIR__ . '/../includes/config/SystemConfigService.php';
+
+
 $loanController = new LoanController();
 $memberController = new MemberController();
+// Initialize configuration service for hints
+try {
+    $database = new PdoDatabase();
+    $pdo = $database->getConnection();
+    $sysConfig = SystemConfigService::getInstance($pdo);
+} catch (Exception $e) {
+    $sysConfig = null;
+}
 
-$member_id = $_SESSION['member_id'];
+$member_id = $_SESSION['member_id'] ?? $_SESSION['user_id'];
 $member = $memberController->getMemberById($member_id);
 
 $errors = [];
@@ -106,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loan Application - NPC CTLStaff Loan Society</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Assets centralized via includes/member_header.php (Font Awesome provided) -->
     <script>
         tailwind.config = {
             theme: {
@@ -131,48 +135,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
 </head>
 <body class="bg-gray-50">
+<?php include __DIR__ . '/includes/member_header.php'; ?>
     <div class="flex min-h-screen">
-        <!-- Sidebar -->
-        <div class="w-64 bg-gradient-to-br from-primary-600 to-purple-700 shadow-xl">
-            <div class="flex flex-col h-full p-6">
-                <h4 class="text-white text-xl font-bold mb-6">
-                    <i class="fas fa-university mr-2"></i> Member Portal
-                </h4>
-                
-                <div class="mb-6">
-                    <small class="text-primary-200">Welcome,</small>
-                    <div class="text-white font-semibold"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></div>
-                </div>
-                
-                <nav class="flex-1 space-y-2">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_dashboard.php">
-                        <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_profile.php">
-                        <i class="fas fa-user mr-3"></i> My Profile
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_loans.php">
-                        <i class="fas fa-money-bill-wave mr-3"></i> My Loans
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_contributions.php">
-                        <i class="fas fa-piggy-bank mr-3"></i> My Contributions
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_notifications.php">
-                        <i class="fas fa-bell mr-3"></i> Notifications
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-white bg-white/20 rounded-lg font-medium" href="member_loan_application.php">
-                        <i class="fas fa-plus-circle mr-3"></i> Apply for Loan
-                    </a>
-                </nav>
-                
-                <div class="mt-auto">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="member_logout.php">
-                        <i class="fas fa-sign-out-alt mr-3"></i> Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-            
+        <!-- Sidebar removed; global navigation provided by shared header -->
+        
         <!-- Main Content -->
         <div class="flex-1 overflow-hidden">
             <div class="p-8">
@@ -186,6 +152,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <a href="member_loans.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
                         <i class="fas fa-arrow-left mr-2"></i> Back to My Loans
                     </a>
+                </div>
+                <?php 
+                    // Compute hint values safely
+                    $hintInterestRate = 12.0;
+                    $hintMembershipMonths = 6;
+                    $hintSavingsMonths = 6;
+                    $hintMinMandatorySavings = 0.0;
+                    if ($sysConfig) {
+                        try { $hintInterestRate = (float)$sysConfig->get('DEFAULT_INTEREST_RATE', $hintInterestRate); } catch (Exception $e) {}
+                        try { $hintMembershipMonths = (int)$sysConfig->getMinMembershipMonths(); } catch (Exception $e) {}
+                        try { $hintSavingsMonths = (int)$sysConfig->get('MIN_CONTRIBUTION_MONTHS', $hintSavingsMonths); } catch (Exception $e) {}
+                        try { $hintMinMandatorySavings = (float)$sysConfig->getMinMandatorySavings(); } catch (Exception $e) {}
+                    }
+                ?>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-blue-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">Current terms and minimums</h3>
+                            <ul class="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
+                                <li>Interest: <?php echo number_format($hintInterestRate, 2); ?>% per annum</li>
+                                <li>Minimum membership: <?php echo (int)$hintMembershipMonths; ?> months</li>
+                                <li>Regular savings required: <?php echo (int)$hintSavingsMonths; ?> of last 12 months</li>
+                                <?php if ($hintMinMandatorySavings > 0): ?>
+                                    <li>Minimum monthly mandatory savings: ₦<?php echo number_format($hintMinMandatorySavings, 2); ?></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 
                 <?php if (!empty($errors)): ?>
@@ -231,6 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <div class="p-6">
                                 <form method="POST" action="" class="space-y-8">
+                                    <?php echo CSRFProtection::getTokenField(); ?>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">
@@ -423,5 +421,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             calculateLoan();
         });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -10,8 +10,9 @@ CSIMS is a modern, secure, and scalable web application for managing cooperative
 1. **Database Setup**: Create MySQL database and configure `.env` file
 2. **Run Setup**: Execute `php setup/setup-database.php`
 3. **Default Credentials**: Username: `admin`, Password: `Admin123!`
-4. **API Access**: Available at `/api/` endpoint
-5. **Important**: Change default password after first login
+4. **Start Dev Server**: `php -S 127.0.0.1:8080 dev-router.php`
+5. **API Health**: `GET http://127.0.0.1:8080/api/system/health`
+6. **Important**: Change default password after first login
 
 ### Installation
 ```bash
@@ -22,7 +23,10 @@ cp .env.example .env
 # 3. Run database setup
 php setup/setup-database.php
 
-# 4. Access API at: /api/health
+# 4. Start dev server for unified API entry
+php -S 127.0.0.1:8080 dev-router.php
+
+# 5. Access API at: /api/system/health
 ```
 
 ## 🎯 Key Features
@@ -144,6 +148,20 @@ Comprehensive documentation is available in the `/documentation` folder:
 2. **API**: Explore API Documentation for integrations
 3. **Security**: Follow Security Documentation guidelines
 4. **Contributing**: Check development guidelines in technical docs
+
+## API Quick Start
+
+- Start dev server: `php -S 127.0.0.1:8080 dev-router.php`
+- Health check: `curl http://127.0.0.1:8080/api/system/health`
+- Login example:
+```bash
+curl -X POST http://127.0.0.1:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "Admin123!"
+  }'
+```
 
 ## 📞 Support
 

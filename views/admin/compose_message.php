@@ -40,14 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (empty($errors)) {
-        $result = $messageController->createMessage(
-            $current_user['admin_id'],
-            'Admin',
-            $recipient_id,
-            $recipient_type,
-            $subject,
-            $message
-        );
+        $data = [
+            'sender_type' => 'Admin',
+            'sender_id' => $current_user['admin_id'],
+            'recipient_type' => $recipient_type,
+            'recipient_id' => (int)$recipient_id,
+            'subject' => $subject,
+            'message' => $message
+        ];
+        
+        $result = $messageController->createMessage($data);
         
         if ($result) {
             $_SESSION['success_message'] = 'Message sent successfully!';
@@ -61,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get all members for recipient selection
 $members = $memberController->getAllMembers();
-$admins = $messageController->getAllAdmins();
+$admins = $messageController->getAdmins();
 ?>
 
 <!DOCTYPE html>
@@ -71,7 +73,7 @@ $admins = $messageController->getAllAdmins();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Compose Message - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
@@ -203,7 +205,9 @@ $admins = $messageController->getAllAdmins();
                 admins.forEach(admin => {
                     const option = document.createElement('option');
                     option.value = admin.admin_id;
-                    option.textContent = `${admin.first_name} ${admin.last_name} (${admin.username})`;
+                    const displayName = admin.name ?? `${admin.first_name ?? ''} ${admin.last_name ?? ''}`.trim();
+                    const usernameSuffix = admin.username ? ` (${admin.username})` : '';
+                    option.textContent = `${displayName}${usernameSuffix}`;
                     recipientId.appendChild(option);
                 });
             }

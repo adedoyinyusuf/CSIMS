@@ -2,6 +2,8 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -61,9 +63,9 @@ if ($confirmed) {
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
 </head>
 <body>
     <!-- Include Header/Navbar -->
@@ -204,6 +206,6 @@ if ($confirmed) {
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
-    <script src="../../assets/js/script.js"></script>
+    <script src="<?php echo BASE_URL; ?>/assets/js/script.js"></script>
 </body>
 </html>

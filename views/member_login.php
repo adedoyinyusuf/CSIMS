@@ -1,7 +1,7 @@
 <?php
-session_start();
+// session is initialized via secure Session in config.php
 require_once '../config/config.php';
-require_once '../controllers/member_controller.php';
+require_once '../src/autoload.php';
 
 // Check if admin is already logged in
 if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
@@ -14,8 +14,9 @@ if (isset($_SESSION['admin_id']) && isset($_SESSION['user_type']) && $_SESSION['
 
 // Handle admin logout
 if (isset($_GET['logout_admin'])) {
-    session_destroy();
-    session_start();
+    // Use secure session instance to perform logout without re-starting session manually
+    $session = Session::getInstance();
+    $session->logout();
     header('Location: member_login.php');
     exit();
 }
@@ -23,56 +24,82 @@ if (isset($_GET['logout_admin'])) {
 $database = Database::getInstance();
 $conn = $database->getConnection();
 
-$memberController = new MemberController();
+// Initialize DI container and AuthService (refactored authentication)
+$container = container();
+$authService = new \CSIMS\Services\AuthService(
+    $container->resolve(\CSIMS\Services\SecurityService::class),
+    $container->resolve(\CSIMS\Repositories\MemberRepository::class),
+    $container->resolve(\CSIMS\Services\ConfigurationManager::class)
+);
+// Initialize secure session instance for consistent session handling
+$session = Session::getInstance();
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    
-    if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password.';
+    // CSRF validation
+    if (!CSRFProtection::validateToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Security verification failed. Please refresh the page and try again.';
     } else {
-        $member = $memberController->authenticateMember($username, $password);
+        $username = trim($_POST['username']);
+        $password = $_POST['password'];
         
-        if ($member && isset($member['member_id'])) {
-            // Active member - allow login
-            $_SESSION['member_id'] = $member['member_id'];
-            $_SESSION['member_username'] = $member['username'];
-            $_SESSION['member_name'] = $member['first_name'] . ' ' . $member['last_name'];
-            $_SESSION['member_email'] = $member['email'];
-            $_SESSION['user_type'] = 'member';
-            
-            // Redirect to member dashboard
-            header('Location: member_dashboard.php');
-            exit();
-        } elseif ($member && isset($member['status'])) {
-            // Member exists but not active - provide status-specific feedback
-            switch ($member['status']) {
-                case 'Pending':
-                    $error = 'Your account is pending admin approval. You will be notified once your registration is approved.';
-                    break;
-                case 'Rejected':
-                    $error = 'Your registration was not approved. Please contact the administrator for more information.';
-                    break;
-                case 'Inactive':
-                    $error = 'Your account is currently inactive. Please contact the administrator to reactivate your account.';
-                    break;
-                case 'Suspended':
-                    $error = 'Your account has been suspended. Please contact the administrator for assistance.';
-                    break;
-                case 'Expired':
-                    $error = 'Your membership has expired. Please contact the administrator to renew your membership.';
-                    break;
-                default:
-                    $error = 'Your account status does not allow login. Please contact the administrator.';
-            }
+        if (empty($username) || empty($password)) {
+            $error = 'Please enter both username and password.';
         } else {
-            $error = 'Invalid username or password.';
+            // Rate limiting & soft lockout: prevent brute force attempts
+            if (class_exists('RateLimiter')) {
+                $clientId = (($_SERVER['REMOTE_ADDR'] ?? 'unknown')) . '_' . $username;
+                if (!RateLimiter::checkLimit($clientId, defined('MAX_LOGIN_ATTEMPTS') ? MAX_LOGIN_ATTEMPTS : 5, defined('LOGIN_LOCKOUT_TIME') ? LOGIN_LOCKOUT_TIME : 900)) {
+                    if (class_exists('SecurityLogger')) {
+                        SecurityLogger::init();
+                        SecurityLogger::logSuspiciousActivity('Rate limit exceeded for member login attempts', [
+                            'username' => $username,
+                            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                            'attempts' => defined('MAX_LOGIN_ATTEMPTS') ? MAX_LOGIN_ATTEMPTS : 5,
+                            'lockout_seconds' => defined('LOGIN_LOCKOUT_TIME') ? LOGIN_LOCKOUT_TIME : 900
+                        ]);
+                    }
+                    $error = 'Too many login attempts. Please try again later.';
+                }
+            }
+            
+            if (!$error) {
+                try {
+                    $result = $authService->authenticate($username, $password);
+                    
+                    if (!empty($result['success'])) {
+                        // Regenerate session ID to prevent fixation (AuthService already does this, safe to ensure)
+                        session_regenerate_id(true);
+                        
+                        // Maintain backward-compatible session keys for legacy views
+                        $user = $result['user'] ?? [];
+                        $session->set('member_id', $user['id'] ?? ($_SESSION['user_id'] ?? null));
+                        $session->set('member_username', $user['username'] ?? ($_SESSION['username'] ?? null));
+                        $session->set('member_name', $user['full_name'] ?? ($_SESSION['full_name'] ?? null));
+                        $session->set('member_email', $user['email'] ?? ($_SESSION['email'] ?? null));
+                        $session->set('user_type', 'member');
+                        
+                        // Redirect to member dashboard
+                        header('Location: member_dashboard.php');
+                        exit();
+                    } else {
+                        if (!empty($result['requires_2fa'])) {
+                            $error = 'Two-factor authentication code required to complete login.';
+                        } else {
+                            $error = $result['message'] ?? 'Invalid username or password.';
+                        }
+                    }
+                } catch (\CSIMS\Exceptions\SecurityException $se) {
+                    $error = $se->getMessage();
+                } catch (\Throwable $t) {
+                    $error = 'An error occurred during login. Please try again.';
+                }
+            }
         }
     }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -82,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Login - NPC CTLStaff Loan Society</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/csims-colors.css">
     <style>
         body {
@@ -210,8 +237,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <div class="right-panel">
             <div class="login-container">
-                <div class="logo">
-                    <h2><i class="fas fa-user-circle"></i> Member Portal</h2>
+                <div class="logo text-center mb-3">
+                    <?php if (defined('APP_LOGO_URL') && APP_LOGO_URL): ?>
+                        <img src="<?php echo APP_LOGO_URL; ?>" alt="<?php echo APP_SHORT_NAME; ?> Logo" style="height: 64px; width: auto; object-fit: contain;" class="mb-2" />
+                    <?php else: ?>
+                        <i class="fas fa-user-circle fa-2x mb-2"></i>
+                    <?php endif; ?>
+                    <h2 class="mt-1">Member Portal</h2>
                     <p class="text-muted">NPC CTLStaff Loan Society</p>
                 </div>
                 
@@ -231,6 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
                 <form method="POST" action="" <?php echo $admin_logged_in ? 'style="opacity: 0.5; pointer-events: none;"' : ''; ?>>
+                    <?php echo CSRFProtection::getTokenField(); ?>
                     <div class="mb-3">
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user"></i></span>

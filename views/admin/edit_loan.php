@@ -11,6 +11,7 @@ require_once '../../config/config.php';
 require_once __DIR__ . '/../../controllers/auth_controller.php';
 require_once __DIR__ . '/../../controllers/loan_controller.php';
 require_once __DIR__ . '/../../controllers/member_controller.php';
+require_once '../../includes/config/SystemConfigService.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -53,6 +54,33 @@ if ($loan['status'] !== 'Pending') {
 
 // Get member details
 $member = $memberController->getMemberById($loan['member_id']);
+
+// Initialize SystemConfigService for default fallbacks
+try {
+    $sysConfig = SystemConfigService::getInstance($pdo ?? null);
+} catch (Exception $e) {
+    $sysConfig = null;
+    error_log('edit_loan: SystemConfigService init failed: ' . $e->getMessage());
+}
+
+// Compute centralized defaults with safe fallbacks
+$defaultTermMonths = '12';
+try {
+    if ($sysConfig) {
+        $defaultTermMonths = (string)$sysConfig->get('MAX_LOAN_DURATION', (int)$defaultTermMonths);
+    }
+} catch (Exception $e) {
+    // keep fallback
+}
+
+$defaultInterestRate = '10';
+try {
+    if ($sysConfig) {
+        $defaultInterestRate = (string)$sysConfig->get('DEFAULT_INTEREST_RATE', (float)$defaultInterestRate);
+    }
+} catch (Exception $e) {
+    // keep fallback
+}
 
 // Process form submission
 $errors = [];
@@ -133,7 +161,7 @@ $pageTitle = "Edit Loan Application #" . $loan_id;
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     
     <script>
         tailwind.config = {
@@ -310,7 +338,7 @@ $pageTitle = "Edit Loan Application #" . $loan_id;
                                             <input type="number" 
                                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" 
                                                    id="term_months" name="term_months" min="1" max="120" 
-                                                   value="<?php echo isset($_POST['term_months']) ? $_POST['term_months'] : $loan['term']; ?>" required>
+                                                   value="<?php echo isset($_POST['term_months']) ? $_POST['term_months'] : ($loan['term'] ?? $defaultTermMonths); ?>" required>
                                         </div>
                                         <div>
                                             <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-2">
@@ -320,7 +348,7 @@ $pageTitle = "Edit Loan Application #" . $loan_id;
                                                 <input type="number" 
                                                        class="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" 
                                                        id="interest_rate" name="interest_rate" step="0.01" min="0" 
-                                                       value="<?php echo isset($_POST['interest_rate']) ? $_POST['interest_rate'] : $loan['interest_rate']; ?>" required>
+                                                       value="<?php echo isset($_POST['interest_rate']) ? $_POST['interest_rate'] : ($loan['interest_rate'] ?? $defaultInterestRate); ?>" required>
                                                 <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                                     <span class="text-gray-500 font-medium">%</span>
                                                 </div>

@@ -1,13 +1,16 @@
 <?php
-session_start();
-require_once '../../config/database.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/reports_controller.php';
 
-// Check if admin is logged in
-if (!isset($_SESSION['admin_id']) || $_SESSION['user_type'] !== 'admin') {
-    header('Location: admin_login.php');
+$auth = new AuthController();
+if (!$auth->isLoggedIn()) {
+    header('Location: ../auth/login.php');
     exit();
 }
+
+$current_user = $auth->getCurrentUser();
+$admin_id = $current_user['admin_id'];
 
 $reportsController = new ReportsController();
 
@@ -62,72 +65,27 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports Dashboard - NPC CTLStaff Loan Society</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Tailwind CSS is provided by the shared header include -->
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
-                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
-                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
 </head>
-<body class="bg-gray-50">
-    <div class="flex min-h-screen">
-        <!-- Sidebar -->
-        <div class="w-64" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);" class="shadow-xl">
-            <div class="flex flex-col h-full p-6">
-                <h4 class="text-white text-xl font-bold mb-6">
-                    <i class="fas fa-university mr-2"></i> Admin Portal
-                </h4>
-                
-                <nav class="flex-1 space-y-2">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="admin_dashboard.php">
-                        <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_members.php">
-                        <i class="fas fa-users mr-3"></i> Members
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_loans.php">
-                        <i class="fas fa-money-bill-wave mr-3"></i> Loans
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_contributions.php">
-                        <i class="fas fa-piggy-bank mr-3"></i> Contributions
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-white bg-white/20 rounded-lg font-medium" href="reports_dashboard.php">
-                        <i class="fas fa-chart-bar mr-3"></i> Reports
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="approvals_dashboard.php">
-                        <i class="fas fa-check-circle mr-3"></i> Approvals
-                    </a>
-                </nav>
-                
-                <div class="mt-auto">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="admin_logout.php">
-                        <i class="fas fa-sign-out-alt mr-3"></i> Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-            
-        <!-- Main Content -->
-        <div class="flex-1 overflow-hidden">
+<body class="bg-gray-50 font-sans">
+    <!-- Page Wrapper -->
+    <div class="wrapper">
+        <?php include_once __DIR__ . '/../includes/sidebar.php'; ?>
+        
+        <!-- Content Wrapper -->
+        <div class="main-content" id="mainContent">
+            <?php include_once __DIR__ . '/../includes/header.php'; ?>
+
+            <!-- Begin Page Content -->
             <div class="p-8">
                 <!-- Header -->
                 <div class="flex justify-between items-center mb-8">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-                            <i class="fas fa-chart-bar mr-3 text-primary-600"></i> Reports Dashboard
+                            <i class="fas fa-chart-bar mr-3 icon-primary"></i> Reports Dashboard
                         </h1>
                         <p class="text-gray-600 mt-2">Comprehensive analytics and reporting for cooperative society management</p>
                     </div>
@@ -170,10 +128,10 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                         </div>
                     </div>
                     
-                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4" style="border-left-color: var(--lapis-lazuli);">
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-left-lapis">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: var(--lapis-lazuli);">Contributions YTD</p>
+                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: var(--lapis-lazuli);">Savings YTD</p>
                                 <p class="text-2xl font-bold text-gray-800">₦<?php echo number_format($kpis['contributions_this_year'], 2); ?></p>
                                 <p class="text-sm text-gray-500">Year to date</p>
                             </div>
@@ -191,7 +149,7 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                                 <p class="text-sm text-gray-500"><?php echo $kpis['overdue_loans']; ?> overdue loans</p>
                             </div>
                             <div class="bg-red-100 p-3 rounded-full">
-                                <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                                <i class="fas fa-exclamation-triangle text-2xl icon-error"></i>
                             </div>
                         </div>
                     </div>
@@ -239,8 +197,8 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                             <button onclick="showTab('loans')" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700">
                                 <i class="fas fa-money-bill-wave mr-2"></i> Loan Portfolio
                             </button>
-                            <button onclick="showTab('contributions')" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700">
-                                <i class="fas fa-piggy-bank mr-2"></i> Contributions
+                            <button onclick="showTab('savings')" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-piggy-bank mr-2"></i> Savings
                             </button>
                             <button onclick="showTab('transactions')" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700">
                                 <i class="fas fa-exchange-alt mr-2"></i> Recent Transactions
@@ -255,7 +213,7 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                             <div class="border border-gray-200 rounded-lg p-4">
                                 <h4 class="font-semibold text-gray-900 mb-3">Total Assets</h4>
                                 <p class="text-2xl font-bold text-green-600">₦<?php echo number_format($financial_summary['net_position']['total_assets'], 2); ?></p>
-                                <p class="text-sm text-gray-500 mt-2">Contributions + Shares - Withdrawals</p>
+                                <p class="text-sm text-gray-500 mt-2">Savings + Shares - Withdrawals</p>
                             </div>
                             
                             <!-- Outstanding Loans -->
@@ -287,7 +245,7 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                                     </thead>
                                     <tbody class="divide-y divide-gray-200">
                                         <tr>
-                                            <td class="px-4 py-3 font-medium">Total Contributions</td>
+                                            <td class="px-4 py-3 font-medium">Total Savings</td>
                                             <td class="px-4 py-3 text-right"><?php echo number_format($financial_summary['contributions']['total_contributions']); ?></td>
                                             <td class="px-4 py-3 text-right text-green-600">₦<?php echo number_format($financial_summary['contributions']['total_amount'], 2); ?></td>
                                             <td class="px-4 py-3 text-right">₦<?php echo $financial_summary['contributions']['total_contributions'] > 0 ? number_format($financial_summary['contributions']['total_amount'] / $financial_summary['contributions']['total_contributions'], 2) : '0.00'; ?></td>
@@ -339,20 +297,20 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Contribution Participation -->
+                            <!-- Savings Participation -->
                             <div class="border border-gray-200 rounded-lg p-4">
-                                <h4 class="font-semibold text-gray-900 mb-3">Contribution Participation</h4>
+                                <h4 class="font-semibold text-gray-900 mb-3">Savings Participation</h4>
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
-                                        <span class="text-gray-600">Active Contributors:</span>
+                                        <span class="text-gray-600">Active Savers:</span>
                                         <span class="font-medium"><?php echo number_format($member_stats['contribution_participation']['active_contributors']); ?></span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span class="text-gray-600">Average Contribution:</span>
+                                        <span class="text-gray-600">Average Savings:</span>
                                         <span class="font-medium">₦<?php echo number_format($member_stats['contribution_participation']['avg_contributions'], 2); ?></span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span class="text-gray-600">Highest Contribution:</span>
+                                        <span class="text-gray-600">Highest Savings:</span>
                                         <span class="font-medium">₦<?php echo number_format($member_stats['contribution_participation']['max_contributions'], 2); ?></span>
                                     </div>
                                 </div>
@@ -437,25 +395,25 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                         </div>
                     </div>
                     
-                    <!-- Contributions Tab -->
-                    <div id="contributions-tab" class="tab-content hidden p-6">
+                    <!-- Savings Tab -->
+                    <div id="savings-tab" class="tab-content hidden p-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <!-- Monthly Trends -->
                             <div>
-                                <h4 class="text-lg font-semibold text-gray-900 mb-4">Monthly Contribution Trends</h4>
+                                <h4 class="text-lg font-semibold text-gray-900 mb-4">Monthly Savings Trends</h4>
                                 <div class="h-64">
                                     <canvas id="contributionTrendsChart"></canvas>
                                 </div>
                             </div>
                             
-                            <!-- Contribution Types -->
+                            <!-- Savings Types -->
                             <div>
-                                <h4 class="text-lg font-semibold text-gray-900 mb-4">Contribution Types</h4>
+                                <h4 class="text-lg font-semibold text-gray-900 mb-4">Savings Types</h4>
                                 <div class="space-y-3">
                                     <?php foreach ($contribution_performance['type_analysis'] as $type): ?>
                                         <div class="border border-gray-200 rounded-lg p-4">
                                             <div class="flex justify-between items-center mb-2">
-                                                <span class="font-medium"><?php echo ucfirst($type['contribution_type']); ?></span>
+                                                <span class="font-medium"><?php echo ucfirst($type['savings_type']); ?></span>
                                                 <span class="text-sm text-gray-500"><?php echo $type['transaction_count']; ?> transactions</span>
                                             </div>
                                             <div class="text-lg font-bold text-green-600">₦<?php echo number_format($type['total_amount'], 2); ?></div>
@@ -469,9 +427,9 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                             </div>
                         </div>
                         
-                        <!-- Top Contributors -->
+                        <!-- Top Savers -->
                         <div class="mt-8">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4">Top Contributors (Last Year)</h4>
+                            <h4 class="text-lg font-semibold text-gray-900 mb-4">Top Savers (Last Year)</h4>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm">
                                     <thead class="bg-gray-50">
@@ -517,7 +475,7 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                                             <td class="px-4 py-3">
                                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php 
                                                     echo match($transaction['type']) {
-                                                        'contribution' => 'bg-green-100 text-green-800',
+                                                        'savings_deposit' => 'bg-green-100 text-green-800',
                                                         'loan_payment' => 'bg-blue-100 text-blue-800',
                                                         default => 'bg-gray-100 text-gray-800'
                                                     };
@@ -547,9 +505,8 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
+            </div> <!-- end main content -->
+        </div> <!-- end wrapper -->
 
     <script>
         // Tab functionality
@@ -593,7 +550,7 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
 
         // Chart data
         const financialData = <?php echo json_encode([
-            'labels' => ['Contributions', 'Shares', 'Loan Payments', 'Withdrawals'],
+            'labels' => ['Savings', 'Shares', 'Loan Payments', 'Withdrawals'],
             'data' => [
                 $financial_summary['contributions']['total_amount'],
                 $financial_summary['shares']['total_paid'],

@@ -1,6 +1,5 @@
 <?php
-session_start();
-require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/db.php';
 
 $error = '';
@@ -27,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Verify password
             if (password_verify($password, $admin['password'])) {
-                // Successful login - set session variables
+                // Successful login - set session variables (Session initialized via config)
                 $_SESSION['admin_id'] = $admin['admin_id'];
                 $_SESSION['username'] = $admin['username'];
                 $_SESSION['role'] = $admin['role'];

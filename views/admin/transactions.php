@@ -7,7 +7,6 @@
 session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
-require_once '../../includes/services/NotificationService.php';
 require_once '../../includes/services/SimpleBusinessRulesService.php';
 require_once '_admin_template_config.php';
 
@@ -23,7 +22,6 @@ if (!$auth->isLoggedIn()) {
 $current_user = $auth->getCurrentUser();
 
 // Initialize common services
-$notificationService = new NotificationService();
 $businessRulesService = new SimpleBusinessRulesService();
 
 // Handle transaction actions
@@ -144,7 +142,7 @@ $pageIcon = $pageConfig['icon'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $pageTitle; ?> - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- CSIMS Color System -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <!-- Tailwind CSS -->
@@ -165,7 +163,7 @@ $pageIcon = $pageConfig['icon'];
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div class="animate-slide-in">
                     <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">
-                        <i class="<?php echo $pageIcon; ?> mr-3" style="color: var(--persian-orange);"></i>
+                <i class="<?php echo $pageIcon; ?> mr-3" style="color: #214e34;"></i>
                         <?php echo $pageTitle; ?>
                     </h1>
                     <p style="color: var(--text-muted);"><?php echo $pageDescription; ?></p>
@@ -184,7 +182,7 @@ $pageIcon = $pageConfig['icon'];
             <?php if (!empty($success_message)): ?>
                 <div class="alert alert-success flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-check-circle mr-3" style="color: var(--success);"></i>
+                        <i class="fas fa-check-circle mr-3 icon-success"></i>
                         <span><?php echo htmlspecialchars($success_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -196,7 +194,7 @@ $pageIcon = $pageConfig['icon'];
             <?php if (!empty($error_message)): ?>
                 <div class="alert alert-error flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <i class="fas fa-exclamation-circle mr-3 icon-error"></i>
                         <span><?php echo htmlspecialchars($error_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -245,7 +243,7 @@ $pageIcon = $pageConfig['icon'];
                                 <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($statistics['pending_transactions']); ?></p>
                                 <p class="text-xs" style="color: var(--warning);">Requires attention</p>
                             </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--warning) 0%, var(--persian-orange) 100%);">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--warning) 0%, #214e34 100%);">
                                 <i class="fas fa-clock text-white"></i>
                             </div>
                         </div>
@@ -260,7 +258,7 @@ $pageIcon = $pageConfig['icon'];
                                 <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($statistics['completed_today']); ?></p>
                                 <p class="text-xs" style="color: var(--success);">Today's activity</p>
                             </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--persian-orange) 0%, var(--orange-red) 100%);">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--success) 0%, #214e34 100%);">
                                 <i class="fas fa-check-double text-white"></i>
                             </div>
                         </div>
@@ -272,7 +270,7 @@ $pageIcon = $pageConfig['icon'];
             <div class="card card-admin animate-fade-in mb-6">
                 <div class="card-header">
                     <h3 class="text-lg font-semibold flex items-center">
-                        <i class="fas fa-filter mr-2" style="color: var(--lapis-lazuli);"></i>
+                        <i class="fas fa-filter mr-2 icon-lapis"></i>
                         Filter & Search
                     </h3>
                 </div>
@@ -282,7 +280,7 @@ $pageIcon = $pageConfig['icon'];
                             <label for="search" class="form-label">Search</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-search" style="color: var(--text-muted);"></i>
+                                    <i class="fas fa-search icon-muted"></i>
                                 </div>
                                 <input type="text" class="form-control pl-10" id="search" name="search" 
                                        placeholder="Search transactions..." value="<?php echo htmlspecialchars($search); ?>">
@@ -323,10 +321,10 @@ $pageIcon = $pageConfig['icon'];
                         </div>
                         
                         <div class="flex items-end space-x-2">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-standard btn-primary">
                                 <i class="fas fa-search mr-2"></i> Search
                             </button>
-                            <a href="<?php echo $_SERVER['PHP_SELF']; ?>" class="btn btn-outline">
+                            <a href="<?php echo $_SERVER['PHP_SELF']; ?>" class="btn btn-standard btn-outline">
                                 <i class="fas fa-times mr-2"></i> Clear
                             </a>
                         </div>
@@ -414,20 +412,20 @@ $pageIcon = $pageConfig['icon'];
                                             <td>
                                                 <div class="flex space-x-1">
                                                     <?php if ($transaction['status'] === 'pending'): ?>
-                                                        <button class="btn btn-sm btn-outline" onclick="approveTransaction(<?php echo $transaction['id']; ?>)" title="Approve">
-                                                            <i class="fas fa-check" style="color: var(--success);"></i>
+                                                        <button class="btn btn-standard btn-sm btn-outline" onclick="approveTransaction(<?php echo $transaction['id']; ?>)" title="Approve">
+                                                            <i class="fas fa-check icon-success"></i>
                                                         </button>
-                                                        <button class="btn btn-sm btn-outline" onclick="rejectTransaction(<?php echo $transaction['id']; ?>)" title="Reject">
-                                                            <i class="fas fa-times" style="color: var(--error);"></i>
+                                                        <button class="btn btn-standard btn-sm btn-outline" onclick="rejectTransaction(<?php echo $transaction['id']; ?>)" title="Reject">
+                                                            <i class="fas fa-times icon-error"></i>
                                                         </button>
                                                     <?php endif; ?>
                                                     <?php if ($transaction['status'] === 'completed'): ?>
-                                                        <button class="btn btn-sm btn-outline" onclick="reverseTransaction(<?php echo $transaction['id']; ?>)" title="Reverse">
-                                                            <i class="fas fa-undo" style="color: var(--warning);"></i>
+                                                        <button class="btn btn-standard btn-sm btn-outline" onclick="reverseTransaction(<?php echo $transaction['id']; ?>)" title="Reverse">
+                                                            <i class="fas fa-undo icon-warning"></i>
                                                         </button>
                                                     <?php endif; ?>
-                                                    <a href="transaction_details.php?id=<?php echo $transaction['id']; ?>" class="btn btn-sm btn-outline" title="View Details">
-                                                        <i class="fas fa-eye" style="color: var(--text-primary);"></i>
+                                                    <a href="transaction_details.php?id=<?php echo $transaction['id']; ?>" class="btn btn-standard btn-sm btn-outline" title="View Details">
+                                                        <i class="fas fa-eye icon-text-primary"></i>
                                                     </a>
                                                 </div>
                                             </td>

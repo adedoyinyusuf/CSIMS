@@ -1,0 +1,19 @@
+/* CSIMS Icon Utilities */
+.icon-primary { color: var(--primary-color, var(--true-blue)) !important; }
+.icon-success { color: var(--success) !important; }
+.icon-accent { color: var(--accent-color) !important; }
+.icon-info { color: var(--info) !important; }
+.icon-warning { color: var(--warning) !important; }
+.icon-error { color: var(--error) !important; }
+.icon-muted { color: var(--text-muted) !important; }
+
+/* Extended palette utilities for dashboard */
+.icon-secondary { color: var(--secondary-color, var(--lapis-lazuli)) !important; }
+.icon-lapis { color: var(--lapis-lazuli) !important; }
+.icon-orange { color: var(--persian-orange) !important; }
+.icon-jasper { color: var(--jasper) !important; }
+.icon-text-primary { color: var(--text-primary) !important; }
+
+.icon-sm { font-size: 0.875rem !important; }
+.icon-md { font-size: 1rem !important; }
+.icon-lg { font-size: 1.25rem !important; }

@@ -90,17 +90,13 @@ try {
     if (!$adminUser) {
         $defaultPassword = 'Admin123!';
         
-        $adminUser = new \CSIMS\Models\User(
-            null,
-            'admin',
-            'admin@csims.local',
-            'System Administrator',
-            'administrator',
-            ['*'], // All permissions
-            true, // active
-            new DateTime()
-        );
-        
+        $adminUser = new \CSIMS\Models\User();
+        $adminUser->setUsername('admin');
+        $adminUser->setEmail('admin@csims.local');
+        $adminUser->setFirstName('System');
+        $adminUser->setLastName('Administrator');
+        $adminUser->setRole('Admin');
+        $adminUser->setStatus('Active');
         $adminUser->setPassword($defaultPassword);
         
         $createdUser = $userRepository->create($adminUser);

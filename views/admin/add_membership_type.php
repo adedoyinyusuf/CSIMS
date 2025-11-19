@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Membership Type - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Add Membership Type</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
@@ -143,11 +143,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label for="monthly_contribution" class="form-label">Monthly Contribution (₦)</label>
+                                    <label for="monthly_contribution" class="form-label">Monthly Savings Requirement (₦)</label>
                                     <input type="number" class="form-control" id="monthly_contribution" name="monthly_contribution" 
                                            value="<?php echo isset($_POST['monthly_contribution']) ? $_POST['monthly_contribution'] : '0.00'; ?>" 
                                            min="0" step="0.01">
-                                    <div class="form-text">Optional monthly contribution requirement</div>
+                                    <div class="form-text">Optional monthly savings requirement</div>
                                 </div>
                             </div>
 

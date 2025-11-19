@@ -2,12 +2,13 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/notification_controller.php';
-
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access this page');
-    header("Location: " . BASE_URL . "index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -90,7 +91,7 @@ $admins = $notificationController->getAdmins();
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
 </head>
 <body>
     <!-- Include Header/Navbar -->
@@ -100,7 +101,7 @@ $admins = $notificationController->getAdmins();
     <div class="row">
         <?php require_once '../includes/sidebar.php'; ?>
         
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Create New Notification</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">

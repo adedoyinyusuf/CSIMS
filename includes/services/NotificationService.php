@@ -6,7 +6,7 @@
  * for the admin dashboard without complex dependencies.
  */
 
-class NotificationService 
+class AdminNotificationService 
 {
     private $pdo;
     

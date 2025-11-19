@@ -1,19 +1,22 @@
 <?php
 session_start();
+require_once '../../config/config.php';
 require_once '../../config/database.php';
+require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/communication_controller.php';
 require_once '../../controllers/member_controller.php';
 
-// Check if admin is logged in
-if (!isset($_SESSION['admin_id']) || $_SESSION['user_type'] !== 'admin') {
-    header('Location: admin_login.php');
+// Use centralized auth
+$auth = new AuthController();
+if (!$auth->isLoggedIn() || ($_SESSION['user_type'] ?? '') !== 'admin') {
+    header('Location: ../auth/login.php');
     exit();
 }
+$current_user = $auth->getCurrentUser();
+$admin_id = $current_user['admin_id'];
 
 $communicationController = new CommunicationController();
 $memberController = new MemberController();
-
-$admin_id = $_SESSION['admin_id'];
 
 // Handle form submissions
 $errors = [];
@@ -109,69 +112,16 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Communication Portal - NPC CTLStaff Loan Society</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Tailwind CSS and Font Awesome are provided by the shared header include -->
     <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
-                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
-                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
 </head>
-<body class="bg-gray-50">
-    <div class="flex min-h-screen">
-        <!-- Sidebar -->
-        <div class="w-64 sidebar shadow-xl">
-            <div class="flex flex-col h-full p-6">
-                <h4 class="text-white text-xl font-bold mb-6">
-                    <i class="fas fa-university mr-2"></i> Admin Portal
-                </h4>
-                
-                <nav class="flex-1 space-y-2">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="admin_dashboard.php">
-                        <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_members.php">
-                        <i class="fas fa-users mr-3"></i> Members
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_loans.php">
-                        <i class="fas fa-money-bill-wave mr-3"></i> Loans
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_contributions.php">
-                        <i class="fas fa-piggy-bank mr-3"></i> Contributions
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="reports_dashboard.php">
-                        <i class="fas fa-chart-bar mr-3"></i> Reports
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-white bg-white/20 rounded-lg font-medium" href="communication_dashboard.php">
-                        <i class="fas fa-bullhorn mr-3"></i> Communication
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="approvals_dashboard.php">
-                        <i class="fas fa-check-circle mr-3"></i> Approvals
-                    </a>
-                </nav>
-                
-                <div class="mt-auto">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="admin_logout.php">
-                        <i class="fas fa-sign-out-alt mr-3"></i> Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-            
-        <!-- Main Content -->
-        <div class="flex-1 overflow-hidden">
-            <div class="p-8">
+<body class="bg-gray-50 font-sans">
+    <div class="wrapper">
+        <?php include_once __DIR__ . '/../includes/sidebar.php'; ?>
+        <!-- Content Wrapper -->
+        <div class="main-content" id="mainContent">
+            <?php include_once __DIR__ . '/../includes/header.php'; ?>
+            <div class="p-6">
                 <!-- Header -->
                 <div class="flex justify-between items-center mb-8">
                     <div>
@@ -233,7 +183,7 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
                                 <p class="text-sm text-gray-500"><?php echo $stats['announcements']['active_announcements']; ?> active</p>
                             </div>
                             <div class="bg-blue-100 p-3 rounded-full">
-                                <i class="fas fa-bullhorn text-2xl text-blue-600"></i>
+                                <i class="fas fa-bullhorn text-2xl icon-lapis"></i>
                             </div>
                         </div>
                     </div>
@@ -246,7 +196,7 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
                                 <p class="text-sm text-gray-500"><?php echo $stats['messages']['read_messages']; ?> read</p>
                             </div>
                             <div class="bg-green-100 p-3 rounded-full">
-                                <i class="fas fa-envelope text-2xl text-green-600"></i>
+                                <i class="fas fa-envelope text-2xl icon-success"></i>
                             </div>
                         </div>
                     </div>
@@ -272,7 +222,7 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
                                 <p class="text-sm text-gray-500">Unique members</p>
                             </div>
                             <div class="bg-red-100 p-3 rounded-full">
-                                <i class="fas fa-users text-2xl text-red-600"></i>
+                                <i class="fas fa-users text-2xl icon-error"></i>
                             </div>
                         </div>
                     </div>
@@ -286,10 +236,10 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
                                 <i class="fas fa-bullhorn mr-2"></i> Announcements (<?php echo count($announcements); ?>)
                             </button>
                             <button onclick="showTab('templates')" class="tab-button border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                                <i class="fas fa-file-alt mr-2"></i> Templates (<?php echo count($templates); ?>)
+                                <i class="fas fa-file-alt mr-3 icon-primary"></i> Templates (<?php echo count($templates); ?>)
                             </button>
                             <button onclick="showTab('scheduled')" class="tab-button border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                                <i class="fas fa-clock mr-2"></i> Scheduled (<?php echo count($scheduled_messages); ?>)
+                                <i class="fas fa-clock mr-3 icon-primary"></i> Scheduled (<?php echo count($scheduled_messages); ?>)
                             </button>
                             <button onclick="showTab('notifications')" class="tab-button border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
                                 <i class="fas fa-bell mr-2"></i> Notifications (<?php echo count($pending_notifications); ?>)
@@ -382,7 +332,7 @@ $scheduled_messages = $communicationController->getPendingScheduledMessages(10);
                         <div class="px-6 py-4 border-b border-gray-200">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-xl font-bold text-gray-900 flex items-center">
-                                    <i class="fas fa-file-alt mr-3 text-primary-600"></i> Message Templates
+                                    <i class="fas fa-file-alt mr-3 icon-primary"></i> Message Templates
                                 </h3>
                                 <button onclick="showTemplateModal()" class="text-primary-600 hover:text-primary-700 flex items-center text-sm">
                                     <i class="fas fa-plus mr-2"></i> New Template

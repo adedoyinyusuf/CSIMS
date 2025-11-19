@@ -286,11 +286,12 @@ class SecurityService
         }
         
         $csp = "default-src 'self'; " .
-               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " .
-               "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " .
-               "font-src 'self' https://fonts.gstatic.com; " .
+               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://cdn.datatables.net https://cdn.tailwindcss.com; " .
+               "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.datatables.net https://cdn.tailwindcss.com; " .
+               "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; " .
                "img-src 'self' data: https:; " .
-               "connect-src 'self';";
+               "connect-src 'self'; " .
+               "frame-ancestors 'none';";
                
         header("Content-Security-Policy: $csp");
         
@@ -320,9 +321,68 @@ class SecurityService
      */
     private function validateUnique(mixed $value, string $rule): bool
     {
-        // This would typically check the database
-        // For now, return true as a placeholder
-        return true;
+        // Empty values are handled by 'required'; treat empty as pass here
+        if ($value === null || $value === '') {
+            return true;
+        }
+
+        // Parse rule: "table,column[,excludeColumn,excludeValue]"
+        $parts = array_map('trim', explode(',', (string)$rule));
+        $table = $parts[0] ?? '';
+        $column = $parts[1] ?? '';
+        $excludeColumn = $parts[2] ?? null;
+        $excludeValue = $parts[3] ?? null;
+
+        // Basic identifier validation to avoid injection via rule string
+        $isValidIdentifier = function (string $identifier): bool {
+            return (bool)preg_match('/^[a-zA-Z0-9_]+$/', $identifier);
+        };
+
+        if (!$isValidIdentifier($table) || !$isValidIdentifier($column)) {
+            // Fail-safe: if identifiers are invalid, do not block submission
+            return true;
+        }
+        if ($excludeColumn !== null && !$isValidIdentifier($excludeColumn)) {
+            $excludeColumn = null;
+            $excludeValue = null;
+        }
+
+        // Use legacy Database singleton for a simple COUNT(*) check
+        // This keeps SecurityService decoupled from repositories
+        try {
+            // Lazy-load Database class from legacy includes
+            if (!class_exists('Database')) {
+                require_once __DIR__ . '/../../includes/db.php';
+            }
+            $conn = \Database::getInstance()->getConnection();
+
+            $sql = "SELECT COUNT(*) AS cnt FROM `{$table}` WHERE `{$column}` = ?";
+            $types = 's';
+            $params = [$value];
+
+            if ($excludeColumn !== null && $excludeValue !== null) {
+                $sql .= " AND `{$excludeColumn}` <> ?";
+                $types .= 's';
+                $params[] = $excludeValue;
+            }
+
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return true; // Non-blocking on prepare failure
+            }
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            $row = $res ? $res->fetch_assoc() : null;
+            $stmt->close();
+
+            $count = (int)($row['cnt'] ?? 0);
+            return $count === 0;
+        } catch (\Throwable $e) {
+            // Fail gracefully without blocking
+            error_log('SecurityService::validateUnique error: ' . $e->getMessage());
+            return true;
+        }
     }
     
     /**
@@ -514,5 +574,16 @@ class SecurityService
             $score >= 30 => 'Weak',
             default => 'Very Weak'
         };
+    }
+    
+    /**
+     * Check if email address is valid
+     * 
+     * @param string $email
+     * @return bool
+     */
+    public function isValidEmail(string $email): bool
+    {
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
 }

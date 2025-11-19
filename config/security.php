@@ -1,4 +1,6 @@
 <?php
+// Prevent re-declaration when included multiple times
+if (class_exists('SecurityHeaders')) { return; }
 /**
  * Enhanced Security Configuration for CSIMS
  * This file contains security hardening configurations
@@ -167,10 +169,11 @@ class RateLimiter {
         // Try to use Redis if available, otherwise use file-based storage
         if (class_exists('Redis')) {
             try {
-                self::$redis = new Redis();
+                $redisClass = '\\Redis';
+                self::$redis = new $redisClass();
                 self::$redis->connect('127.0.0.1', 6379);
                 self::$useFile = false;
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 self::$useFile = true;
             }
         }

@@ -5,6 +5,7 @@ namespace CSIMS\Models;
 use CSIMS\Interfaces\ModelInterface;
 use CSIMS\Exceptions\ValidationException;
 use DateTime;
+use CSIMS\DTOs\ValidationResult;
 
 /**
  * Savings Transaction Model
@@ -56,7 +57,7 @@ class SavingsTransaction implements ModelInterface
     public function __construct(array $data = [])
     {
         if (!empty($data)) {
-            $this->fromArray($data);
+            $this->loadFromArray($data);
         }
         
         if (!isset($this->transactionDate)) {
@@ -71,9 +72,9 @@ class SavingsTransaction implements ModelInterface
     /**
      * Create instance from array data
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
-        $instance = new self();
+        $instance = new static();
         $instance->fillFromArray($data);
         return $instance;
     }
@@ -81,7 +82,7 @@ class SavingsTransaction implements ModelInterface
     /**
      * Fill instance properties from array
      */
-    public function fromArray(array $data): void
+    public function loadFromArray(array $data): void
     {
         $this->fillFromArray($data);
     }
@@ -146,53 +147,53 @@ class SavingsTransaction implements ModelInterface
     /**
      * Validate the model
      */
-    public function validate(): array
+    public function validate(): ValidationResult
     {
-        $errors = [];
-
+        $vr = new ValidationResult(true);
+    
         if (empty($this->accountId)) {
-            $errors[] = 'Account ID is required';
+            $vr->addError('account_id', 'Account ID is required');
         }
-
+    
         if (empty($this->memberId)) {
-            $errors[] = 'Member ID is required';
+            $vr->addError('member_id', 'Member ID is required');
         }
-
+    
         if (empty($this->transactionType)) {
-            $errors[] = 'Transaction type is required';
+            $vr->addError('transaction_type', 'Transaction type is required');
         } elseif (!in_array($this->transactionType, self::TRANSACTION_TYPES)) {
-            $errors[] = 'Invalid transaction type. Must be one of: ' . implode(', ', self::TRANSACTION_TYPES);
+            $vr->addError('transaction_type', 'Invalid transaction type. Must be one of: ' . implode(', ', self::TRANSACTION_TYPES));
         }
-
+    
         if ($this->amount <= 0) {
-            $errors[] = 'Amount must be positive';
+            $vr->addError('amount', 'Amount must be positive');
         }
-
+    
         if (!in_array($this->paymentMethod, self::PAYMENT_METHODS)) {
-            $errors[] = 'Invalid payment method. Must be one of: ' . implode(', ', self::PAYMENT_METHODS);
+            $vr->addError('payment_method', 'Invalid payment method. Must be one of: ' . implode(', ', self::PAYMENT_METHODS));
         }
-
+    
         if (!in_array($this->transactionStatus, self::TRANSACTION_STATUSES)) {
-            $errors[] = 'Invalid transaction status. Must be one of: ' . implode(', ', self::TRANSACTION_STATUSES);
+            $vr->addError('transaction_status', 'Invalid transaction status. Must be one of: ' . implode(', ', self::TRANSACTION_STATUSES));
         }
-
+    
         if ($this->balanceBefore < 0) {
-            $errors[] = 'Balance before cannot be negative';
+            $vr->addError('balance_before', 'Balance before cannot be negative');
         }
-
+    
         if ($this->balanceAfter < 0) {
-            $errors[] = 'Balance after cannot be negative';
+            $vr->addError('balance_after', 'Balance after cannot be negative');
         }
-
+    
         if ($this->feesCharged < 0) {
-            $errors[] = 'Fees charged cannot be negative';
+            $vr->addError('fees_charged', 'Fees charged cannot be negative');
         }
-
+    
         if (empty($this->processedBy)) {
-            $errors[] = 'Processed by is required';
+            $vr->addError('processed_by', 'Processed by is required');
         }
-
-        return $errors;
+    
+        return $vr;
     }
 
     /**
@@ -200,7 +201,7 @@ class SavingsTransaction implements ModelInterface
      */
     public function isValid(): bool
     {
-        return empty($this->validate());
+        return $this->validate()->isValid();
     }
 
     // Getters
@@ -559,7 +560,7 @@ class SavingsTransaction implements ModelInterface
             'Reversed' => ['name' => 'Reversed', 'class' => 'secondary'],
             'Cancelled' => ['name' => 'Cancelled', 'class' => 'secondary'],
             default => ['name' => $this->transactionStatus, 'class' => 'secondary']
-        ];
+        };
     }
 
     /**

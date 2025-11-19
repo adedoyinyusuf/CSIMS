@@ -8,7 +8,7 @@
 
 require_once __DIR__ . '/../../config/database.php';
 
-class Database 
+class PdoDatabase 
 {
     private $host;
     private $username;

@@ -3,22 +3,25 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
+<!-- Ensure CSS is loaded for sidebar styles -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+
 <nav id="sidebarMenu" class="sidebar fixed left-0 top-16 h-full w-64 transform -translate-x-full md:translate-x-0 transition-all duration-300 ease-in-out z-40 overflow-y-auto sidebar-nav">
     <div class="p-4">
         <!-- Main Navigation -->
         <div class="mb-6">
             <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 px-3 sidebar-section-title">Main Navigation</h3>
             <div class="space-y-1">
-                <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="sidebar-item <?php echo ($current_page == 'dashboard.php') ? 'active' : ''; ?>">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center <?php echo ($current_page == 'dashboard.php') ? 'glass-dark' : 'bg-white bg-opacity-10'; ?>">
-                        <i class="fas fa-tachometer-alt"></i>
+                <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'dashboard.php') ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'dashboard.php') ? 'bg-blue-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-tachometer-alt <?php echo ($current_page == 'dashboard.php') ? 'text-blue-600' : 'text-gray-600'; ?>"></i>
                     </div>
                     <span class="font-medium sidebar-text">Dashboard</span>
                 </a>
                 
-                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="sidebar-item <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'active' : ''; ?>">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'glass-dark' : 'bg-white bg-opacity-10'; ?>">
-                        <i class="fas fa-users"></i>
+                <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'bg-indigo-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-users <?php echo (in_array($current_page, ['members.php', 'add_member.php', 'edit_member.php', 'view_member.php'])) ? 'text-indigo-600' : 'text-gray-600'; ?>"></i>
                     </div>
                     <span class="font-medium sidebar-text">Members</span>
                 </a>
@@ -45,6 +48,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     </div>
                     <span class="font-medium sidebar-text">Memberships</span>
                 </a>
+
+                <a href="<?php echo BASE_URL; ?>/views/admin/member_types.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['member_types.php', 'add_member_type.php', 'edit_member_type.php', 'view_member_type.php'])) ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['member_types.php', 'add_member_type.php', 'edit_member_type.php', 'view_member_type.php'])) ? 'bg-purple-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-user-tag <?php echo (in_array($current_page, ['member_types.php', 'add_member_type.php', 'edit_member_type.php', 'view_member_type.php'])) ? 'text-purple-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Member Types</span>
+                </a>
             </div>
         </div>
 
@@ -52,9 +62,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="mb-6">
             <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 px-3 sidebar-section-title">Financial Management</h3>
             <div class="space-y-1">
-                <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['savings_accounts.php', 'create_savings_account.php', 'view_savings_account.php'])) ? 'bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['SavingsController.php', 'savings_accounts.php', 'create_savings_account.php', 'view_savings_account.php'])) ? 'bg-emerald-100' : 'bg-gray-100'; ?>">
-                        <i class="fas fa-piggy-bank <?php echo (in_array($current_page, ['SavingsController.php', 'savings_accounts.php', 'create_savings_account.php', 'view_savings_account.php'])) ? 'text-emerald-600' : 'text-gray-600'; ?>"></i>
+                <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo (in_array($current_page, ['savings_accounts.php', 'savings.php', 'create_savings_account.php', 'view_savings_account.php', 'savings_details.php'])) ? 'bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['SavingsController.php', 'savings_accounts.php', 'savings.php', 'create_savings_account.php', 'view_savings_account.php', 'savings_details.php'])) ? 'bg-emerald-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-piggy-bank <?php echo (in_array($current_page, ['SavingsController.php', 'savings_accounts.php', 'savings.php', 'create_savings_account.php', 'view_savings_account.php', 'savings_details.php'])) ? 'text-emerald-600' : 'text-gray-600'; ?>"></i>
                     </div>
                     <span class="font-medium sidebar-text">Savings</span>
                 </a>
@@ -116,6 +126,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <span class="font-medium sidebar-text">Security Dashboard</span>
                 </a>
                 <?php endif; ?>
+                
+                <!-- Audit Logs Viewer -->
+                <a href="<?php echo BASE_URL; ?>/views/admin/audit_logs.php" class="flex items-center space-x-3 p-3 rounded-lg transition-colors sidebar-link <?php echo ($current_page == 'audit_logs.php') ? 'bg-lime-50 text-lime-700 border-l-4 border-lime-500' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'audit_logs.php') ? 'bg-lime-100' : 'bg-gray-100'; ?>">
+                        <i class="fas fa-clipboard-list <?php echo ($current_page == 'audit_logs.php') ? 'text-lime-600' : 'text-gray-600'; ?>"></i>
+                    </div>
+                    <span class="font-medium sidebar-text">Audit Logs</span>
+                </a>
             </div>
         </div>
 

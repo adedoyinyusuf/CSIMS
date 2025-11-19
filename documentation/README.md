@@ -43,6 +43,11 @@ This comprehensive documentation suite provides everything you need to understan
   - Post-installation tasks
   - Security hardening
 
+### 🔄 Migration
+- **[Legacy API to Router Migration](LEGACY_API_MIGRATION.md)** - Map old endpoints, update rewrites, and move clients to the unified `api.php` + Router architecture.
+- **[Migration Verification Checklist](MIGRATION_CHECKLIST.md)** - Step-by-step checks to validate client apps after migrating to the unified API.
+ - **Automated Smoke Tests** - Run `scripts/migration_smoke_tests.php` to quickly verify core endpoints after migration.
+
 ### 🛠️ Maintenance and Support
 - **[Troubleshooting Guide](TROUBLESHOOTING_GUIDE.md)** - Common issues and solutions
   - Database problems
@@ -104,13 +109,14 @@ This comprehensive documentation suite provides everything you need to understan
 2. **API**: Explore the [API Documentation](API_DOCUMENTATION.md)
 3. **Database**: Review [Database Design](TECHNICAL_DOCUMENTATION.md#database-design)
 4. **Security**: Follow [Security Guidelines](TECHNICAL_DOCUMENTATION.md#security-implementation)
+5. **Unified API Entry**: All `/api/*` routes are served via `api.php`; use `dev-router.php` for local development (`php -S 127.0.0.1:8080 dev-router.php`).
 
 ## System Features
 
 ### Core Functionality
 - ✅ **Member Management** - Complete member lifecycle management
 - ✅ **Financial Tracking** - Contributions, loans, and investments
-- ✅ **Communication** - Internal messaging and notifications
+- ✅ **Communication** - Internal messaging and notifications (live header badge & dropdown)
 - ✅ **Reporting** - Comprehensive reports and analytics
 - ✅ **Security** - Role-based access and data protection
 - ✅ **API** - RESTful API for integrations

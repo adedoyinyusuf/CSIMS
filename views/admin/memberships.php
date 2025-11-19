@@ -1,16 +1,17 @@
 <?php
-session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/membership_controller.php';
 
-$auth = new AuthController();
-$current_user = $auth->getCurrentUser();
-
-if (!$current_user) {
-    header('Location: ../auth/login.php');
+$session = Session::getInstance();
+if (!$session->isLoggedIn() || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+    $_SESSION['error'] = 'Please login to continue';
+    header('Location: ../../index.php');
     exit();
 }
+
+$auth = new AuthController();
+$current_user = $auth->getCurrentUser();
 
 $membershipController = new MembershipController();
 
@@ -45,7 +46,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memberships - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
@@ -55,7 +56,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Membership Management</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
@@ -210,7 +211,7 @@ $expiring = $membershipController->getExpiringMemberships(30);
                                         <tr>
                                             <th>ID</th>
                                             <th>Name</th>
-<th>Monthly Contribution</th>
+<th>Monthly Savings Requirement</th>
                                             <th>Duration</th>
                                             <th>Fee (₦)</th>
                                             <th>Members</th>

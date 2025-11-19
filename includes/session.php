@@ -172,6 +172,7 @@ class Session {
         $this->set('role', $admin['role']);
         $this->set('first_name', $admin['first_name']);
         $this->set('last_name', $admin['last_name']);
+        $this->set('user_type', 'admin');
         $this->set('last_activity', time());
         $this->set('login_time', time());
         $this->set('session_created', time());

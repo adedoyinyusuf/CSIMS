@@ -1,14 +1,21 @@
 <?php
 require_once '../../config/auth_check.php';
 require_once '../../controllers/member_controller.php';
-require_once '../../controllers/contribution_controller.php';
+
 
 $memberController = new MemberController();
-$contributionController = new ContributionController();
+
 
 // Get member statistics
 $memberStats = $memberController->getMemberStatistics();
-$contributionStats = $contributionController->getContributionStatistics();
+
+// Include SavingsController for savings statistics without auto handleRequest
+if (!defined('SAVINGS_CONTROLLER_INCLUDED')) {
+    define('SAVINGS_CONTROLLER_INCLUDED', true);
+}
+require_once '../../controllers/SavingsController.php';
+$savingsController = new SavingsController();
+$savingsStats = $savingsController->getSavingsStatistics();
 
 // Handle report generation
 if (isset($_POST['generate_report'])) {
@@ -42,8 +49,8 @@ $membershipTypes = $memberController->getMembershipTypes();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Reports - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="../../assets/css/style.css" rel="stylesheet">
+    
+    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -253,34 +260,34 @@ $membershipTypes = $memberController->getMembershipTypes();
                     </div>
                 </div>
                 
-                <!-- Contribution Summary -->
+                <!-- Savings Summary -->
                 <div class="row mb-4">
                     <div class="col-12">
                         <div class="card shadow mb-4">
                             <div class="card-header py-3">
-                                <h6 class="m-0 font-weight-bold text-primary">Contribution Summary</h6>
+                                <h6 class="m-0 font-weight-bold text-primary">Savings Summary</h6>
                             </div>
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-3 text-center">
-                                        <h4 class="text-primary">$<?= number_format($contributionStats['total_amount'], 2) ?></h4>
-                                        <p class="text-muted">Total Contributions</p>
+                                        <h4 class="text-primary">$<?= number_format($savingsStats['total_balance'], 2) ?></h4>
+                                        <p class="text-muted">Total Savings Balance</p>
                                     </div>
                                     <div class="col-md-3 text-center">
-                                        <h4 class="text-success">$<?= number_format($contributionStats['month_amount'], 2) ?></h4>
-                                        <p class="text-muted">This Month</p>
+                                        <h4 class="text-success">$<?= number_format($savingsStats['total_interest'], 2) ?></h4>
+                                        <p class="text-muted">Deposits This Month</p>
                                     </div>
                                     <div class="col-md-3 text-center">
-                                        <h4 class="text-info"><?= count($contributionStats['recent_contributions']) ?></h4>
-                                        <p class="text-muted">Recent Transactions</p>
+                                        <h4 class="text-info"><?= (int)$savingsStats['active_members'] ?></h4>
+                                        <p class="text-muted">Active Members</p>
                                     </div>
                                     <div class="col-md-3 text-center">
-                                        <h4 class="text-warning"><?= count($contributionStats['contributions_by_type']) ?></h4>
-                                        <p class="text-muted">Contribution Types</p>
+                                        <h4 class="text-warning"><?= (int)$savingsStats['total_accounts'] ?></h4>
+                                        <p class="text-muted">Total Accounts</p>
                                     </div>
                                 </div>
                                 <div class="text-center mt-3">
-                                    <a href="contribution_dashboard.php" class="btn btn-primary">
+                                    <a href="savings.php" class="btn btn-primary">
                                         <i class="fas fa-chart-line me-1"></i>View Detailed Analytics
                                     </a>
                                 </div>
@@ -317,10 +324,10 @@ $membershipTypes = $memberController->getMembershipTypes();
                                         </button>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <button onclick="generateQuickReport('contribution_report')" class="btn btn-outline-info btn-lg w-100">
+                                        <a href="savings.php" class="btn btn-outline-info btn-lg w-100">
                                             <i class="fas fa-dollar-sign fa-2x d-block mb-2"></i>
-                                            Contribution Report
-                                        </button>
+                                            Savings Report
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -352,8 +359,8 @@ $membershipTypes = $memberController->getMembershipTypes();
                                         <option value="expiring_members">Expiring Members</option>
                                         <option value="new_members">New Members</option>
                                         <option value="inactive_members">Inactive Members</option>
-                                        <option value="contribution_summary">Contribution Summary</option>
-                                        <option value="member_contributions">Member Contributions</option>
+                                        <option value="savings_summary">Savings Summary</option>
+                                        <option value="member_savings">Member Savings</option>
                                     </select>
                                 </div>
                             </div>

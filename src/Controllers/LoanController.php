@@ -261,14 +261,22 @@ class LoanController extends BaseController
             $this->requireAuthentication('admin');
             $this->validateCSRF();
             
+            // Default actor from current admin if not provided
+            $currentAdmin = $this->getCurrentUser('admin') ?? [];
+            if (!isset($data['approved_by']) || !$data['approved_by']) {
+                $data['approved_by'] = $currentAdmin['username']
+                    ?? trim(($currentAdmin['first_name'] ?? '') . ' ' . ($currentAdmin['last_name'] ?? ''))
+                    ?: 'System';
+            }
+
             // Validate additional data
             $validatedData = $this->validateInput($data, [
                 'approved_by' => 'required|min:2',
                 'approval_notes' => 'max:1000'
             ]);
             
-            // Approve loan
-            $success = $this->loanService->approveLoan($loanId, $validatedData);
+            // Approve loan (service expects approved_by string)
+            $success = $this->loanService->approveLoan($loanId, $validatedData['approved_by'] ?? '');
             
             if ($success) {
                 // Log activity
@@ -298,12 +306,25 @@ class LoanController extends BaseController
             $this->requireAuthentication('admin');
             $this->validateCSRF();
             
+            // Default actor from current admin if not provided
+            $currentAdmin = $this->getCurrentUser('admin') ?? [];
+            if (!isset($data['rejected_by']) || !$data['rejected_by']) {
+                $data['rejected_by'] = $currentAdmin['username']
+                    ?? trim(($currentAdmin['first_name'] ?? '') . ' ' . ($currentAdmin['last_name'] ?? ''))
+                    ?: 'System';
+            }
+
             // Validate rejection data
             $validatedData = $this->validateInput($data, [
+                'rejected_by' => 'required|min:2',
                 'rejection_reason' => 'required|min:10|max:1000'
             ]);
             
-            $success = $this->loanService->rejectLoan($loanId, $validatedData['rejection_reason']);
+            $success = $this->loanService->rejectLoan(
+                $loanId,
+                $validatedData['rejected_by'] ?? '',
+                $validatedData['rejection_reason']
+            );
             
             if ($success) {
                 // Log activity
@@ -333,6 +354,14 @@ class LoanController extends BaseController
             $this->requireAuthentication('admin');
             $this->validateCSRF();
             
+            // Default actor from current admin if not provided
+            $currentAdmin = $this->getCurrentUser('admin') ?? [];
+            if (!isset($data['disbursed_by']) || !$data['disbursed_by']) {
+                $data['disbursed_by'] = $currentAdmin['username']
+                    ?? trim(($currentAdmin['first_name'] ?? '') . ' ' . ($currentAdmin['last_name'] ?? ''))
+                    ?: 'System';
+            }
+
             // Validate disbursement data
             $validatedData = $this->validateInput($data, [
                 'disbursed_by' => 'required|min:2',
@@ -340,7 +369,8 @@ class LoanController extends BaseController
                 'disbursement_notes' => 'max:1000'
             ]);
             
-            $success = $this->loanService->disburseLoan($loanId, $validatedData);
+            // Disburse loan (service expects disbursed_by string)
+            $success = $this->loanService->disburseLoan($loanId, $validatedData['disbursed_by'] ?? '');
             
             if ($success) {
                 // Log activity
@@ -592,8 +622,59 @@ class LoanController extends BaseController
      */
     private function getDefaultInterestRate(): float
     {
-        // This could be moved to configuration
-        return 12.0; // 12% annual interest rate
+        // Try to retrieve from centralized SystemConfigService (database-backed)
+        try {
+            // Ensure legacy config services are available
+            $baseDir = dirname(__DIR__, 2);
+            $sysConfigPath = $baseDir . '/includes/config/SystemConfigService.php';
+            $pdoDbPath = $baseDir . '/includes/config/database.php';
+            if (file_exists($sysConfigPath) && file_exists($pdoDbPath)) {
+                require_once $pdoDbPath;
+                require_once $sysConfigPath;
+                if (class_exists('\\PdoDatabase') && class_exists('\\SystemConfigService')) {
+                    $db = new \PdoDatabase();
+                    $pdo = $db->getConnection();
+                    $config = \SystemConfigService::getInstance($pdo);
+                    // Prefer a system_config key if present
+                    $rate = $config->get('DEFAULT_INTEREST_RATE', null);
+                    if (is_numeric($rate) && (float)$rate > 0) {
+                        return (float)$rate;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fall back silently; optionally log for diagnostics
+            error_log('LoanController:getDefaultInterestRate SystemConfig error: ' . $e->getMessage());
+        }
+
+        // Skip legacy settings table fallbacks; use environment/default config
+        $configDefault = $this->config->get('loan.default_interest_rate', 12.0);
+        return is_numeric($configDefault) ? (float)$configDefault : 12.0;
+
+        // Fallback: read from legacy settings table if available
+        try {
+            $baseDir = dirname(__DIR__, 2);
+            $pdoDbPath = $baseDir . '/includes/config/database.php';
+            if (file_exists($pdoDbPath)) {
+                require_once $pdoDbPath;
+                if (class_exists('\\PdoDatabase')) {
+                    $db = new \PdoDatabase();
+                    $pdo = $db->getConnection();
+                    $stmt = $pdo->prepare("SELECT value FROM settings WHERE name = 'default_interest_rate' LIMIT 1");
+                    $stmt->execute();
+                    $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+                    if ($row && isset($row['value']) && is_numeric($row['value'])) {
+                        return (float)$row['value'];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('LoanController:getDefaultInterestRate settings fallback error: ' . $e->getMessage());
+        }
+
+        // Final fallback: static default or environment config
+        $configDefault = $this->config->get('loan.default_interest_rate', 12.0);
+        return is_numeric($configDefault) ? (float)$configDefault : 12.0;
     }
     
     /**

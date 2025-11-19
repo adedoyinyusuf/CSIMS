@@ -48,6 +48,14 @@ The admin dashboard provides:
 - Quick access to key functions
 - Notification alerts
 
+#### Header Notifications
+- A bell icon in the header shows the unread notification count.
+- Clicking the bell opens a dropdown with recent notifications.
+- Items display title, type, timestamp, and read status.
+- Unread items are highlighted; selecting one can navigate to details.
+- The dropdown gracefully shows "No notifications" when empty.
+- Data is powered by the system's `NotificationController` for accuracy.
+
 ### Member Management
 
 #### Adding New Members
@@ -129,6 +137,11 @@ The admin dashboard provides:
    - Choose notification type
    - Send immediately or schedule
 2. **Manage Notifications**: View, edit, delete existing notifications
+
+##### Header Dropdown Behavior
+- Unread count updates as notifications are created or marked as read.
+- Recent items list is limited to a sensible number for quick scanning.
+- Use the notifications page to mark items as read and manage history.
 
 #### Messages
 1. **Compose Messages**: Messages > Compose Message

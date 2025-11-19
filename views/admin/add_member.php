@@ -2,12 +2,14 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access this page');
-    header("Location: " . BASE_URL . "index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -22,7 +24,12 @@ $membership_types = $memberController->getMembershipTypes();
 
 // Process form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF validation
+    if (class_exists('CSRFProtection')) {
+        CSRFProtection::validateRequest();
+    }
     // Validate and sanitize input
+    $ippis_no = Utilities::sanitizeInput($_POST['ippis_no'] ?? '');
     $first_name = Utilities::sanitizeInput($_POST['first_name']);
     $last_name = Utilities::sanitizeInput($_POST['last_name']);
     $gender = Utilities::sanitizeInput($_POST['gender']);
@@ -53,16 +60,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Validate required fields
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($phone) || empty($membership_type_id)) {
+    if (empty($first_name) || empty($last_name) || empty($email) || empty($phone) || empty($membership_type_id) || empty($ippis_no)) {
         $session->setFlash('error', 'Please fill in all required fields.');
     } 
     // Validate email format
     elseif (!Utilities::validateEmail($email)) {
         $session->setFlash('error', 'Please enter a valid email address.');
     } 
+    elseif (!preg_match('/^[0-9]{6}$/', $ippis_no)) {
+        $session->setFlash('error', 'IPPIS Number must be exactly 6 digits.');
+    } 
+    elseif ($memberController->checkExistingIppis($ippis_no)) {
+        $session->setFlash('error', 'IPPIS Number already exists.');
+    } 
     else {
         // Create member data array
         $member_data = [
+            'ippis_no' => $ippis_no,
             'first_name' => $first_name,
             'last_name' => $last_name,
             'gender' => $gender,
@@ -80,18 +94,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'expiry_date' => $expiry_date,
             'status' => $status,
             'notes' => $notes,
-            'photo' => $photo
+            'photo' => $photo,
+            // monthly_contribution removed from admin add-member; Savings module supersedes
+            'marital_status' => Utilities::sanitizeInput($_POST['marital_status'] ?? ''),
+            'department' => Utilities::sanitizeInput($_POST['department'] ?? ''),
+            'position' => Utilities::sanitizeInput($_POST['position'] ?? ''),
+            'grade_level' => Utilities::sanitizeInput($_POST['grade_level'] ?? ''),
+            'employee_rank' => Utilities::sanitizeInput($_POST['employee_rank'] ?? ''),
+            'date_of_first_appointment' => Utilities::sanitizeInput($_POST['date_of_first_appointment'] ?? ''),
+            'date_of_retirement' => Utilities::sanitizeInput($_POST['date_of_retirement'] ?? ''),
+            'bank_name' => Utilities::sanitizeInput($_POST['bank_name'] ?? ''),
+            'account_number' => Utilities::sanitizeInput($_POST['account_number'] ?? ''),
+            'account_name' => Utilities::sanitizeInput($_POST['account_name'] ?? ''),
+            'next_of_kin_name' => Utilities::sanitizeInput($_POST['next_of_kin_name'] ?? ''),
+            'next_of_kin_relationship' => Utilities::sanitizeInput($_POST['next_of_kin_relationship'] ?? ''),
+            'next_of_kin_phone' => Utilities::sanitizeInput($_POST['next_of_kin_phone'] ?? ''),
+            'next_of_kin_address' => Utilities::sanitizeInput($_POST['next_of_kin_address'] ?? ''),
         ];
-        
-        // Add member
-        $result = $memberController->addMember($member_data);
-        
-        if ($result) {
-            $session->setFlash('success', 'Member added successfully!');
-            header("Location: " . BASE_URL . "admin/members.php");
-            exit();
+        if (empty($member_data['bank_name']) || empty($member_data['account_number']) || empty($member_data['account_name'])) {
+            $session->setFlash('error', 'Please provide complete banking details.');
         } else {
-            $session->setFlash('error', 'Failed to add member. Please try again.');
+            $result = $memberController->addMember($member_data);
+            if ($result) {
+                $session->setFlash('success', 'Member added successfully!');
+                header("Location: " . BASE_URL . "admin/members.php");
+                exit();
+            } else {
+                $session->setFlash('error', 'Failed to add member. Please try again.');
+            }
         }
     }
 }
@@ -154,13 +184,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="p-6">
                         <form action="" method="POST" enctype="multipart/form-data" class="space-y-8">
+                            <?php if (class_exists('CSRFProtection')): ?>
+                                <?php echo CSRFProtection::getTokenField(); ?>
+                            <?php endif; ?>
                             <!-- Personal Information -->
                             <div class="space-y-6">
                                 <div>
                                     <h5 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-3">Personal Information</h5>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                
+                                    
+                                    <div>
+                                        <label for="ippis_no" class="block text-sm font-medium text-gray-700 mb-2">IPPIS Number <span class="text-red-500">*</span></label>
+                                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="ippis_no" name="ippis_no" pattern="[0-9]{6}" maxlength="6" required>
+                                    </div>
                                     <div>
                                         <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">First Name <span class="text-red-500">*</span></label>
                                         <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="first_name" name="first_name" required>
@@ -269,12 +306,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="membership_type_id" name="membership_type_id" required>
                                             <option value="">Select Membership Type</option>
                                             <?php foreach ($membership_types as $type): ?>
-                                                <option value="<?php echo $type['type_id']; ?>">
-                                                    <?php echo $type['type_name']; ?> - <?php echo Utilities::formatCurrency($type['fee_amount']); ?>
-                                                </option>
+                                                <?php 
+                                                    $typeId = $type['membership_type_id'] ?? ($type['type_id'] ?? null);
+                                                    $typeName = $type['name'] ?? ($type['type_name'] ?? '');
+                                                    $typeFee = $type['fee'] ?? ($type['fee_amount'] ?? null);
+                                                ?>
+                                                <?php if ($typeId !== null): ?>
+                                                    <option value="<?php echo $typeId; ?>">
+                                                        <?php echo htmlspecialchars($typeName); ?><?php echo $typeFee !== null ? ' - ' . Utilities::formatCurrency($typeFee) : ''; ?>
+                                                    </option>
+                                                <?php endif; ?>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
+
+                                    <!-- Monthly contribution removed: admin now uses Savings accounts and deposits -->
                                     
                                     <div>
                                         <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status <span class="text-red-500">*</span></label>
@@ -303,6 +349,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
                             </div>
                             
+                            <!-- Employment Details -->
+                            <div class="space-y-6">
+                                <div>
+                                    <h5 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-3">Employment Details</h5>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div>
+                                        <label for="marital_status" class="block text-sm font-medium text-gray-700 mb-2">Marital Status</label>
+                                        <select id="marital_status" name="marital_status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                                            <option value="">Select</option>
+                                            <option value="Single">Single</option>
+                                            <option value="Married">Married</option>
+                                            <option value="Divorced">Divorced</option>
+                                            <option value="Widowed">Widowed</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="department" class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                        <input type="text" id="department" name="department" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="position" class="block text-sm font-medium text-gray-700 mb-2">Position</label>
+                                        <input type="text" id="position" name="position" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="grade_level" class="block text-sm font-medium text-gray-700 mb-2">Grade Level</label>
+                                        <input type="text" id="grade_level" name="grade_level" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="employee_rank" class="block text-sm font-medium text-gray-700 mb-2">Employee Rank</label>
+                                        <input type="text" id="employee_rank" name="employee_rank" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="date_of_first_appointment" class="block text-sm font-medium text-gray-700 mb-2">Date of First Appointment</label>
+                                        <input type="date" id="date_of_first_appointment" name="date_of_first_appointment" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="date_of_retirement" class="block text-sm font-medium text-gray-700 mb-2">Date of Retirement</label>
+                                        <input type="date" id="date_of_retirement" name="date_of_retirement" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Banking Details -->
+                            <div class="space-y-6">
+                                <div>
+                                    <h5 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-3">Banking Details</h5>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div>
+                                        <label for="bank_name" class="block text-sm font-medium text-gray-700 mb-2">Bank Name <span class="text-red-500">*</span></label>
+                                        <input type="text" id="bank_name" name="bank_name" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                                    </div>
+                                    <div>
+                                        <label for="account_number" class="block text-sm font-medium text-gray-700 mb-2">Account Number <span class="text-red-500">*</span></label>
+                                        <input type="text" id="account_number" name="account_number" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                                    </div>
+                                    <div>
+                                        <label for="account_name" class="block text-sm font-medium text-gray-700 mb-2">Account Name <span class="text-red-500">*</span></label>
+                                        <input type="text" id="account_name" name="account_name" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Next of Kin -->
+                            <div class="space-y-6">
+                                <div>
+                                    <h5 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-3">Next of Kin</h5>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div>
+                                        <label for="next_of_kin_name" class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                                        <input type="text" id="next_of_kin_name" name="next_of_kin_name" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="next_of_kin_relationship" class="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
+                                        <input type="text" id="next_of_kin_relationship" name="next_of_kin_relationship" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="next_of_kin_phone" class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                                        <input type="text" id="next_of_kin_phone" name="next_of_kin_phone" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                    <div class="lg:col-span-3">
+                                        <label for="next_of_kin_address" class="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                                        <input type="text" id="next_of_kin_address" name="next_of_kin_address" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Form Actions -->
                             <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                                 <a href="<?php echo BASE_URL; ?>/views/admin/members.php" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Cancel</a>
@@ -350,5 +486,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
     </script>
-
-<?php include '../includes/footer.php'; ?>

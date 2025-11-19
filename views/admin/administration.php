@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once '../config/auth_check.php';
-require_once '../config/database.php';
+require_once '../includes/config/database.php';
 
 // Check if user is super admin
 if ($_SESSION['role'] !== 'Super Admin') {
@@ -9,7 +9,7 @@ if ($_SESSION['role'] !== 'Super Admin') {
     exit;
 }
 
-$database = new Database();
+$database = new PdoDatabase();
 $db = $database->getConnection();
 
 // Handle form submissions
@@ -181,7 +181,7 @@ require_once '../includes/header.php';
 ?>
 
 <!-- Main Content -->
-<div class="flex-1 ml-64 bg-gray-50">
+<div class="flex-1 main-content bg-gray-50 mt-16">
     <div class="p-8">
         <!-- Page Heading -->
         <div class="flex items-center justify-between mb-8">
@@ -202,57 +202,57 @@ require_once '../includes/header.php';
         <?php require_once '../includes/flash_messages.php'; ?>
 
         <!-- System Overview -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="administrationOverviewGrid">
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Total Members</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide" style="color: #3b28cc;">Total Members</p>
                         <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['members']); ?></p>
                     </div>
-                    <div class="p-3 bg-blue-100 rounded-full">
-                        <i class="fas fa-users text-blue-600 text-xl"></i>
+                    <div class="p-3 rounded-full" style="background: #3b28cc;">
+                        <i class="fas fa-users text-xl" style="color: #ffffff;"></i>
                     </div>
                 </div>
-                <div class="mt-4 border-l-4 border-blue-500 pl-1"></div>
+                <div class="mt-4 border-l-4 pl-1" style="border-left-color: #3b28cc;"></div>
             </div>
             
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-green-600 uppercase tracking-wide">Total Contributions</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide" style="color: #214e34;">Total Savings</p>
                         <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['contributions']); ?></p>
                     </div>
-                    <div class="p-3 bg-green-100 rounded-full">
-                        <i class="fas fa-hand-holding-usd text-green-600 text-xl"></i>
+                    <div class="p-3 rounded-full" style="background: #214e34;">
+                        <i class="fas fa-hand-holding-usd text-xl" style="color: #ffffff;"></i>
                     </div>
                 </div>
-                <div class="mt-4 border-l-4 border-green-500 pl-1"></div>
+                <div class="mt-4 border-l-4 pl-1" style="border-left-color: #214e34;"></div>
             </div>
             
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-yellow-600 uppercase tracking-wide">Active Loans</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide" style="color: #07beb8;">Active Loans</p>
                         <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['loans']); ?></p>
                     </div>
-                    <div class="p-3 bg-yellow-100 rounded-full">
-                        <i class="fas fa-money-bill-wave text-yellow-600 text-xl"></i>
+                    <div class="p-3 rounded-full" style="background: #07beb8;">
+                        <i class="fas fa-money-bill-wave text-xl" style="color: #ffffff;"></i>
                     </div>
                 </div>
-                <div class="mt-4 border-l-4 border-yellow-500 pl-1"></div>
+                <div class="mt-4 border-l-4 pl-1" style="border-left-color: #07beb8;"></div>
             </div>
             
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-cyan-600 uppercase tracking-wide">Database Size</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide" style="color: #cb0b0a;">Database Size</p>
                         <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo $stats['db_size']; ?> MB</p>
                     </div>
-                    <div class="p-3 bg-cyan-100 rounded-full">
-                        <i class="fas fa-database text-cyan-600 text-xl"></i>
+                    <div class="p-3 rounded-full" style="background: #cb0b0a;">
+                        <i class="fas fa-database text-xl" style="color: #ffffff;"></i>
                     </div>
                 </div>
-                <div class="mt-4 border-l-4 border-cyan-500 pl-1"></div>
+                <div class="mt-4 border-l-4 pl-1" style="border-left-color: #cb0b0a;"></div>
             </div>
         </div>
 

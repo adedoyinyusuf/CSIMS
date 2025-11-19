@@ -8,6 +8,7 @@ use CSIMS\Repositories\LoanRepository;
 use CSIMS\Repositories\LoanGuarantorRepository;
 use CSIMS\Repositories\MemberRepository;
 use CSIMS\Services\SecurityService;
+use CSIMS\Services\AuditLogger;
 use CSIMS\DTOs\ValidationResult;
 use CSIMS\Exceptions\ValidationException;
 use CSIMS\Exceptions\DatabaseException;
@@ -24,6 +25,7 @@ class LoanService
     private MemberRepository $memberRepository;
     private SecurityService $securityService;
     private ?LoanGuarantorRepository $guarantorRepository;
+    private AuditLogger $auditLogger;
     
     public function __construct(
         LoanRepository $loanRepository,
@@ -35,6 +37,7 @@ class LoanService
         $this->memberRepository = $memberRepository;
         $this->securityService = $securityService;
         $this->guarantorRepository = $guarantorRepository;
+        $this->auditLogger = new AuditLogger();
     }
     
     /**
@@ -45,7 +48,7 @@ class LoanService
      * @throws ValidationException
      * @throws DatabaseException
      */
-    public function createLoan(array $data): Loan
+    public function createLoan(array $data, array $guarantorsData = []): Loan
     {
         // Sanitize input data
         $data = $this->securityService->sanitizeArray($data);
@@ -78,7 +81,44 @@ class LoanService
         $this->validateLoanBusinessRules($loan);
         
         // Save loan
-        return $this->loanRepository->create($loan);
+        $createdLoan = $this->loanRepository->create($loan);
+
+        // If guarantors were provided, add them and dispatch sign-off requests
+        if (!empty($guarantorsData) && $this->guarantorRepository) {
+            $addedGuarantors = $this->addGuarantorsToLoan($createdLoan->getId(), $guarantorsData);
+
+            // Dispatch sign-off requests via legacy helper (email with tokenized link)
+            try {
+                // Bridge to legacy includes service for email dispatch and sign-off token
+                require_once __DIR__ . '/../../includes/db.php';
+                require_once __DIR__ . '/../../includes/services/guarantor_signoff_service.php';
+                $db = \Database::getInstance();
+                $conn = $db->getConnection();
+                ensure_guarantor_signoff_tables($conn);
+
+                foreach ($addedGuarantors as $g) {
+                    // Re-fetch enriched guarantor to access email/name fields
+                    $enriched = $this->guarantorRepository->find($g->getId());
+                    $guarantorEmail = method_exists($enriched, 'toArray') ? ($enriched->toArray()['guarantor_email'] ?? '') : '';
+                    $guarantorNameParts = [];
+                    $arr = method_exists($enriched, 'toArray') ? $enriched->toArray() : [];
+                    if (!empty($arr['guarantor_first_name'])) { $guarantorNameParts[] = $arr['guarantor_first_name']; }
+                    if (!empty($arr['guarantor_last_name'])) { $guarantorNameParts[] = $arr['guarantor_last_name']; }
+                    $guarantorName = implode(' ', $guarantorNameParts) ?: 'Guarantor';
+
+                    // Create request and send email link
+                    $req = create_signoff_request($conn, $createdLoan->getId(), 'member', $g->getId(), $arr['guarantor_member_id'] ?? null, $guarantorEmail ?: null, $guarantorName ?: null);
+                    if (!empty($guarantorEmail)) {
+                        @send_signoff_email($guarantorEmail, $guarantorName, $req['token'], $createdLoan->getId());
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal: log and continue
+                error_log('Guarantor sign-off dispatch failed: ' . $e->getMessage());
+            }
+        }
+
+        return $createdLoan;
     }
     
     /**
@@ -94,6 +134,7 @@ class LoanService
     {
         // Find existing loan
         $loan = $this->loanRepository->find($id);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -209,6 +250,7 @@ class LoanService
     public function approveLoan(int $loanId, string $approvedBy): bool
     {
         $loan = $this->loanRepository->find($loanId);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -217,10 +259,19 @@ class LoanService
             throw new ValidationException('Can only approve pending loans');
         }
         
-        return $this->loanRepository->updateStatus($loanId, 'Approved', [
+        $result = $this->loanRepository->updateStatus($loanId, 'Approved', [
             'approved_by' => $this->securityService->sanitizeString($approvedBy),
             'approval_date' => date('Y-m-d')
         ]);
+        if ($result) {
+            $this->auditLogger->log('loan_approved', 'loan', $loanId, [
+                'approved_by' => $approvedBy,
+                'previous_status' => 'Pending',
+                'new_status' => 'Approved',
+                'approval_date' => date('Y-m-d')
+            ]);
+        }
+        return $result;
     }
     
     /**
@@ -236,6 +287,7 @@ class LoanService
     public function rejectLoan(int $loanId, string $rejectedBy, string $rejectionReason): bool
     {
         $loan = $this->loanRepository->find($loanId);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -244,11 +296,21 @@ class LoanService
             throw new ValidationException('Can only reject pending loans');
         }
         
-        return $this->loanRepository->updateStatus($loanId, 'Rejected', [
+        $result = $this->loanRepository->updateStatus($loanId, 'Rejected', [
             'rejected_by' => $this->securityService->sanitizeString($rejectedBy),
             'rejection_reason' => $this->securityService->sanitizeString($rejectionReason),
             'rejection_date' => date('Y-m-d')
         ]);
+        if ($result) {
+            $this->auditLogger->log('loan_rejected', 'loan', $loanId, [
+                'rejected_by' => $rejectedBy,
+                'previous_status' => 'Pending',
+                'new_status' => 'Rejected',
+                'rejection_date' => date('Y-m-d'),
+                'rejection_reason' => $rejectionReason
+            ]);
+        }
+        return $result;
     }
     
     /**
@@ -263,6 +325,7 @@ class LoanService
     public function disburseLoan(int $loanId, string $disbursedBy): bool
     {
         $loan = $this->loanRepository->find($loanId);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -273,12 +336,22 @@ class LoanService
         
         $nextPaymentDate = date('Y-m-d', strtotime('+1 month'));
         
-        return $this->loanRepository->updateStatus($loanId, 'Disbursed', [
+        $result = $this->loanRepository->updateStatus($loanId, 'Disbursed', [
             'disbursed_by' => $this->securityService->sanitizeString($disbursedBy),
             'disbursement_date' => date('Y-m-d'),
             'next_payment_date' => $nextPaymentDate,
             'status' => 'Active' // Active means disbursed and ongoing
         ]);
+        if ($result) {
+            $this->auditLogger->log('loan_disbursed', 'loan', $loanId, [
+                'disbursed_by' => $disbursedBy,
+                'previous_status' => 'Approved',
+                'new_status' => 'Active',
+                'disbursement_date' => date('Y-m-d'),
+                'next_payment_date' => $nextPaymentDate
+            ]);
+        }
+        return $result;
     }
     
     /**
@@ -294,6 +367,7 @@ class LoanService
     public function processPayment(int $loanId, float $paymentAmount, string $paymentMethod): bool
     {
         $loan = $this->loanRepository->find($loanId);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -306,12 +380,12 @@ class LoanService
             throw new ValidationException('Payment amount must be greater than zero');
         }
         
-        // Calculate new balance
-        $newBalance = max(0, $loan->getCurrentBalance() - $paymentAmount);
+        // Calculate new balance (use remaining balance from model)
+        $newBalance = max(0, $loan->getRemainingBalance() - $paymentAmount);
         
         // Update loan
         $updateData = [
-            'current_balance' => $newBalance,
+            'remaining_balance' => $newBalance,
             'last_payment_date' => date('Y-m-d'),
             'last_payment_amount' => $paymentAmount
         ];
@@ -319,7 +393,6 @@ class LoanService
         // If loan is fully paid
         if ($newBalance <= 0) {
             $updateData['status'] = 'Paid';
-            $updateData['paid_date'] = date('Y-m-d');
             $updateData['next_payment_date'] = null;
         } else {
             // Calculate next payment date
@@ -327,7 +400,17 @@ class LoanService
         }
         
         $loan->fromArray($updateData);
-        return $this->loanRepository->update($loan) !== null;
+        $result = $this->loanRepository->update($loan) !== null;
+        if ($result) {
+            $this->auditLogger->log('loan_payment_processed', 'loan', $loanId, [
+                'payment_amount' => $paymentAmount,
+                'payment_method' => $paymentMethod,
+                'new_balance' => $newBalance,
+                'status' => $updateData['status'] ?? $loan->getStatus(),
+                'last_payment_date' => $updateData['last_payment_date']
+            ]);
+        }
+        return $result;
     }
     
     /**
@@ -341,6 +424,7 @@ class LoanService
     public function deleteLoan(int $id): bool
     {
         $loan = $this->loanRepository->find($id);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -364,6 +448,7 @@ class LoanService
     public function calculatePaymentSchedule(int $loanId): array
     {
         $loan = $this->loanRepository->find($loanId);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -416,6 +501,7 @@ class LoanService
     public function getMemberLoanSummary(int $memberId): array
     {
         $loans = $this->loanRepository->findByMember($memberId);
+        /** @var Loan[] $loans */
         
         $summary = [
             'total_loans' => count($loans),
@@ -431,7 +517,7 @@ class LoanService
             
             if (in_array($loan->getStatus(), ['Active', 'Disbursed'])) {
                 $summary['active_loans']++;
-                $summary['total_outstanding'] += $loan->getCurrentBalance();
+                $summary['total_outstanding'] += $loan->getRemainingBalance();
             }
             
             if ($loan->getStatus() === 'Paid') {
@@ -572,6 +658,7 @@ class LoanService
     public function getLoanWithGuarantors(int $loanId): array
     {
         $loan = $this->loanRepository->find($loanId);
+        /** @var Loan $loan */
         if (!$loan) {
             throw new ValidationException('Loan not found');
         }
@@ -642,6 +729,7 @@ class LoanService
         }
         
         $guarantor = $this->guarantorRepository->find($guarantorId);
+        /** @var LoanGuarantor $guarantor */
         if (!$guarantor) {
             throw new ValidationException('Guarantor not found');
         }

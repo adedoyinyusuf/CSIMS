@@ -5,6 +5,7 @@ namespace CSIMS\Models;
 use CSIMS\Interfaces\ModelInterface;
 use CSIMS\Exceptions\ValidationException;
 use DateTime;
+use CSIMS\DTOs\ValidationResult;
 
 /**
  * Savings Account Model
@@ -48,10 +49,10 @@ class SavingsAccount implements ModelInterface
     public function __construct(array $data = [])
     {
         if (!empty($data)) {
-            $this->fromArray($data);
+            $this->loadFromArray($data);
         }
         
-        if (!$this->openingDate) {
+        if (!isset($this->openingDate)) {
             $this->openingDate = new DateTime();
         }
     }
@@ -59,9 +60,9 @@ class SavingsAccount implements ModelInterface
     /**
      * Create instance from array data
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
-        $instance = new self();
+        $instance = new static();
         $instance->fillFromArray($data);
         return $instance;
     }
@@ -69,7 +70,7 @@ class SavingsAccount implements ModelInterface
     /**
      * Fill instance properties from array
      */
-    public function fromArray(array $data): void
+    public function loadFromArray(array $data): void
     {
         $this->fillFromArray($data);
     }
@@ -134,59 +135,59 @@ class SavingsAccount implements ModelInterface
     /**
      * Validate the model
      */
-    public function validate(): array
+    public function validate(): ValidationResult
     {
-        $errors = [];
-
+        $vr = new ValidationResult(true);
+    
         if (empty($this->memberId)) {
-            $errors[] = 'Member ID is required';
+            $vr->addError('member_id', 'Member ID is required');
         }
-
+    
         if (empty($this->accountNumber)) {
-            $errors[] = 'Account number is required';
+            $vr->addError('account_number', 'Account number is required');
         }
-
+    
         if (empty($this->accountName)) {
-            $errors[] = 'Account name is required';
+            $vr->addError('account_name', 'Account name is required');
         }
-
+    
         if (!in_array($this->accountType, self::ACCOUNT_TYPES)) {
-            $errors[] = 'Invalid account type. Must be one of: ' . implode(', ', self::ACCOUNT_TYPES);
+            $vr->addError('account_type', 'Invalid account type. Must be one of: ' . implode(', ', self::ACCOUNT_TYPES));
         }
-
+    
         if (!in_array($this->accountStatus, self::ACCOUNT_STATUSES)) {
-            $errors[] = 'Invalid account status. Must be one of: ' . implode(', ', self::ACCOUNT_STATUSES);
+            $vr->addError('account_status', 'Invalid account status. Must be one of: ' . implode(', ', self::ACCOUNT_STATUSES));
         }
-
+    
         if (!in_array($this->interestCalculation, self::INTEREST_CALCULATIONS)) {
-            $errors[] = 'Invalid interest calculation method. Must be one of: ' . implode(', ', self::INTEREST_CALCULATIONS);
+            $vr->addError('interest_calculation', 'Invalid interest calculation method. Must be one of: ' . implode(', ', self::INTEREST_CALCULATIONS));
         }
-
+    
         if ($this->balance < 0) {
-            $errors[] = 'Balance cannot be negative';
+            $vr->addError('balance', 'Balance cannot be negative');
         }
-
+    
         if ($this->minimumBalance < 0) {
-            $errors[] = 'Minimum balance cannot be negative';
+            $vr->addError('minimum_balance', 'Minimum balance cannot be negative');
         }
-
+    
         if ($this->interestRate < 0 || $this->interestRate > 100) {
-            $errors[] = 'Interest rate must be between 0 and 100';
+            $vr->addError('interest_rate', 'Interest rate must be between 0 and 100');
         }
-
+    
         if ($this->targetAmount !== null && $this->targetAmount <= 0) {
-            $errors[] = 'Target amount must be positive if specified';
+            $vr->addError('target_amount', 'Target amount must be positive if specified');
         }
-
+    
         if ($this->monthlyTarget !== null && $this->monthlyTarget <= 0) {
-            $errors[] = 'Monthly target must be positive if specified';
+            $vr->addError('monthly_target', 'Monthly target must be positive if specified');
         }
-
+    
         if (empty($this->createdBy)) {
-            $errors[] = 'Created by is required';
+            $vr->addError('created_by', 'Created by is required');
         }
-
-        return $errors;
+    
+        return $vr;
     }
 
     /**
@@ -194,7 +195,7 @@ class SavingsAccount implements ModelInterface
      */
     public function isValid(): bool
     {
-        return empty($this->validate());
+        return $this->validate()->isValid();
     }
 
     // Getters

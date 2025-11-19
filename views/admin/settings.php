@@ -2,6 +2,7 @@
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../controllers/auth_controller.php';
+require_once '../../includes/config/SystemConfigService.php';
 
 // Initialize session and auth
 $session = Session::getInstance();
@@ -23,6 +24,13 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     $db = $pdo;
+    // Initialize centralized configuration service
+    try {
+        $sysConfig = SystemConfigService::getInstance($db);
+    } catch (Exception $e) {
+        $sysConfig = null;
+        error_log('Admin settings: SystemConfigService init failed: ' . $e->getMessage());
+    }
 } catch(PDOException $e) {
     error_log("PDO Connection failed: " . $e->getMessage());
     die("Database connection failed. Please try again later.");
@@ -35,23 +43,40 @@ $current_page = 'settings';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
+            case 'update_settings':
+                $settings_updated = 0;
+                if (isset($_POST['settings']) && is_array($_POST['settings'])) {
+                    foreach ($_POST['settings'] as $category => $category_settings) {
+                        foreach ($category_settings as $key => $value) {
+                            if ($sysConfig) {
+                                if ($sysConfig->set($key, $value, $_SESSION['user_id'] ?? null)) {
+                                    $settings_updated++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if ($settings_updated > 0) {
+                    $success = "$settings_updated system settings updated successfully.";
+                } else {
+                    $error = 'No settings updated or configuration service unavailable.';
+                }
+                break;
             case 'update_general':
                 $system_name = trim($_POST['system_name']);
                 $system_email = trim($_POST['system_email']);
                 $system_phone = trim($_POST['system_phone']);
                 $system_address = trim($_POST['system_address']);
                 
-                // Update or insert settings
-                $settings = [
-                    'system_name' => $system_name,
-                    'system_email' => $system_email,
-                    'system_phone' => $system_phone,
-                    'system_address' => $system_address
-                ];
-                
-                foreach ($settings as $key => $value) {
-                    $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-                    $stmt->execute([$key, $value, $value]);
+                // Migrate to centralized system_config store
+                if ($sysConfig) {
+                    try { $sysConfig->set('SYSTEM_NAME', (string)$system_name, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set SYSTEM_NAME failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('SYSTEM_EMAIL', (string)$system_email, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set SYSTEM_EMAIL failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('SYSTEM_PHONE', (string)$system_phone, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set SYSTEM_PHONE failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('SYSTEM_ADDRESS', (string)$system_address, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set SYSTEM_ADDRESS failed: ' . $e->getMessage()); }
+                } else {
+                    error_log('Admin settings: SystemConfigService unavailable, general settings not persisted to system_config');
                 }
                 
                 $success = 'General settings updated successfully.';
@@ -62,15 +87,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $membership_duration = $_POST['membership_duration'];
                 $late_payment_penalty = $_POST['late_payment_penalty'];
                 
-                $settings = [
-                    'default_membership_fee' => $default_membership_fee,
-                    'membership_duration' => $membership_duration,
-                    'late_payment_penalty' => $late_payment_penalty
-                ];
-                
-                foreach ($settings as $key => $value) {
-                    $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-                    $stmt->execute([$key, $value, $value]);
+                // Migrate to centralized system_config store
+                if ($sysConfig) {
+                    try { $sysConfig->set('DEFAULT_MEMBERSHIP_FEE', (float)$default_membership_fee, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set DEFAULT_MEMBERSHIP_FEE failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('MEMBERSHIP_DURATION', (int)$membership_duration, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MEMBERSHIP_DURATION failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('LATE_PAYMENT_PENALTY', (float)$late_payment_penalty, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set LATE_PAYMENT_PENALTY failed: ' . $e->getMessage()); }
+                } else {
+                    error_log('Admin settings: SystemConfigService unavailable, membership settings not persisted to system_config');
                 }
                 
                 $success = 'Membership settings updated successfully.';
@@ -82,16 +105,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $max_loan_duration = $_POST['max_loan_duration'];
                 $min_contribution_months = $_POST['min_contribution_months'];
                 
-                $settings = [
-                    'max_loan_amount' => $max_loan_amount,
-                    'default_interest_rate' => $default_interest_rate,
-                    'max_loan_duration' => $max_loan_duration,
-                    'min_contribution_months' => $min_contribution_months
-                ];
+                // Persist only to centralized system_config
                 
-                foreach ($settings as $key => $value) {
-                    $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-                    $stmt->execute([$key, $value, $value]);
+                // Also write to centralized system_config for consistency
+                if ($sysConfig) {
+                    try { $sysConfig->set('MAX_LOAN_AMOUNT', (float)$max_loan_amount, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MAX_LOAN_AMOUNT failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('DEFAULT_INTEREST_RATE', (float)$default_interest_rate, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set DEFAULT_INTEREST_RATE failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('MAX_LOAN_DURATION', (int)$max_loan_duration, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MAX_LOAN_DURATION failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('MIN_CONTRIBUTION_MONTHS', (int)$min_contribution_months, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MIN_CONTRIBUTION_MONTHS failed: ' . $e->getMessage()); }
                 }
                 
                 $success = 'Loan settings updated successfully.';
@@ -121,14 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get current settings
-function getSetting($key, $default = '') {
-    global $db;
-    $stmt = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
-    $stmt->execute([$key]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $result ? $result['setting_value'] : $default;
-}
+// Legacy settings helper removed as part of migration to SystemConfigService
 
 // Get backup files
 $backup_dir = '../../backups/';
@@ -150,6 +164,30 @@ if (is_dir($backup_dir)) {
     });
 }
 
+// Build system settings from SystemConfigService, grouped by category
+$system_settings = [];
+if (isset($sysConfig) && $sysConfig) {
+    try {
+        $allConfigs = $sysConfig->getAll();
+        foreach ($allConfigs as $configKey => $configValue) {
+            $meta = $sysConfig->getMetadata($configKey);
+            $category = $meta['category'] ?? 'general';
+            $type = $meta['type'] ?? 'string';
+            $description = $meta['description'] ?? '';
+            $uiType = ($type === 'integer' || $type === 'decimal') ? 'number' : ($type === 'boolean' ? 'boolean' : 'text');
+            $system_settings[$category][] = [
+                'setting_key' => $configKey,
+                'setting_value' => $configValue,
+                'setting_type' => $uiType,
+                'description' => $description,
+            ];
+        }
+        ksort($system_settings);
+    } catch (Exception $e) {
+        error_log('Admin settings: building system_settings failed: ' . $e->getMessage());
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -160,7 +198,7 @@ if (is_dir($backup_dir)) {
     <title><?php echo $page_title; ?> - CSIMS</title>
     
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
 </head>
 <body class="bg-gray-50">
     <?php include '../../views/includes/header.php'; ?>
@@ -177,7 +215,7 @@ if (is_dir($backup_dir)) {
             <?php if (isset($error)): ?>
                 <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-3 text-red-600"></i>
+                        <i class="fas fa-exclamation-circle mr-3 icon-error"></i>
                         <?php echo htmlspecialchars($error); ?>
                     </div>
                     <button type="button" class="text-red-600 hover:text-red-800" onclick="this.parentElement.remove()">
@@ -189,7 +227,7 @@ if (is_dir($backup_dir)) {
             <?php if (isset($success)): ?>
                 <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
                     <div class="flex items-center">
-                        <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                        <i class="fas fa-check-circle mr-3 icon-success"></i>
                         <?php echo htmlspecialchars($success); ?>
                     </div>
                     <button type="button" class="text-green-600 hover:text-green-800" onclick="this.parentElement.remove()">
@@ -202,14 +240,8 @@ if (is_dir($backup_dir)) {
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
                 <div class="border-b border-gray-200">
                     <nav class="flex space-x-8 px-6" aria-label="Tabs">
-                        <button class="tab-button active border-b-2 border-primary-500 py-4 px-1 text-sm font-medium text-primary-600" data-tab="general">
-                            <i class="fas fa-cog mr-2"></i> General
-                        </button>
-                        <button class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="membership">
-                            <i class="fas fa-id-card mr-2"></i> Membership
-                        </button>
-                        <button class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="loan">
-                            <i class="fas fa-hand-holding-usd mr-2"></i> Loans
+                        <button class="tab-button active border-b-2 border-primary-500 py-4 px-1 text-sm font-medium text-primary-600" data-tab="settings">
+                            <i class="fas fa-sliders-h mr-2"></i> System Settings
                         </button>
                         <button class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="backup">
                             <i class="fas fa-database mr-2"></i> Backup
@@ -218,107 +250,24 @@ if (is_dir($backup_dir)) {
                 </div>
             
                 <div class="tab-content">
-                    <!-- General Settings -->
-                    <div class="tab-panel active" id="general">
+                    <!-- System Settings (Dynamic via SystemConfigService) -->
+                    <div class="tab-panel active" id="settings">
                         <div class="p-6">
                             <div class="mb-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-2">General System Settings</h3>
-                                <p class="text-gray-600">Configure basic system information and contact details</p>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">System Settings</h3>
+                                <p class="text-gray-600">Manage all configurable parameters centrally</p>
                             </div>
-                            <form method="POST">
-                                <input type="hidden" name="action" value="update_general">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label for="system_name" class="block text-sm font-medium text-gray-700 mb-2">System Name</label>
-                                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="system_name" name="system_name" value="<?php echo htmlspecialchars(getSetting('system_name', 'CSIMS')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="system_email" class="block text-sm font-medium text-gray-700 mb-2">System Email</label>
-                                        <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="system_email" name="system_email" value="<?php echo htmlspecialchars(getSetting('system_email', 'admin@csims.com')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="system_phone" class="block text-sm font-medium text-gray-700 mb-2">System Phone</label>
-                                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="system_phone" name="system_phone" value="<?php echo htmlspecialchars(getSetting('system_phone', '')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="system_address" class="block text-sm font-medium text-gray-700 mb-2">System Address</label>
-                                        <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="system_address" name="system_address" rows="3"><?php echo htmlspecialchars(getSetting('system_address', '')); ?></textarea>
-                                    </div>
+                            <?php if (!empty($system_settings)): ?>
+                                <?php 
+                                    $settings_action = 'update_settings';
+                                    $settings_submit_label = 'Save Settings';
+                                    include_once __DIR__ . '/../includes/system_settings_form.php';
+                                ?>
+                            <?php else: ?>
+                                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+                                    SystemConfigService unavailable or no settings found.
                                 </div>
-                                <div class="mt-6">
-                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
-                                        <i class="fas fa-save mr-2"></i> Save General Settings
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                
-                    <!-- Membership Settings -->
-                    <div class="tab-panel hidden" id="membership">
-                        <div class="p-6">
-                            <div class="mb-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-2">Membership Settings</h3>
-                                <p class="text-gray-600">Configure membership fees, duration, and penalties</p>
-                            </div>
-                            <form method="POST">
-                                <input type="hidden" name="action" value="update_membership">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label for="default_membership_fee" class="block text-sm font-medium text-gray-700 mb-2">Default Membership Fee</label>
-                                        <input type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="default_membership_fee" name="default_membership_fee" value="<?php echo htmlspecialchars(getSetting('default_membership_fee', '50.00')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="membership_duration" class="block text-sm font-medium text-gray-700 mb-2">Membership Duration (months)</label>
-                                        <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="membership_duration" name="membership_duration" value="<?php echo htmlspecialchars(getSetting('membership_duration', '12')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="late_payment_penalty" class="block text-sm font-medium text-gray-700 mb-2">Late Payment Penalty (%)</label>
-                                        <input type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="late_payment_penalty" name="late_payment_penalty" value="<?php echo htmlspecialchars(getSetting('late_payment_penalty', '5.00')); ?>">
-                                    </div>
-                                </div>
-                                <div class="mt-6">
-                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
-                                        <i class="fas fa-save mr-2"></i> Save Membership Settings
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                
-                    <!-- Loan Settings -->
-                    <div class="tab-panel hidden" id="loan">
-                        <div class="p-6">
-                            <div class="mb-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-2">Loan Settings</h3>
-                                <p class="text-gray-600">Configure loan limits, interest rates, and requirements</p>
-                            </div>
-                            <form method="POST">
-                                <input type="hidden" name="action" value="update_loan">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label for="max_loan_amount" class="block text-sm font-medium text-gray-700 mb-2">Maximum Loan Amount</label>
-                                        <input type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="max_loan_amount" name="max_loan_amount" value="<?php echo htmlspecialchars(getSetting('max_loan_amount', '10000.00')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="default_interest_rate" class="block text-sm font-medium text-gray-700 mb-2">Default Interest Rate (%)</label>
-                                        <input type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="default_interest_rate" name="default_interest_rate" value="<?php echo htmlspecialchars(getSetting('default_interest_rate', '10.00')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="max_loan_duration" class="block text-sm font-medium text-gray-700 mb-2">Maximum Loan Duration (months)</label>
-                                        <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="max_loan_duration" name="max_loan_duration" value="<?php echo htmlspecialchars(getSetting('max_loan_duration', '24')); ?>">
-                                    </div>
-                                    <div>
-                                        <label for="min_contribution_months" class="block text-sm font-medium text-gray-700 mb-2">Minimum Contribution Months for Loan</label>
-                                        <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" id="min_contribution_months" name="min_contribution_months" value="<?php echo htmlspecialchars(getSetting('min_contribution_months', '6')); ?>">
-                                    </div>
-                                </div>
-                                <div class="mt-6">
-                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
-                                        <i class="fas fa-save mr-2"></i> Save Loan Settings
-                                    </button>
-                                </div>
-                            </form>
+                            <?php endif; ?>
                         </div>
                     </div>
                 

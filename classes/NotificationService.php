@@ -1,10 +1,8 @@
 <?php
-require_once 'DatabaseConnection.php';
-require_once 'LogService.php';
+require_once __DIR__ . '/../includes/config/database.php';
 
 class NotificationService {
     private $db;
-    private $logService;
     
     // Email configuration - these should be moved to a config file
     private $smtpHost = 'smtp.gmail.com';
@@ -20,8 +18,8 @@ class NotificationService {
     private $smsApiUrl = '';
     
     public function __construct() {
-        $this->db = DatabaseConnection::getInstance()->getConnection();
-        $this->logService = new LogService();
+        $this->db = (new PdoDatabase())->getConnection();
+
         
         // Load configuration from database or config file
         $this->loadNotificationConfig();
@@ -39,7 +37,7 @@ class NotificationService {
         
         $this->sendEmail($email, $subject, $body);
         
-        $this->logService->log("approval_request_sent", [
+        $this->log("approval_request_sent", [
             'workflow_id' => $workflow['id'],
             'recipient' => $email,
             'level' => $level
@@ -350,12 +348,12 @@ class NotificationService {
             $success = mail($to, $subject, $body, implode("\r\n", $headers));
             
             if ($success) {
-                $this->logService->log("email_sent", [
+                $this->log("email_sent", [
                     'to' => $to,
                     'subject' => $subject
                 ]);
             } else {
-                $this->logService->log("email_failed", [
+                $this->log("email_failed", [
                     'to' => $to,
                     'subject' => $subject,
                     'error' => 'mail() function returned false'
@@ -365,7 +363,7 @@ class NotificationService {
             return $success;
             
         } catch (Exception $e) {
-            $this->logService->log("email_failed", [
+            $this->log("email_failed", [
                 'to' => $to,
                 'subject' => $subject,
                 'error' => $e->getMessage()
@@ -388,7 +386,7 @@ class NotificationService {
         
         try {
             // Placeholder for SMS API call
-            $this->logService->log("sms_placeholder", [
+            $this->log("sms_placeholder", [
                 'phone' => $phone,
                 'message' => substr($message, 0, 100)
             ]);
@@ -396,13 +394,92 @@ class NotificationService {
             return true;
             
         } catch (Exception $e) {
-            $this->logService->log("sms_failed", [
+            $this->log("sms_failed", [
                 'phone' => $phone,
                 'error' => $e->getMessage()
             ]);
             
             return false;
         }
+    }
+
+    /**
+     * Send loan application confirmation to member
+     */
+    public function sendLoanApplicationConfirmation($memberId, $loanId, $amount) {
+        $member = $this->getMemberById($memberId);
+        if (!$member) { return; }
+
+        $loan = $this->getLoanById($loanId);
+        $subject = "Loan Application Submitted - #" . sprintf('%06d', $loanId);
+
+        $body = "\n            <html>\n            <body style='font-family: Arial, sans-serif; line-height: 1.6;'>\n                <h2>Loan Application Received</h2>\n                <p>Dear " . htmlspecialchars($member['first_name'] . ' ' . $member['last_name']) . ",</p>\n                <p>Your loan application has been received and is now in review.</p>\n                <div style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #007cba; margin: 20px 0;'>\n                    <p><strong>Application ID:</strong> #" . sprintf('%06d', $loanId) . "</p>\n                    <p><strong>Amount Requested:</strong> ₦" . number_format($amount, 2) . "</p>\n                    <p><strong>Loan Type:</strong> " . ($loan ? htmlspecialchars($loan['loan_type_id']) : 'N/A') . "</p>\n                    <p><strong>Status:</strong> pending</p>\n                </div>\n                <p>You will receive notifications as your application progresses through the approval process.</p>\n                <p>Thank you,<br>CSIMS</p>\n            </body>\n            </html>\n        ";
+
+        $this->sendEmail($member['email'], $subject, $body);
+
+        $this->log("loan_application_confirmation_sent", [
+            'loan_id' => $loanId,
+            'member_id' => $memberId,
+            'amount' => $amount,
+        ]);
+    }
+
+    /**
+     * Send loan approval/rejection notification to member
+     */
+    public function sendLoanApprovalNotification($memberId, $loanId, $amount, $status) {
+        $member = $this->getMemberById($memberId);
+        if (!$member) { return; }
+
+        $loan = $this->getLoanById($loanId);
+        $subject = "Loan Application " . ucfirst($status) . " - #" . sprintf('%06d', $loanId);
+
+        $body = "\n            <html>\n            <body style='font-family: Arial, sans-serif; line-height: 1.6;'>\n                <h2>Loan Application " . ucfirst($status) . "</h2>\n                <p>Dear " . htmlspecialchars($member['first_name'] . ' ' . $member['last_name']) . ",</p>\n                <div style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0;'>\n                    <p><strong>Application ID:</strong> #" . sprintf('%06d', $loanId) . "</p>\n                    <p><strong>Amount:</strong> ₦" . number_format($amount, 2) . "</p>\n                    <p><strong>Status:</strong> " . htmlspecialchars($status) . "</p>\n                </div>\n                <p>" . ($status === 'approved' ? 'Please visit our office for disbursement.' : 'Please contact support for more details.') . "</p>\n                <p>Thank you,<br>CSIMS</p>\n            </body>\n            </html>\n        ";
+
+        $this->sendEmail($member['email'], $subject, $body);
+
+        $this->log("loan_approval_notification_sent", [
+            'loan_id' => $loanId,
+            'member_id' => $memberId,
+            'amount' => $amount,
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Lightweight internal logger to avoid external LogService dependency
+     */
+    private function log(string $event, array $data = []): void {
+        try {
+            error_log('[CSIMS] ' . json_encode(['event' => $event, 'data' => $data, 'ts' => date('c')]));
+        } catch (\Throwable $e) {
+            // no-op
+        }
+    }
+    
+    // Schema helper methods for dynamic primary/foreign keys
+    private function hasColumn(string $table, string $column): bool {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?"
+            );
+            $stmt->execute([$table, $column]);
+            return (int)$stmt->fetchColumn() > 0;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+    
+    private function getMembersPrimaryKey(): string {
+        if ($this->hasColumn('members', 'id')) return 'id';
+        if ($this->hasColumn('members', 'member_id')) return 'member_id';
+        return 'id';
+    }
+    
+    private function getLoansPrimaryKey(): string {
+        if ($this->hasColumn('loans', 'id')) return 'id';
+        if ($this->hasColumn('loans', 'loan_id')) return 'loan_id';
+        return 'id';
     }
     
     /**
@@ -425,12 +502,15 @@ class NotificationService {
      * Get loan details for email
      */
     private function getLoanDetailsForEmail($loanId) {
+        $loanPk = $this->getLoansPrimaryKey();
+        $memberPk = $this->getMembersPrimaryKey();
+        $memberFk = $this->hasColumn('loans', 'member_id') ? 'member_id' : 'memberId';
         $sql = "SELECT l.*, m.first_name, m.last_name, m.member_number, 
                        lt.type_name as loan_type
                 FROM loans l
-                JOIN members m ON l.member_id = m.id
+                JOIN members m ON l.$memberFk = m.$memberPk
                 LEFT JOIN loan_types lt ON l.loan_type_id = lt.id
-                WHERE l.id = ?";
+                WHERE l.$loanPk = ?";
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$loanId]);
@@ -452,7 +532,8 @@ class NotificationService {
      * Get member details for email
      */
     private function getMemberDetailsForEmail($memberId) {
-        $sql = "SELECT * FROM members WHERE id = ?";
+        $memberPk = $this->getMembersPrimaryKey();
+        $sql = "SELECT * FROM members WHERE $memberPk = ?";
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$memberId]);
@@ -493,7 +574,8 @@ class NotificationService {
      * Get member by ID
      */
     private function getMemberById($memberId) {
-        $sql = "SELECT * FROM members WHERE id = ?";
+        $memberPk = $this->getMembersPrimaryKey();
+        $sql = "SELECT * FROM members WHERE $memberPk = ?";
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$memberId]);
@@ -505,10 +587,11 @@ class NotificationService {
      * Get loan by ID
      */
     private function getLoanById($loanId) {
+        $loanPk = $this->getLoansPrimaryKey();
         $sql = "SELECT l.*, lt.type_name 
                 FROM loans l
                 LEFT JOIN loan_types lt ON l.loan_type_id = lt.id
-                WHERE l.id = ?";
+                WHERE l.$loanPk = ?";
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$loanId]);
@@ -562,7 +645,7 @@ class NotificationService {
             
         } catch (Exception $e) {
             // Silently continue with defaults if settings table doesn't exist
-            $this->logService->log("notification_config_load_failed", [
+            $this->log("notification_config_load_failed", [
                 'error' => $e->getMessage()
             ]);
         }

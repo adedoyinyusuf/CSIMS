@@ -44,7 +44,7 @@ $page_title = 'Financial Analytics Dashboard';
     <title><?php echo $page_title; ?> - NPC CTLStaff Loan Society</title>
     
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -58,7 +58,7 @@ $page_title = 'Financial Analytics Dashboard';
     <div class="flex">
         <?php require_once '../includes/sidebar.php'; ?>
         
-        <main class="flex-1 md:ml-64 mt-16 p-6">
+        <main class="flex-1 main-content mt-16 p-6">
             <div class="mb-6">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div class="mb-4 sm:mb-0">
@@ -165,18 +165,18 @@ $page_title = 'Financial Analytics Dashboard';
                         <div class="space-y-4">
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-600">Net Cash Flow:</span>
-                                <span class="font-semibold <?php echo $dashboard_data['cash_flow']['net_cash_flow'] >= 0 ? 'text-green-600' : 'text-red-600'; ?>">
-                                    ₦<?php echo number_format($dashboard_data['cash_flow']['net_cash_flow'], 0); ?>
+                                <span class="font-semibold <?php echo (($dashboard_data['cash_flow']['net_cash_flow'] ?? 0) >= 0) ? 'text-green-600' : 'text-red-600'; ?>">
+                                    ₦<?php echo number_format((float)($dashboard_data['cash_flow']['net_cash_flow'] ?? 0), 0); ?>
                                 </span>
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-600">Cash Flow Ratio:</span>
-                                <span class="font-semibold text-gray-900"><?php echo number_format($dashboard_data['cash_flow']['cash_flow_ratio'], 2); ?></span>
+                                <span class="font-semibold text-gray-900"><?php echo number_format((float)($dashboard_data['cash_flow']['cash_flow_ratio'] ?? 0), 2); ?></span>
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-600">Liquidity Position:</span>
-                                <span class="font-semibold <?php echo $dashboard_data['overview']['liquidity_ratio'] >= 0 ? 'text-green-600' : 'text-yellow-600'; ?>">
-                                    ₦<?php echo number_format($dashboard_data['overview']['liquidity_ratio'], 0); ?>
+                                <span class="font-semibold <?php echo (($dashboard_data['overview']['liquidity_ratio'] ?? 0) >= 0) ? 'text-green-600' : 'text-yellow-600'; ?>">
+                                    ₦<?php echo number_format((float)($dashboard_data['overview']['liquidity_ratio'] ?? 0), 0); ?>
                                 </span>
                             </div>
                         </div>

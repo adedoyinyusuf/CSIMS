@@ -47,14 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reply'])) {
     if (!empty($reply_message)) {
         $reply_subject = 'Re: ' . $message['subject'];
         
-        $result = $messageController->createMessage(
-            $current_user['admin_id'],
-            'Admin',
-            $message['sender_id'],
-            $message['sender_type'],
-            $reply_subject,
-            $reply_message
-        );
+        $data = [
+            'sender_type' => 'Admin',
+            'sender_id' => $current_user['admin_id'],
+            'recipient_type' => $message['sender_type'],
+            'recipient_id' => $message['sender_id'],
+            'subject' => $reply_subject,
+            'message' => $reply_message
+        ];
+        
+        $result = $messageController->createMessage($data);
         
         if ($result) {
             $_SESSION['success_message'] = 'Reply sent successfully!';
@@ -76,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reply'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Message - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>

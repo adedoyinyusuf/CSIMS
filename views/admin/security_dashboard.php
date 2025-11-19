@@ -71,10 +71,10 @@ $page_title = 'Security Dashboard';
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link href="../../assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
     
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -148,22 +148,22 @@ $page_title = 'Security Dashboard';
             text-align: center;
         }
         
-        .score-excellent { color: #28a745; }
-        .score-good { color: #17a2b8; }
-        .score-fair { color: #ffc107; }
-        .score-poor { color: #dc3545; }
+        .score-excellent { color: var(--success); }
+        .score-good { color: var(--info); }
+        .score-fair { color: var(--warning); }
+        .score-poor { color: var(--error); }
         
         .event-item {
-            border-left: 4px solid #007bff;
+            border-left: 4px solid var(--true-blue);
             padding: 0.75rem;
             margin-bottom: 0.5rem;
-            background: rgba(0, 123, 255, 0.05);
+            background: var(--primary-50);
             border-radius: 0 8px 8px 0;
         }
         
-        .event-item.danger { border-left-color: #dc3545; background: rgba(220, 53, 69, 0.05); }
-        .event-item.warning { border-left-color: #ffc107; background: rgba(255, 193, 7, 0.05); }
-        .event-item.success { border-left-color: #28a745; background: rgba(40, 167, 69, 0.05); }
+        .event-item.danger { border-left-color: var(--error); background: var(--error-bg); }
+        .event-item.warning { border-left-color: var(--warning); background: var(--warning-bg); }
+        .event-item.success { border-left-color: var(--success); background: var(--success-bg); }
     </style>
 </head>
 <body>

@@ -113,7 +113,7 @@ class AuthenticationController
     {
         try {
             // Get session ID
-            $sessionId = session_id();
+            $sessionId = $_SESSION['session_id'] ?? session_id();
             
             if (empty($sessionId)) {
                 return [
@@ -146,7 +146,7 @@ class AuthenticationController
     public function getCurrentUser(): array
     {
         try {
-            $sessionId = session_id();
+            $sessionId = $_SESSION['session_id'] ?? null;
             
             if (empty($sessionId)) {
                 http_response_code(401);

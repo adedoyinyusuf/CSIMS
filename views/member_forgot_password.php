@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once '../config/config.php';
 $error = isset($_SESSION['forgot_error']) ? $_SESSION['forgot_error'] : '';
 $success = isset($_SESSION['forgot_success']) ? $_SESSION['forgot_success'] : '';
 unset($_SESSION['forgot_error'], $_SESSION['forgot_success']);
@@ -11,10 +11,11 @@ unset($_SESSION['forgot_error'], $_SESSION['forgot_success']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password - Member Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/csims-colors.css">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
@@ -25,18 +26,15 @@ unset($_SESSION['forgot_error'], $_SESSION['forgot_success']);
             max-width: 400px;
             width: 100%;
             padding: 2rem;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            background: var(--surface-primary);
+            border-radius: 16px;
+            box-shadow: 0 6px 24px var(--shadow-sm);
+            border: 1px solid var(--border-light);
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
+        .btn-outline {
             width: 100%;
         }
-        .btn-primary:hover {
+        .btn-outline:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
@@ -82,7 +80,7 @@ unset($_SESSION['forgot_error'], $_SESSION['forgot_success']);
                 <label for="email" class="form-label">Enter your registered email address</label>
                 <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
             </div>
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-outline">
                 <i class="fas fa-paper-plane"></i> Send Reset Link
             </button>
         </form>

@@ -287,6 +287,13 @@ class NotificationService implements ServiceInterface
                 'send_email' => true,
                 'send_sms' => false
             ],
+            'account_closed' => [
+                'subject' => 'Savings Account Closed - {account_name}',
+                'message' => 'Hello {member_name}, your savings account {account_number} has been closed as requested.',
+                'priority' => 'normal',
+                'send_email' => true,
+                'send_sms' => false
+            ],
             'deposit_successful' => [
                 'subject' => 'Deposit Successful - {account_name}',
                 'message' => 'Hello {member_name}, your deposit of ₦{amount} to account {account_number} was successful. New balance: ₦{new_balance}.',
@@ -297,6 +304,20 @@ class NotificationService implements ServiceInterface
             'withdrawal_successful' => [
                 'subject' => 'Withdrawal Successful - {account_name}',
                 'message' => 'Hello {member_name}, your withdrawal of ₦{amount} from account {account_number} was successful. New balance: ₦{new_balance}.',
+                'priority' => 'normal',
+                'send_email' => true,
+                'send_sms' => true
+            ],
+            'transfer_out' => [
+                'subject' => 'Transfer Out - {account_name}',
+                'message' => 'Hello {member_name}, a transfer of ₦{amount} was sent from account {account_number} to {to_account_number}. New balance: ₦{new_balance}.',
+                'priority' => 'normal',
+                'send_email' => true,
+                'send_sms' => true
+            ],
+            'transfer_in' => [
+                'subject' => 'Transfer In - {account_name}',
+                'message' => 'Hello {member_name}, a transfer of ₦{amount} was received into account {account_number} from {from_account_number}. New balance: ₦{new_balance}.',
                 'priority' => 'normal',
                 'send_email' => true,
                 'send_sms' => true

@@ -61,24 +61,7 @@ $pageTitle = "Approval Dashboard";
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><?php echo $pageTitle; ?> - CSIMS</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
-                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
-                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind CSS is provided by the shared header include -->
 </head>
 
 <body class="bg-gray-50 font-sans">
@@ -233,7 +216,7 @@ $pageTitle = "Approval Dashboard";
                                                             echo match($approval['workflow_type']) {
                                                                 'loan_application' => 'Loan Application',
                                                                 'loan_disbursement' => 'Loan Disbursement',
-                                                                'contribution_withdrawal' => 'Contribution Withdrawal',
+                                                                'contribution_withdrawal' => 'Savings Withdrawal',
                                                                 'penalty_waiver' => 'Penalty Waiver',
                                                                 'dividend_declaration' => 'Dividend Declaration',
                                                                 default => ucfirst(str_replace('_', ' ', $approval['workflow_type']))

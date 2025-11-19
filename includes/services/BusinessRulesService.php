@@ -126,15 +126,8 @@ class BusinessRulesService
         $errors = [];
         $minMandatory = $this->config->getMinMandatorySavings();
         
-        // Get last 6 months of mandatory contributions
-        $stmt = $this->pdo->prepare("
-            SELECT COUNT(*) as compliant_months
-            FROM contributions 
-            WHERE member_id = ? 
-            AND contribution_type = 'mandatory'
-            AND amount >= ?
-            AND DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-        ");
+        // Get last 6 months of mandatory savings deposits meeting minimum
+        $stmt = $this->pdo->prepare("\n            SELECT COUNT(DISTINCT DATE_FORMAT(st.transaction_date, '%Y-%m')) as compliant_months\n            FROM savings_transactions st\n            JOIN savings_accounts sa ON st.account_id = sa.id\n            WHERE st.member_id = ? \n              AND sa.account_type LIKE 'Mandatory%'\n              AND st.transaction_type = 'Deposit'\n              AND st.transaction_status = 'Completed'\n              AND st.amount >= ?\n              AND DATE(st.transaction_date) >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)\n        ");
         $stmt->execute([$memberId, $minMandatory]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -346,6 +339,109 @@ class BusinessRulesService
     // ============ HELPER METHODS ============
 
     /**
+     * Detect savings schema columns for PDO environments
+     */
+    private function getSavingsSchemaPDO(): array
+    {
+        $schema = [
+            'transactions' => [
+                'status' => 'transaction_status',
+                'type' => 'transaction_type',
+                'date' => 'transaction_date',
+                'account_id' => 'account_id',
+                'member_id' => 'member_id',
+            ],
+            'accounts' => [
+                'account_id' => 'id',
+                'member_id' => 'member_id'
+            ]
+        ];
+
+        try {
+            // Current database name
+            $dbStmt = $this->pdo->query("SELECT DATABASE()");
+            $dbName = $dbStmt ? $dbStmt->fetchColumn() : null;
+            if (!$dbName) {
+                return $schema;
+            }
+
+            $checkCol = function(string $table, string $col) use ($dbName) {
+                $stmt = $this->pdo->prepare("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+                $stmt->execute([$dbName, $table, $col]);
+                return (bool)$stmt->fetchColumn();
+            };
+
+            // Transactions table
+            $schema['transactions']['status'] = $checkCol('savings_transactions','transaction_status') ? 'transaction_status'
+                : ($checkCol('savings_transactions','status') ? 'status' : 'transaction_status');
+            $schema['transactions']['type'] = $checkCol('savings_transactions','transaction_type') ? 'transaction_type'
+                : ($checkCol('savings_transactions','type') ? 'type' : 'transaction_type');
+            $schema['transactions']['date'] = $checkCol('savings_transactions','transaction_date') ? 'transaction_date'
+                : ($checkCol('savings_transactions','date') ? 'date'
+                    : ($checkCol('savings_transactions','created_at') ? 'created_at' : 'transaction_date'));
+            $schema['transactions']['account_id'] = $checkCol('savings_transactions','account_id') ? 'account_id'
+                : ($checkCol('savings_transactions','savings_account_id') ? 'savings_account_id' : 'account_id');
+            $schema['transactions']['member_id'] = $checkCol('savings_transactions','member_id') ? 'member_id' : 'member_id';
+
+            // Accounts table
+            $schema['accounts']['account_id'] = $checkCol('savings_accounts','account_id') ? 'account_id'
+                : ($checkCol('savings_accounts','id') ? 'id' : 'account_id');
+            $schema['accounts']['member_id'] = $checkCol('savings_accounts','member_id') ? 'member_id' : 'member_id';
+        } catch (\Throwable $t) {
+            // Leave defaults
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Detect loan-related schema columns for PDO environments
+     */
+    private function getLoanSchemaPDO(): array
+    {
+        $schema = [
+            'loans' => [
+                'pk' => 'id',
+                'status' => 'status'
+            ],
+            'schedule' => [
+                'status' => 'status',
+                'payment_date' => 'payment_date',
+                'due_date' => 'due_date'
+            ]
+        ];
+
+        try {
+            $dbStmt = $this->pdo->query("SELECT DATABASE()");
+            $dbName = $dbStmt ? $dbStmt->fetchColumn() : null;
+            if (!$dbName) { return $schema; }
+
+            $hasCol = function(string $table, string $col) use ($dbName) {
+                $stmt = $this->pdo->prepare("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+                $stmt->execute([$dbName, $table, $col]);
+                return (bool)$stmt->fetchColumn();
+            };
+
+            // Loans primary key
+            $schema['loans']['pk'] = $hasCol('loans','loan_id') ? 'loan_id'
+                : ($hasCol('loans','id') ? 'id' : 'id');
+
+            // Loans status column
+            $schema['loans']['status'] = $hasCol('loans','status') ? 'status' : null;
+
+            // Schedule table columns
+            $schema['schedule']['status'] = $hasCol('loan_payment_schedule','status') ? 'status'
+                : ($hasCol('loan_payment_schedule','payment_status') ? 'payment_status' : null);
+            $schema['schedule']['payment_date'] = $hasCol('loan_payment_schedule','payment_date') ? 'payment_date'
+                : ($hasCol('loan_payment_schedule','date_paid') ? 'date_paid'
+                : ($hasCol('loan_payment_schedule','paid_date') ? 'paid_date' : null));
+            $schema['schedule']['due_date'] = $hasCol('loan_payment_schedule','due_date') ? 'due_date' : 'due_date';
+        } catch (\Throwable $t) { /* keep defaults */ }
+
+        return $schema;
+    }
+
+    /**
      * Get member details
      */
     private function getMemberDetails(int $memberId): ?array 
@@ -365,12 +461,17 @@ class BusinessRulesService
      */
     private function getMemberTotalSavings(int $memberId): float 
     {
-        $stmt = $this->pdo->prepare("
-            SELECT COALESCE(SUM(amount), 0) as total_savings
-            FROM contributions 
-            WHERE member_id = ? 
-            AND status = 'completed'
-        ");
+        $schema = $this->getSavingsSchemaPDO();
+        $typeCol = $schema['transactions']['type'];
+        $statusCol = $schema['transactions']['status'];
+        $memberIdCol = $schema['transactions']['member_id'];
+
+        $sql = "SELECT COALESCE(SUM(st.amount), 0) as total_savings
+                FROM savings_transactions st
+                WHERE st.$memberIdCol = ?
+                  AND UPPER(st.$typeCol) = 'DEPOSIT'
+                  AND UPPER(st.$statusCol) = 'COMPLETED'";
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$memberId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return (float)$result['total_savings'];
@@ -381,13 +482,21 @@ class BusinessRulesService
      */
     private function getMemberVoluntarySavings(int $memberId): float 
     {
-        $stmt = $this->pdo->prepare("
-            SELECT COALESCE(SUM(amount), 0) as voluntary_savings
-            FROM contributions 
-            WHERE member_id = ? 
-            AND contribution_type = 'voluntary'
-            AND status = 'completed'
-        ");
+        $schema = $this->getSavingsSchemaPDO();
+        $typeCol = $schema['transactions']['type'];
+        $statusCol = $schema['transactions']['status'];
+        $memberIdCol = $schema['transactions']['member_id'];
+        $txAccountIdCol = $schema['transactions']['account_id'];
+        $accIdCol = $schema['accounts']['account_id'];
+
+        $sql = "SELECT COALESCE(SUM(st.amount), 0) as voluntary_savings
+                FROM savings_transactions st
+                JOIN savings_accounts sa ON st.$txAccountIdCol = sa.$accIdCol
+                WHERE st.$memberIdCol = ?
+                  AND sa.account_type LIKE 'Voluntary%'
+                  AND UPPER(st.$typeCol) = 'DEPOSIT'
+                  AND UPPER(st.$statusCol) = 'COMPLETED'";
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$memberId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return (float)$result['voluntary_savings'];
@@ -398,16 +507,107 @@ class BusinessRulesService
      */
     private function getMemberMandatorySavings(int $memberId): float 
     {
-        $stmt = $this->pdo->prepare("
-            SELECT COALESCE(SUM(amount), 0) as mandatory_savings
-            FROM contributions 
-            WHERE member_id = ? 
-            AND contribution_type = 'mandatory'
-            AND status = 'completed'
-        ");
+        $schema = $this->getSavingsSchemaPDO();
+        $typeCol = $schema['transactions']['type'];
+        $statusCol = $schema['transactions']['status'];
+        $memberIdCol = $schema['transactions']['member_id'];
+        $txAccountIdCol = $schema['transactions']['account_id'];
+        $accIdCol = $schema['accounts']['account_id'];
+
+        $sql = "SELECT COALESCE(SUM(st.amount), 0) as mandatory_savings
+                FROM savings_transactions st
+                JOIN savings_accounts sa ON st.$txAccountIdCol = sa.$accIdCol
+                WHERE st.$memberIdCol = ?
+                  AND sa.account_type LIKE 'Mandatory%'
+                  AND UPPER(st.$typeCol) = 'DEPOSIT'
+                  AND UPPER(st.$statusCol) = 'COMPLETED'";
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$memberId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return (float)$result['mandatory_savings'];
+    }
+
+    /**
+     * Get savings consistency score
+     */
+    private function getSavingsConsistencyScore(int $memberId): int 
+    {
+        $schema = $this->getSavingsSchemaPDO();
+        $typeCol = $schema['transactions']['type'];
+        $statusCol = $schema['transactions']['status'];
+        $dateCol = $schema['transactions']['date'];
+        $memberIdCol = $schema['transactions']['member_id'];
+        $txAccountIdCol = $schema['transactions']['account_id'];
+        $accIdCol = $schema['accounts']['account_id'];
+
+        $sql = "SELECT COUNT(DISTINCT DATE_FORMAT(st.$dateCol, '%Y-%m')) as consistent_months
+                FROM savings_transactions st
+                JOIN savings_accounts sa ON st.$txAccountIdCol = sa.$accIdCol
+                WHERE st.$memberIdCol = ?
+                  AND sa.account_type LIKE 'Mandatory%'
+                  AND UPPER(st.$typeCol) = 'DEPOSIT'
+                  AND UPPER(st.$statusCol) = 'COMPLETED'
+                  AND st.amount >= ?
+                  AND st.$dateCol >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        $stmt = $this->pdo->prepare($sql);
+        $minMandatory = $this->config->getMinMandatorySavings();
+        $stmt->execute([$memberId, $minMandatory]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return min(100, ($result['consistent_months'] ?? 0) * 8);
+    }
+
+    /**
+     * Aggregate savings and loan info for dashboards and applications
+     */
+    public function getMemberSavingsData(int $memberId): array 
+    {
+        $totalSavings = $this->getMemberTotalSavings($memberId);
+        $mandatorySavings = $this->getMemberMandatorySavings($memberId);
+        $voluntarySavings = $this->getMemberVoluntarySavings($memberId);
+
+        // Count active loans (active, approved, or disbursed)
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) AS active_loans FROM loans WHERE member_id = ? AND status IN ('active','approved','disbursed')");
+        $stmt->execute([$memberId]);
+        $activeLoansRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        $activeLoans = isset($activeLoansRow['active_loans']) ? (int)$activeLoansRow['active_loans'] : 0;
+
+        // Contribution months in the last 12 months (based on completed savings deposits)
+        $schema = $this->getSavingsSchemaPDO();
+        $typeCol = $schema['transactions']['type'];
+        $statusCol = $schema['transactions']['status'];
+        $dateCol = $schema['transactions']['date'];
+        $memberIdCol = $schema['transactions']['member_id'];
+
+        $monthsSql = "SELECT COUNT(DISTINCT DATE_FORMAT(st.$dateCol, '%Y-%m')) AS months
+                      FROM savings_transactions st
+                      WHERE st.$memberIdCol = ?
+                        AND UPPER(st.$typeCol) = 'DEPOSIT'
+                        AND UPPER(st.$statusCol) = 'COMPLETED'
+                        AND st.$dateCol >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        $stmt = $this->pdo->prepare($monthsSql);
+        $stmt->execute([$memberId]);
+        $monthsRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        $contributionMonths = isset($monthsRow['months']) ? (int)$monthsRow['months'] : 0;
+
+        // Last contribution date (based on latest completed savings deposit)
+        $lastDateSql = "SELECT MAX(st.$dateCol) AS last_date
+                        FROM savings_transactions st
+                        WHERE st.$memberIdCol = ?
+                          AND UPPER(st.$typeCol) = 'DEPOSIT'
+                          AND UPPER(st.$statusCol) = 'COMPLETED'";
+        $stmt = $this->pdo->prepare($lastDateSql);
+        $stmt->execute([$memberId]);
+        $lastDateRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        $lastContributionDate = $lastDateRow && isset($lastDateRow['last_date']) ? $lastDateRow['last_date'] : null;
+
+        return [
+            'total_savings' => (float)$totalSavings,
+            'mandatory_savings' => (float)$mandatorySavings,
+            'voluntary_savings' => (float)$voluntarySavings,
+            'active_loans' => $activeLoans,
+            'contribution_months' => $contributionMonths,
+            'last_contribution_date' => $lastContributionDate,
+        ];
     }
 
     /**
@@ -415,42 +615,45 @@ class BusinessRulesService
      */
     public function hasOverdueLoans(int $memberId): bool 
     {
-        $stmt = $this->pdo->prepare("
-            SELECT COUNT(*) as overdue_count
-            FROM loan_payment_schedule lps
-            INNER JOIN loans l ON lps.loan_id = l.id
-            WHERE l.member_id = ?
-            AND lps.due_date < CURDATE()
-            AND lps.status = 'pending'
-            AND l.status = 'active'
-        ");
+        $loanSchema = $this->getLoanSchemaPDO();
+        $loanPk = $loanSchema['loans']['pk'] ?? 'id';
+        $loanStatusCol = $loanSchema['loans']['status'] ?? null;
+        $scheduleStatusCol = $loanSchema['schedule']['status'] ?? null;
+        $dueCol = $loanSchema['schedule']['due_date'] ?? 'due_date';
+
+        $sql = "SELECT COUNT(*) as overdue_count\n                FROM loan_payment_schedule lps\n                INNER JOIN loans l ON lps.loan_id = l.$loanPk\n                WHERE l.member_id = ?\n                  AND lps.$dueCol < CURDATE()";
+        if ($scheduleStatusCol) { $sql .= "\n                  AND lps.$scheduleStatusCol = 'pending'"; }
+        if ($loanStatusCol) { $sql .= "\n                  AND l.$loanStatusCol = 'active'"; }
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$memberId]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result['overdue_count'] > 0;
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return isset($row['overdue_count']) ? ($row['overdue_count'] > 0) : false;
     }
 
     /**
-     * Get member's credit score based on payment history
+     * Get member's credit score based on payment history and savings consistency
      */
     public function getMemberCreditScore(int $memberId): array 
     {
-        // Calculate based on payment history, savings consistency, etc.
-        $stmt = $this->pdo->prepare("
-            SELECT 
-                COUNT(*) as total_payments,
-                SUM(CASE WHEN payment_date <= due_date THEN 1 ELSE 0 END) as on_time_payments,
-                AVG(DATEDIFF(payment_date, due_date)) as avg_delay_days
-            FROM loan_payment_schedule lps
-            INNER JOIN loans l ON lps.loan_id = l.id
-            WHERE l.member_id = ?
-            AND lps.status = 'paid'
-        ");
+        $loanSchema = $this->getLoanSchemaPDO();
+        $loanPk = $loanSchema['loans']['pk'] ?? 'id';
+        $scheduleStatusCol = $loanSchema['schedule']['status'] ?? null;
+        $paymentDateCol = $loanSchema['schedule']['payment_date'] ?? 'payment_date';
+        $dueDateCol = $loanSchema['schedule']['due_date'] ?? 'due_date';
+
+        $select = "SELECT \n                COUNT(*) as total_payments,\n                SUM(CASE WHEN $paymentDateCol <= $dueDateCol THEN 1 ELSE 0 END) as on_time_payments,\n                AVG(DATEDIFF($paymentDateCol, $dueDateCol)) as avg_delay_days\n            FROM loan_payment_schedule lps\n            INNER JOIN loans l ON lps.loan_id = l.$loanPk\n            WHERE l.member_id = ?";
+        if ($scheduleStatusCol) { $select .= "\n              AND lps.$scheduleStatusCol = 'paid'"; }
+        $stmt = $this->pdo->prepare($select);
         $stmt->execute([$memberId]);
-        $paymentHistory = $stmt->fetch(PDO::FETCH_ASSOC);
+        $paymentHistory = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+            'total_payments' => 0,
+            'on_time_payments' => 0,
+            'avg_delay_days' => null
+        ];
         
         $score = 500; // Base score
         
-        if ($paymentHistory['total_payments'] > 0) {
+        if (($paymentHistory['total_payments'] ?? 0) > 0) {
             $onTimePercent = ($paymentHistory['on_time_payments'] / $paymentHistory['total_payments']) * 100;
             $score += ($onTimePercent - 50) * 4; // Add/subtract based on on-time percentage
         }
@@ -465,31 +668,11 @@ class BusinessRulesService
         return [
             'score' => (int)$score,
             'rating' => $this->getCreditRating($score),
-            'total_payments' => $paymentHistory['total_payments'],
-            'on_time_percentage' => $paymentHistory['total_payments'] > 0 
-                ? round(($paymentHistory['on_time_payments'] / $paymentHistory['total_payments']) * 100, 1) 
+            'total_payments' => (int)($paymentHistory['total_payments'] ?? 0),
+            'on_time_percentage' => (($paymentHistory['total_payments'] ?? 0) > 0)
+                ? round(($paymentHistory['on_time_payments'] / $paymentHistory['total_payments']) * 100, 1)
                 : 0
         ];
-    }
-
-    /**
-     * Get savings consistency score
-     */
-    private function getSavingsConsistencyScore(int $memberId): int 
-    {
-        $stmt = $this->pdo->prepare("
-            SELECT COUNT(DISTINCT DATE_FORMAT(created_at, '%Y-%m')) as consistent_months
-            FROM contributions 
-            WHERE member_id = ? 
-            AND contribution_type = 'mandatory'
-            AND amount >= ?
-            AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-        ");
-        $minMandatory = $this->config->getMinMandatorySavings();
-        $stmt->execute([$memberId, $minMandatory]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        return min(100, $result['consistent_months'] * 8); // Up to 100 points for consistency
     }
 
     /**

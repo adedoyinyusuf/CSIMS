@@ -10,6 +10,7 @@ require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/loan_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../includes/config/SystemConfigService.php';
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -21,6 +22,33 @@ if (!$auth->isLoggedIn()) {
 // Initialize controllers
 $loanController = new LoanController();
 $memberController = new MemberController();
+
+// Initialize SystemConfigService for defaults
+try {
+    $sysConfig = SystemConfigService::getInstance($pdo ?? null);
+} catch (Exception $e) {
+    $sysConfig = null;
+    error_log('add_loan: SystemConfigService init failed: ' . $e->getMessage());
+}
+
+// Compute centralized defaults with safe fallbacks
+$defaultTermMonths = '12';
+try {
+    if ($sysConfig) {
+        $defaultTermMonths = (string)$sysConfig->get('MAX_LOAN_DURATION', (int)$defaultTermMonths);
+    }
+} catch (Exception $e) {
+    // keep fallback
+}
+
+$defaultInterestRate = '10';
+try {
+    if ($sysConfig) {
+        $defaultInterestRate = (string)$sysConfig->get('DEFAULT_INTEREST_RATE', (float)$defaultInterestRate);
+    }
+} catch (Exception $e) {
+    // keep fallback
+}
 
 // Get all active members for dropdown
 $members = $memberController->getAllActiveMembers();
@@ -98,7 +126,7 @@ $pageTitle = "Add Loan Application";
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     
     <script>
         tailwind.config = {
@@ -223,14 +251,14 @@ $pageTitle = "Add Loan Application";
                                     <div>
                                         <label for="term_months" class="block text-sm font-medium text-gray-700 mb-2">Loan Term (Months) <span class="text-red-500">*</span></label>
                                         <input type="number" id="term_months" name="term_months" min="1" max="120" 
-                                               value="<?php echo isset($_POST['term_months']) ? $_POST['term_months'] : '12'; ?>" required
+                                               value="<?php echo isset($_POST['term_months']) ? $_POST['term_months'] : $defaultTermMonths; ?>" required
                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
                                     </div>
                                     <div>
                                         <label for="interest_rate" class="block text-sm font-medium text-gray-700 mb-2">Interest Rate (% per annum) <span class="text-red-500">*</span></label>
                                         <div class="relative">
                                             <input type="number" id="interest_rate" name="interest_rate" step="0.01" min="0" 
-                                                   value="<?php echo isset($_POST['interest_rate']) ? $_POST['interest_rate'] : '10'; ?>" required
+                                                   value="<?php echo isset($_POST['interest_rate']) ? $_POST['interest_rate'] : $defaultInterestRate; ?>" required
                                                    class="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
                                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                                 <span class="text-gray-500 font-medium">%</span>

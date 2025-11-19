@@ -2,6 +2,8 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -93,9 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
 </head>
 <body>
     <!-- Include Header/Navbar -->
@@ -238,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="card-body">
                                 <div class="text-center mb-3">
                                     <?php if (!empty($member['photo'])): ?>
-                                        <img src="../../assets/images/members/<?php echo $member['photo']; ?>" alt="Profile" class="img-thumbnail" style="max-width: 120px;">
+                                        <img src="<?php echo BASE_URL; ?>/assets/images/members/<?php echo $member['photo']; ?>" alt="Profile" class="img-thumbnail" style="max-width: 120px;">
                                     <?php else: ?>
                                         <div class="profile-img bg-secondary d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; margin: 0 auto;">
                                             <i class="fas fa-user fa-4x text-white"></i>
@@ -301,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <li>The member's status will be updated to 'Active'</li>
                                 </ul>
                                 <div class="alert alert-info mt-3 mb-0">
-                                    <i class="fas fa-lightbulb me-2"></i> Tip: You can view a member's renewal history in their profile under the Contributions tab.
+                                    <i class="fas fa-lightbulb me-2"></i> Tip: You can view a member's renewal history in their profile under the Savings tab.
                                 </div>
                             </div>
                         </div>
@@ -317,7 +319,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
-    <script src="../../assets/js/script.js"></script>
+    <script src="<?php echo BASE_URL; ?>/assets/js/script.js"></script>
     
     <script>
         // Form validation

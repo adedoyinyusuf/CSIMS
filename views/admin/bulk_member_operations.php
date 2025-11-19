@@ -1,10 +1,8 @@
 <?php
 require_once '../../config/auth_check.php';
 require_once '../../controllers/member_controller.php';
-require_once '../../controllers/contribution_controller.php';
 
 $memberController = new MemberController();
-$contributionController = new ContributionController();
 
 $message = '';
 $error = '';
@@ -118,8 +116,8 @@ $membershipTypes = $memberController->getMembershipTypes();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bulk Member Operations - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="../../assets/css/style.css" rel="stylesheet">
+    
+    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
     <?php include '../../views/includes/header.php'; ?>
@@ -128,7 +126,7 @@ $membershipTypes = $memberController->getMembershipTypes();
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <!-- Breadcrumb -->
                 <nav aria-label="breadcrumb" class="mt-3">
                     <ol class="breadcrumb">

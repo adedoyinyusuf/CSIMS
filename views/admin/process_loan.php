@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Set success message and redirect
                 $_SESSION['flash_message'] = $successMessage;
                 $_SESSION['flash_message_class'] = "alert-success";
-                header('Location: ' . BASE_URL . '/views/admin/loans.php');
+                header('Location: ' . BASE_URL . '/views/admin/loans.php?refresh=stats');
                 exit();
             } else {
                 $errors[] = "Failed to process loan. Please try again.";
@@ -146,10 +146,68 @@ include_once __DIR__ . '/../includes/header.php';
         <?php include_once __DIR__ . '/../includes/sidebar.php'; ?>
         
         <!-- Main content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2"><?php echo $pageTitle; ?></h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
+            <style>
+                :root {
+                    --primary-start: #4f46e5;
+                    --primary-end: #0ea5e9;
+                    --accent: #f97316;
+                    --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+                    --text-primary: #0f172a;
+                    --text-muted: #64748b;
+                }
+                .page-header-vibrant {
+                    background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+                    color: #fff;
+                    border-radius: 20px;
+                    padding: 1.25rem 1.5rem;
+                    margin: 0.5rem 0 1.25rem;
+                    box-shadow: var(--card-shadow);
+                    position: relative;
+                    overflow: hidden;
+                }
+                .page-header-vibrant::after {
+                    content: '';
+                    position: absolute;
+                    right: -60px; top: -60px;
+                    width: 160px; height: 160px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(255,255,255,0.25), rgba(255,255,255,0));
+                }
+                .card { border-radius: 18px; box-shadow: var(--card-shadow); border: 1px solid rgba(15,23,42,0.06); }
+                .card-header { background: linear-gradient(90deg, rgba(99,102,241,0.08), rgba(14,165,233,0.08)); border-bottom: 1px solid rgba(15,23,42,0.06); }
+                .card-title { color: var(--text-primary); font-weight: 700; }
+                .muted { color: var(--text-muted); }
+                .btn-outline-secondary { border-radius: 12px; }
+                .btn-outline-secondary:hover { background: rgba(255,255,255,0.2); color: #fff; border-color: #fff; }
+                .action-group .btn { border-radius: 12px; padding: 0.6rem 0.9rem; font-weight: 600; }
+                .btn-check + label.btn { transition: transform .15s ease, box-shadow .15s ease; }
+                .btn-check:checked + label.btn { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
+                .btn-outline-success { border-color: var(--success); color: var(--success); }
+                .btn-outline-success:hover, .btn-check:checked + .btn-outline-success { background: linear-gradient(135deg, var(--success) 0%, var(--success) 100%); color:#fff; }
+                .btn-outline-danger { border-color: #ef4444; color: #dc2626; }
+                .btn-outline-danger:hover, .btn-check:checked + .btn-outline-danger { background: linear-gradient(135deg,#ef4444,#f97316); color:#fff; }
+                .summary-badges .badge { background: rgba(99,102,241,0.08); color: var(--text-primary); border: 1px solid rgba(99,102,241,0.2); padding: .5rem .75rem; border-radius: 999px; font-weight: 600; }
+                .summary-badges .badge i { color: var(--accent); }
+            </style>
+
+            <div class="page-header-vibrant d-flex flex-wrap justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-inline-flex align-items-center justify-content-center" style="width:44px;height:44px;background:rgba(255,255,255,0.2);border-radius:12px;">
+                        <i class="fas fa-clipboard-check" style="font-size:20px;color:#fff"></i>
+                    </div>
+                    <div>
+                        <h1 class="h4 mb-1" style="font-weight:800;letter-spacing:.3px;">
+                            <?php echo $pageTitle; ?>
+                        </h1>
+                        <div class="summary-badges d-flex flex-wrap gap-2">
+                            <span class="badge"><i class="fas fa-money-bill-wave me-2"></i>₦<?php echo number_format($loan['amount'] ?? 0, 2); ?></span>
+                            <span class="badge"><i class="fas fa-calendar-alt me-2"></i><?php echo (int)($loan['term'] ?? $loan['term_months'] ?? 0); ?> months</span>
+                            <span class="badge"><i class="fas fa-percentage me-2"></i><?php echo number_format($loan['interest_rate'] ?? 0, 2); ?>%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="btn-toolbar mb-0">
                     <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Back to Loan Details
                     </a>
@@ -253,15 +311,15 @@ include_once __DIR__ . '/../includes/header.php';
                             <!-- Action Buttons for Pending Loans -->
                             <div class="row mb-4">
                                 <div class="col-12">
-                                    <div class="btn-group" role="group" aria-label="Loan Actions">
+                                    <div class="btn-group action-group" role="group" aria-label="Loan Actions">
                                         <?php if ($canBeApproved): ?>
                                             <input type="radio" class="btn-check" name="action" id="action-approve" value="approve" autocomplete="off" required>
-                                            <label class="btn btn-outline-success" for="action-approve">Approve Loan</label>
+                                            <label class="btn btn-outline-success" for="action-approve"><i class="fas fa-check-circle me-2"></i>Approve</label>
                                         <?php endif; ?>
                                         
                                         <?php if ($canBeRejected): ?>
                                             <input type="radio" class="btn-check" name="action" id="action-reject" value="reject" autocomplete="off" required>
-                                            <label class="btn btn-outline-danger" for="action-reject">Reject Loan</label>
+                                            <label class="btn btn-outline-danger" for="action-reject"><i class="fas fa-times-circle me-2"></i>Reject</label>
                                         <?php endif; ?>
                                     </div>
                                     <div class="invalid-feedback d-block" id="action-feedback" style="display: none;">Please select an action</div>
@@ -304,14 +362,14 @@ include_once __DIR__ . '/../includes/header.php';
                         <!-- Submit Button -->
                         <div class="row">
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary" id="submit-btn">
+                                <button type="submit" class="btn btn-primary" id="submit-btn" style="border-radius:12px;box-shadow:var(--card-shadow);">
                                     <?php if ($canBeApproved || $canBeRejected): ?>
                                         Process Loan
                                     <?php elseif ($canBeDisbursed): ?>
                                         Disburse Loan
                                     <?php endif; ?>
                                 </button>
-                                <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-secondary">Cancel</a>
+                                <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="btn btn-secondary" style="border-radius:12px;">Cancel</a>
                             </div>
                         </div>
                     </form>

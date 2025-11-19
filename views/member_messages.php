@@ -1,19 +1,21 @@
 <?php
-session_start();
+// Centralize session and security via config
+require_once '../config/config.php';
+require_once '../config/member_auth_check.php';
 require_once '../config/database.php';
 require_once '../controllers/message_controller.php';
 require_once '../controllers/member_controller.php';
 
-// Check if member is logged in
-if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
-    header('Location: member_login.php');
-    exit();
-}
+// Remove manual session check; rely on member_auth_check.php
+// if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
+//     header('Location: member_login.php');
+//     exit();
+// }
 
 $messageController = new MessageController();
 $memberController = new MemberController();
 
-$member_id = $_SESSION['member_id'];
+$member_id = $_SESSION['member_id'] ?? $_SESSION['user_id'];
 $member = $memberController->getMemberById($member_id);
 
 // Handle message actions
@@ -57,50 +59,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get member's messages (both sent and received)
-$page = $_GET['page'] ?? 1;
-$search = $_GET['search'] ?? '';
+// Get member's messages (both sent and received) with pagination and optional search/filter
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 20;
+$search = trim($_GET['search'] ?? '');
 $filter = $_GET['filter'] ?? 'all';
+if (!in_array($filter, ['all', 'unread', 'read'])) { $filter = 'all'; }
 
-// Get messages where member is sender or recipient
-$sql = "SELECT m.*, 
-        CASE 
-            WHEN m.sender_type = 'Admin' THEN CONCAT(sa.first_name, ' ', sa.last_name)
-            WHEN m.sender_type = 'Member' THEN CONCAT(sm.first_name, ' ', sm.last_name)
-        END as sender_name,
-        CASE 
-            WHEN m.recipient_type = 'Admin' THEN CONCAT(ra.first_name, ' ', ra.last_name)
-            WHEN m.recipient_type = 'Member' THEN CONCAT(rm.first_name, ' ', rm.last_name)
-        END as recipient_name,
-        CASE 
-            WHEN m.sender_type = 'Member' AND m.sender_id = ? THEN 'sent'
-            WHEN m.recipient_type = 'Member' AND m.recipient_id = ? THEN 'received'
-        END as message_direction
-        FROM messages m 
-        LEFT JOIN admins sa ON m.sender_type = 'Admin' AND m.sender_id = sa.admin_id
-        LEFT JOIN members sm ON m.sender_type = 'Member' AND m.sender_id = sm.member_id
-        LEFT JOIN admins ra ON m.recipient_type = 'Admin' AND m.recipient_id = ra.admin_id
-        LEFT JOIN members rm ON m.recipient_type = 'Member' AND m.recipient_id = rm.member_id
-        WHERE (m.sender_type = 'Member' AND m.sender_id = ?) 
-           OR (m.recipient_type = 'Member' AND m.recipient_id = ?)
-        ORDER BY m.created_at DESC
-        LIMIT 20";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param('iiii', $member_id, $member_id, $member_id, $member_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$messages = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$result = $messageController->getMessagesForMemberPaginated($member_id, $page, $limit, $search, $filter);
+$messages = $result['messages'] ?? [];
+$pagination = $result['pagination'] ?? ['total_items' => count($messages), 'items_per_page' => $limit, 'current_page' => $page, 'total_pages' => 1, 'offset' => 0];
 
 // Get unread count
-$unread_sql = "SELECT COUNT(*) as unread_count FROM messages 
-               WHERE recipient_type = 'Member' AND recipient_id = ? AND is_read = 0";
-$stmt = $conn->prepare($unread_sql);
-$stmt->bind_param('i', $member_id);
-$stmt->execute();
-$unread_count = $stmt->get_result()->fetch_assoc()['unread_count'];
-$stmt->close();
+$unread_count = $messageController->getUnreadCountForMember($member_id);
 ?>
 
 <!DOCTYPE html>
@@ -109,31 +80,35 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messages - NPC CTLStaff Loan Society</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Assets centralized via includes/member_header.php -->
     <style>
         .sidebar {
             min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.06);
         }
         .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
+            color: var(--text-secondary);
             padding: 0.75rem 1rem;
             margin: 0.25rem 0;
             border-radius: 0.5rem;
             transition: all 0.3s ease;
         }
         .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            background-color: var(--primary-50);
         }
+        /* Ensure any legacy white text is readable on white sidebar */
+        .sidebar .text-white, .sidebar .text-white-50 { color: var(--text-secondary) !important; }
+        .sidebar h4 { color: var(--text-primary); }
+        .sidebar .fw-bold { color: var(--text-primary); }
         .card {
             border: none;
             border-radius: 15px;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
         .message-card {
-            border-left: 4px solid #007bff;
+            border-left: 4px solid var(--true-blue);
             margin-bottom: 1rem;
             transition: all 0.3s ease;
             cursor: pointer;
@@ -143,14 +118,14 @@ $stmt->close();
             box-shadow: 0 4px 25px rgba(0,0,0,0.15);
         }
         .message-card.sent {
-            border-left-color: #28a745;
+            border-left-color: var(--success);
         }
         .message-card.received {
-            border-left-color: #007bff;
+            border-left-color: var(--true-blue);
         }
         .message-card.unread {
-            background-color: #f8f9ff;
-            border-left-color: #ffc107;
+            background-color: var(--primary-50);
+            border-left-color: var(--warning);
         }
         .message-direction {
             padding: 0.25rem 0.75rem;
@@ -167,7 +142,7 @@ $stmt->close();
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--true-blue);
             border: none;
             color: white;
             font-size: 1.5rem;
@@ -181,62 +156,26 @@ $stmt->close();
     </style>
 </head>
 <body>
+<?php include __DIR__ . '/includes/member_header.php'; ?>
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0">
-                <div class="sidebar d-flex flex-column p-3">
-                    <h4 class="text-white mb-4">
-                        <i class="fas fa-university"></i> Member Portal
-                    </h4>
-                    
-                    <div class="mb-3">
-                        <small class="text-white-50">Welcome,</small>
-                        <div class="text-white fw-bold"><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></div>
-                    </div>
-                    
-                    <nav class="nav flex-column">
-                        <a class="nav-link" href="member_dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                        <a class="nav-link" href="member_profile.php">
-                            <i class="fas fa-user me-2"></i> My Profile
-                        </a>
-                        <a class="nav-link" href="member_loans.php">
-                            <i class="fas fa-money-bill-wave me-2"></i> My Loans
-                        </a>
-                        <a class="nav-link" href="member_savings.php">
-                            <i class="fas fa-piggy-bank me-2"></i> My Savings
-                        </a>
-                        <a class="nav-link" href="member_notifications.php">
-                            <i class="fas fa-bell me-2"></i> Notifications
-                        </a>
-                        <a class="nav-link active" href="member_messages.php">
-                            <i class="fas fa-envelope me-2"></i> Messages
-                            <?php if ($unread_count > 0): ?>
-                                <span class="badge bg-warning text-dark ms-1"><?php echo $unread_count; ?></span>
-                            <?php endif; ?>
-                        </a>
-                        <a class="nav-link" href="member_loan_application.php">
-                            <i class="fas fa-plus-circle me-2"></i> Apply for Loan
-                        </a>
-                    </nav>
-                    
-                    <div class="mt-auto">
-                        <a class="nav-link" href="member_logout.php">
-                            <i class="fas fa-sign-out-alt me-2"></i> Logout
-                        </a>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10">
+            <!-- Main Content (offcanvas handles navigation) -->
+            <div class="col-12">
                 <div class="p-4">
                     <!-- Header -->
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-envelope me-2"></i> Messages</h2>
+                        <h2><i class="fas fa-envelope me-2" style="color: var(--true-blue);"></i> Messages</h2>
                         <div class="d-flex align-items-center">
+                            <form class="d-flex me-3" method="GET" action="">
+                                <input type="hidden" name="limit" value="<?php echo (int)$limit; ?>">
+                                <input type="text" class="form-control form-control-sm me-2" name="search" placeholder="Search subject or message" value="<?php echo htmlspecialchars($search); ?>">
+                                <select class="form-select form-select-sm me-2" name="filter">
+                                    <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All</option>
+                                    <option value="unread" <?php echo $filter === 'unread' ? 'selected' : ''; ?>>Unread</option>
+                                    <option value="read" <?php echo $filter === 'read' ? 'selected' : ''; ?>>Read</option>
+                                </select>
+                                <button class="btn btn-standard btn-sm btn-outline-primary" type="submit"><i class="fas fa-search me-1" style="color: var(--accent-color);"></i>Filter</button>
+                            </form>
                             <span class="text-muted me-3">
                                 <i class="fas fa-info-circle me-1"></i>
                                 <?php echo count($messages); ?> message(s)
@@ -271,7 +210,7 @@ $stmt->close();
                     <?php if (empty($messages)): ?>
                         <div class="card">
                             <div class="card-body text-center py-5">
-                                <i class="fas fa-envelope-open fa-4x text-muted mb-3"></i>
+                                <i class="fas fa-envelope-open fa-4x text-muted mb-3" style="color: var(--true-blue);"></i>
                                 <h5 class="text-muted">No messages</h5>
                                 <p class="text-muted">You don't have any messages yet. Click the compose button to send a message to the administration.</p>
                             </div>
@@ -360,10 +299,10 @@ $stmt->close();
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-standard btn-secondary" data-bs-dismiss="modal">
                             <i class="fas fa-times me-1"></i>Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-standard btn-outline">
                             <i class="fas fa-paper-plane me-1"></i>Send Message
                         </button>
                     </div>
@@ -398,7 +337,7 @@ $stmt->close();
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-1"></i>Close
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="replyToMessage()">
+                    <button type="button" class="btn btn-outline" onclick="replyToMessage()">
                         <i class="fas fa-reply me-1"></i>Reply
                     </button>
                 </div>
@@ -471,5 +410,40 @@ $stmt->close();
             }
         }
     </script>
+<?php if (!empty($messages)): ?>
+    <nav aria-label="Message pages" class="px-4 pb-4">
+        <?php 
+            // Build base URL without page param
+            $query = $_GET;
+            unset($query['page']);
+            $qs = http_build_query($query);
+            // Use Utilities::paginationLinks if available, else render minimal controls
+            if (method_exists('Utilities', 'paginationLinks')) {
+                echo Utilities::paginationLinks($pagination, 'member_messages.php');
+            } else {
+                echo '<ul class="pagination">';
+                // Previous
+                if ($pagination['current_page'] > 1) {
+                    $prev = $pagination['current_page'] - 1;
+                    echo '<li class="page-item"><a class="page-link" href="member_messages.php?' . ($qs ? $qs . '&' : '') . 'page=' . $prev . '">&laquo; Previous</a></li>';
+                } else {
+                    echo '<li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>';
+                }
+                // Current
+                echo '<li class="page-item active"><span class="page-link">Page ' . (int)$pagination['current_page'] . ' of ' . (int)$pagination['total_pages'] . '</span></li>';
+                // Next
+                if ($pagination['current_page'] < $pagination['total_pages']) {
+                    $next = $pagination['current_page'] + 1;
+                    echo '<li class="page-item"><a class="page-link" href="member_messages.php?' . ($qs ? $qs . '&' : '') . 'page=' . $next . '">Next &raquo;</a></li>';
+                } else {
+                    echo '<li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>';
+                }
+                echo '</ul>';
+            }
+        ?>
+    </nav>
+<?php endif; ?>
+    <!-- Bootstrap JS for offcanvas -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

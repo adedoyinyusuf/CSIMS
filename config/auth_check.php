@@ -3,7 +3,20 @@
  * Enhanced Authentication Check for Admin Pages
  * Includes CSRF protection, session validation, and security logging
  */
+
+// Early guard: skip when not in admin context or during bootstrap/CLI
+$reqPath = $_SERVER['REQUEST_URI'] ?? '';
+$scriptPath = $_SERVER['SCRIPT_NAME'] ?? ($_SERVER['SCRIPT_FILENAME'] ?? '');
+if (PHP_SAPI === 'cli' || (!$reqPath && !$scriptPath) || (strpos($reqPath, '/admin/') === false && strpos($scriptPath, '/admin/') === false)) {
+    return [];
+}
+
 require_once __DIR__ . '/config.php';
+// Ensure AuthController is available across admin pages
+require_once ROOT_DIR . '/controllers/auth_controller.php';
+// Initialize secure session instance
+require_once __DIR__ . '/../includes/session.php';
+$session = Session::getInstance();
 
 // Force HTTPS in production
 if (defined('FORCE_HTTPS') && FORCE_HTTPS && !isset($_SERVER['HTTPS'])) {

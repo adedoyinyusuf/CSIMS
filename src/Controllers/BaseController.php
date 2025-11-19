@@ -371,11 +371,29 @@ abstract class BaseController
     protected function logActivity(string $action, string $entity, $entityId = null, array $details = []): void
     {
         $user = $this->getCurrentUser('admin') ?? $this->getCurrentUser('member');
-        
+
+        // Attempt to derive actor from provided details; fall back to session user
+        $actorFields = ['approved_by', 'rejected_by', 'disbursed_by', 'created_by', 'updated_by', 'performed_by'];
+        $actorFromDetails = null;
+        foreach ($actorFields as $field) {
+            if (isset($details[$field]) && is_string($details[$field]) && trim($details[$field]) !== '') {
+                $actorFromDetails = trim($details[$field]);
+                break;
+            }
+        }
+
+        $sessionActor = $user['username']
+            ?? trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))
+            ?? null;
+        $actorName = $actorFromDetails ?: ($sessionActor ?: 'System');
+        $actorSource = $actorFromDetails ? 'details' : 'session';
+
         $logData = [
             'timestamp' => date('Y-m-d H:i:s'),
             'user_id' => $user['member_id'] ?? $user['admin_id'] ?? null,
             'user_type' => isset($user['admin_id']) ? 'admin' : 'member',
+            'actor_name' => $actorName,
+            'actor_source' => $actorSource,
             'action' => $action,
             'entity' => $entity,
             'entity_id' => $entityId,
@@ -383,8 +401,38 @@ abstract class BaseController
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
         ];
-        
-        // Log to file or database - implement as needed
-        error_log("Activity Log: " . json_encode($logData));
+
+        $basePath = dirname(__DIR__, 2);
+        $logsDir = $basePath . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs';
+        if (!is_dir($logsDir)) {
+            @mkdir($logsDir, 0775, true);
+        }
+        $logFile = $logsDir . DIRECTORY_SEPARATOR . 'audit.log';
+        // Rotate logs if exceeding max size (5 MB)
+        $maxSizeBytes = 5 * 1024 * 1024; // 5 MB
+        try {
+            if (file_exists($logFile)) {
+                $size = @filesize($logFile);
+                if (is_int($size) && $size >= $maxSizeBytes) {
+                    $timestamp = date('Ymd-His');
+                    $archiveFile = $logsDir . DIRECTORY_SEPARATOR . 'audit-' . $timestamp . '.log';
+                    // Attempt rotation; if rename fails, continue writing to current file
+                    @rename($logFile, $archiveFile);
+                    // Seed new log with rotation marker
+                    @file_put_contents($logFile, json_encode([
+                        'timestamp' => date('Y-m-d H:i:s'),
+                        'action' => 'log_rotated',
+                        'entity' => 'audit',
+                        'details' => ['from' => basename($archiveFile), 'max_size_bytes' => $maxSizeBytes]
+                    ]) . PHP_EOL, FILE_APPEND | LOCK_EX);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal; continue with normal append
+        }
+        $line = json_encode($logData) . PHP_EOL;
+        if (@file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX) === false) {
+            error_log("Activity Log (fallback): " . $line);
+        }
     }
 }

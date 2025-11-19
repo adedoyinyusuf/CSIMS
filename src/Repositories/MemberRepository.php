@@ -420,4 +420,93 @@ class MemberRepository implements RepositoryInterface
             ]
         ];
     }
+
+    /**
+     * Search members by text across name, email, username, IPPIS
+     *
+     * @param string $term
+     * @param int $page
+     * @param int $limit
+     * @param array $extraFilters
+     * @return array
+     * @throws DatabaseException
+     */
+    public function search(string $term, int $page = 1, int $limit = 10, array $extraFilters = []): array
+    {
+        $offset = ($page - 1) * $limit;
+        $like = '%' . $term . '%';
+
+        $query = QueryBuilder::table($this->table)
+            ->select(['*'])
+            ->whereLike('first_name', $like)
+            ->orWhere('last_name', 'LIKE', $like)
+            ->orWhere('email', 'LIKE', $like)
+            ->orWhere('username', 'LIKE', $like)
+            ->orWhere('ippis_no', 'LIKE', $like)
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->offset($offset);
+
+        // Apply extra filters (e.g., status)
+        foreach ($extraFilters as $field => $value) {
+            // Append additional filters with AND
+            $query->where($field, $value);
+        }
+
+        [$sql, $params] = $query->build();
+
+        $stmt = $this->connection->prepare($sql);
+        if (!$stmt) {
+            throw new DatabaseException('Failed to prepare statement: ' . $this->connection->error);
+        }
+
+        if (!empty($params)) {
+            $types = str_repeat('s', count($params));
+            $stmt->bind_param($types, ...$params);
+        }
+
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $members = [];
+        while ($row = $result->fetch_assoc()) {
+            $members[] = Member::fromArray($row);
+        }
+
+        // Count for pagination (approximate count using similar conditions)
+        $countQuery = QueryBuilder::table($this->table)
+            ->select(['COUNT(*) as total'])
+            ->whereLike('first_name', $like)
+            ->orWhere('last_name', 'LIKE', $like)
+            ->orWhere('email', 'LIKE', $like)
+            ->orWhere('username', 'LIKE', $like)
+            ->orWhere('ippis_no', 'LIKE', $like);
+        foreach ($extraFilters as $field => $value) {
+            $countQuery->where($field, $value);
+        }
+        [$countSql, $countParams] = $countQuery->build();
+
+        $countStmt = $this->connection->prepare($countSql);
+        if (!$countStmt) {
+            throw new DatabaseException('Failed to prepare statement: ' . $this->connection->error);
+        }
+        if (!empty($countParams)) {
+            $types = str_repeat('s', count($countParams));
+            $countStmt->bind_param($types, ...$countParams);
+        }
+        $countStmt->execute();
+        $countResult = $countStmt->get_result();
+        $row = $countResult->fetch_assoc();
+        $total = (int)($row['total'] ?? 0);
+
+        return [
+            'data' => $members,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $limit,
+                'total' => $total,
+                'total_pages' => $limit > 0 ? (int)ceil($total / $limit) : 1
+            ]
+        ];
+    }
 }

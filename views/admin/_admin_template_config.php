@@ -122,25 +122,25 @@ class AdminTemplateConfig {
             'add' => [
                 'icon' => 'fas fa-plus',
                 'text' => 'Add New',
-                'class' => 'btn btn-primary',
+                'class' => 'btn btn-standard btn-primary',
                 'onclick' => 'openAddModal()'
             ],
             'import' => [
                 'icon' => 'fas fa-file-import',
                 'text' => 'Import',
-                'class' => 'btn btn-secondary',
+                'class' => 'btn btn-standard btn-secondary',
                 'onclick' => 'openImportModal()'
             ],
             'export' => [
                 'icon' => 'fas fa-file-export',
                 'text' => 'Export',
-                'class' => 'btn btn-outline',
+                'class' => 'btn btn-standard btn-outline',
                 'onclick' => 'exportData()'
             ],
             'print' => [
                 'icon' => 'fas fa-print',
                 'text' => 'Print',
-                'class' => 'btn btn-outline',
+                'class' => 'btn btn-standard btn-outline',
                 'onclick' => 'printData()'
             ]
         ];

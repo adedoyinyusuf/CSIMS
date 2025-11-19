@@ -1,10 +1,15 @@
 <?php
 require_once '../../config/auth_check.php';
 require_once '../../controllers/member_controller.php';
-require_once '../../controllers/contribution_controller.php';
+require_once '../../includes/utilities.php';
 
 $memberController = new MemberController();
-$contributionController = new ContributionController();
+
+// Initialize schema-aware column names for savings transactions
+$schema = Utilities::getSavingsSchema($memberController->conn);
+$statusCol = $schema['transaction_status'] ?? 'transaction_status';
+$typeCol = $schema['transaction_type'] ?? 'transaction_type';
+$dateCol = $schema['transaction_date'] ?? 'transaction_date';
 
 // Get filter parameters
 $memberId = $_GET['member_id'] ?? '';
@@ -31,29 +36,29 @@ try {
                     FROM members m
                     WHERE 1=1";
     
-    // 2. Contributions
+    // 2. Savings deposits (replaces legacy contributions)
     $contributionQuery = "SELECT 
-                            c.member_id,
+                            st.member_id,
                             CONCAT(m.first_name, ' ', m.last_name) as member_name,
-                            'contribution' as activity_type,
-                            CONCAT('Contribution: $', c.amount, ' (', c.contribution_type, ')') as activity_description,
-                            c.contribution_date as activity_date,
+                            'savings_deposit' as activity_type,
+                            CONCAT('Savings deposit: $', st.amount) as activity_description,
+                            st.{$dateCol} as activity_date,
                             'System' as performed_by
-                        FROM contributions c
-                        JOIN members m ON c.member_id = m.id
-                        WHERE 1=1";
+                        FROM savings_transactions st
+                        JOIN members m ON st.member_id = m.member_id
+                        WHERE st.{$typeCol} = 'Deposit' AND st.{$statusCol} = 'Completed'";
     
-    // 3. Membership renewals (from contributions with type 'Membership Fee')
+    // 3. Membership renewals (recorded as savings deposits with description prefix)
     $renewalQuery = "SELECT 
-                        c.member_id,
+                        st.member_id,
                         CONCAT(m.first_name, ' ', m.last_name) as member_name,
                         'membership_renewal' as activity_type,
-                        CONCAT('Membership renewed: $', c.amount) as activity_description,
-                        c.contribution_date as activity_date,
+                        CONCAT('Membership renewed: $', st.amount) as activity_description,
+                        st.{$dateCol} as activity_date,
                         'System' as performed_by
-                    FROM contributions c
-                    JOIN members m ON c.member_id = m.id
-                    WHERE c.contribution_type = 'Membership Fee'";
+                    FROM savings_transactions st
+                    JOIN members m ON st.member_id = m.member_id
+                    WHERE st.{$typeCol} = 'Deposit' AND st.{$statusCol} = 'Completed' AND st.description LIKE 'Membership renewal%'";
     
     // Apply filters
     $whereConditions = [];
@@ -147,8 +152,8 @@ $allMembers = $memberController->getAllMembers();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Activity Log - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="../../assets/css/style.css" rel="stylesheet">
+    
+    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 <body>
     <?php include '../../views/includes/header.php'; ?>
@@ -157,7 +162,7 @@ $allMembers = $memberController->getAllMembers();
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <!-- Breadcrumb -->
                 <nav aria-label="breadcrumb" class="mt-3">
                     <ol class="breadcrumb">
@@ -216,7 +221,7 @@ $allMembers = $memberController->getAllMembers();
                                         Member Registration
                                     </option>
                                     <option value="contribution" <?= $activityType === 'contribution' ? 'selected' : '' ?>>
-                                        Contribution
+                                        Savings Deposits
                                     </option>
                                     <option value="membership_renewal" <?= $activityType === 'membership_renewal' ? 'selected' : '' ?>>
                                         Membership Renewal
@@ -259,7 +264,7 @@ $allMembers = $memberController->getAllMembers();
                                 <h5 class="card-title text-success">
                                     <?= count(array_filter($activities, function($a) { return $a['activity_type'] === 'contribution'; })) ?>
                                 </h5>
-                                <p class="card-text">Contributions</p>
+                                <p class="card-text">Savings</p>
                             </div>
                         </div>
                     </div>
@@ -347,9 +352,13 @@ $allMembers = $memberController->getAllMembers();
                                                         'status_change' => 'edit'
                                                     ][$activity['activity_type']] ?? 'circle';
                                                     ?>
+                                                    <?php
+                                                    $rawLabel = $activity['activity_type'];
+                                                    $displayLabel = ($rawLabel === 'contribution') ? 'Savings Deposit' : ucwords(str_replace('_', ' ', $rawLabel));
+                                                    ?>
                                                     <span class="badge bg-<?= $typeClass ?>">
                                                         <i class="fas fa-<?= $typeIcon ?> me-1"></i>
-                                                        <?= ucwords(str_replace('_', ' ', $activity['activity_type'])) ?>
+                                                        <?= $displayLabel ?>
                                                     </span>
                                                 </td>
                                                 <td>
@@ -367,9 +376,9 @@ $allMembers = $memberController->getAllMembers();
                                                             <i class="fas fa-eye"></i>
                                                         </a>
                                                         <?php if ($activity['activity_type'] === 'contribution'): ?>
-                                                            <a href="contributions.php?member_id=<?= $activity['member_id'] ?>" 
-                                                               class="btn btn-outline-success" title="View Contributions">
-                                                                <i class="fas fa-dollar-sign"></i>
+                                                            <a href="savings_accounts.php?member_id=<?= $activity['member_id'] ?>"
+                                                               class="btn btn-outline-success" title="View Savings Accounts">
+                                                                <i class="fas fa-piggy-bank"></i>
                                                             </a>
                                                         <?php endif; ?>
                                                     </div>

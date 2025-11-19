@@ -1,14 +1,18 @@
 <?php
-require_once 'DatabaseConnection.php';
-require_once 'LogService.php';
+require_once __DIR__ . '/../includes/config/database.php';
+
 
 class LoanTypeService {
     private $db;
-    private $logService;
     
     public function __construct() {
-        $this->db = DatabaseConnection::getInstance()->getConnection();
-        $this->logService = new LogService();
+        $this->db = (new PdoDatabase())->getConnection();
+    }
+    
+    private function log(string $event, array $data = []): void {
+        try {
+            error_log('[CSIMS] ' . json_encode(['event' => $event, 'data' => $data, 'ts' => date('c')]));
+        } catch (\Throwable $e) {}
     }
     
     /**
@@ -43,7 +47,7 @@ class LoanTypeService {
             return $loanTypes;
             
         } catch (Exception $e) {
-            $this->logService->log("loan_type_fetch_error", [
+            $this->log("loan_type_fetch_error", [
                 'error' => $e->getMessage()
             ]);
             throw $e;
@@ -69,7 +73,7 @@ class LoanTypeService {
             return $loanType;
             
         } catch (Exception $e) {
-            $this->logService->log("loan_type_get_error", [
+            $this->log("loan_type_get_error", [
                 'loan_type_id' => $loanTypeId,
                 'error' => $e->getMessage()
             ]);
@@ -142,7 +146,7 @@ class LoanTypeService {
             
             $this->db->commit();
             
-            $this->logService->log("loan_type_created", [
+            $this->log("loan_type_created", [
                 'loan_type_id' => $loanTypeId,
                 'type_name' => $data['type_name']
             ]);
@@ -151,7 +155,7 @@ class LoanTypeService {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            $this->logService->log("loan_type_create_error", [
+            $this->log("loan_type_create_error", [
                 'data' => $data,
                 'error' => $e->getMessage()
             ]);
@@ -203,7 +207,7 @@ class LoanTypeService {
             
             $this->db->commit();
             
-            $this->logService->log("loan_type_updated", [
+            $this->log("loan_type_updated", [
                 'loan_type_id' => $loanTypeId,
                 'updated_fields' => array_keys($data)
             ]);
@@ -212,7 +216,7 @@ class LoanTypeService {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            $this->logService->log("loan_type_update_error", [
+            $this->log("loan_type_update_error", [
                 'loan_type_id' => $loanTypeId,
                 'error' => $e->getMessage()
             ]);
@@ -251,7 +255,7 @@ class LoanTypeService {
             
             $this->db->commit();
             
-            $this->logService->log("loan_type_{$action}", [
+            $this->log("loan_type_{$action}", [
                 'loan_type_id' => $loanTypeId,
                 'active_loans_count' => $activeLoans
             ]);
@@ -260,7 +264,7 @@ class LoanTypeService {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            $this->logService->log("loan_type_delete_error", [
+            $this->log("loan_type_delete_error", [
                 'loan_type_id' => $loanTypeId,
                 'error' => $e->getMessage()
             ]);
@@ -305,7 +309,7 @@ class LoanTypeService {
             return $availableLoanTypes;
             
         } catch (Exception $e) {
-            $this->logService->log("available_loan_types_error", [
+            $this->log("available_loan_types_error", [
                 'member_id' => $memberId,
                 'error' => $e->getMessage()
             ]);
@@ -379,7 +383,7 @@ class LoanTypeService {
             ];
             
         } catch (Exception $e) {
-            $this->logService->log("loan_preview_error", [
+            $this->log("loan_preview_error", [
                 'loan_type_id' => $loanTypeId,
                 'amount' => $amount,
                 'term' => $termMonths,
@@ -413,7 +417,7 @@ class LoanTypeService {
             return $stmt->fetch(PDO::FETCH_ASSOC);
             
         } catch (Exception $e) {
-            $this->logService->log("loan_type_stats_error", [
+            $this->log("loan_type_stats_error", [
                 'loan_type_id' => $loanTypeId,
                 'error' => $e->getMessage()
             ]);
@@ -522,7 +526,7 @@ class LoanTypeService {
             
         } catch (Exception $e) {
             // Log but don't throw - this is not critical
-            $this->logService->log("workflow_template_creation_error", [
+            $this->log("workflow_template_creation_error", [
                 'loan_type_id' => $loanTypeId,
                 'error' => $e->getMessage()
             ]);
@@ -563,16 +567,16 @@ class LoanTypeService {
     private function getMemberLoanEligibilityData($memberId) {
         $stmt = $this->db->prepare("
             SELECT m.*, 
-                   COALESCE(SUM(c.amount), 0) as total_savings,
+                   COALESCE(SUM(st.amount), 0) as total_savings,
                    COUNT(l.id) as total_loans,
                    COUNT(CASE WHEN l.status = 'active' THEN 1 END) as active_loans,
                    SUM(CASE WHEN l.status = 'active' THEN l.principal_amount - l.amount_paid ELSE 0 END) as outstanding_balance,
                    DATEDIFF(NOW(), m.created_at) as membership_days
             FROM members m
-            LEFT JOIN contributions c ON m.id = c.member_id AND c.status = 'completed'
             LEFT JOIN loans l ON m.id = l.member_id
-            WHERE m.id = ?
-            GROUP BY m.id
+             LEFT JOIN savings_transactions st ON m.id = st.member_id AND st.transaction_type = 'Deposit' AND st.transaction_status = 'Completed'
+             WHERE m.id = ?
+             GROUP BY m.id
         ");
         $stmt->execute([$memberId]);
         

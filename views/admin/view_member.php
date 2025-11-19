@@ -3,6 +3,11 @@ require_once '../../config/config.php';
 require_once '../../config/security.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
+require_once '../../controllers/loan_controller.php';
+require_once '../../src/autoload.php';
+require_once '../../includes/utilities.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -24,8 +29,9 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 
 $member_id = (int)$_GET['id'];
 
-// Initialize member controller
+// Initialize controllers
 $memberController = new MemberController();
+$loanController = new LoanController();
 
 // Get member details
 $member = $memberController->getMemberById($member_id);
@@ -45,11 +51,132 @@ if (!empty($member['date_of_birth'])) {
     $age = $interval->y;
 }
 
-// Calculate days until membership expiry
-$expiry_date = new DateTime($member['expiry_date']);
+// Calculate days until membership expiry (guard against null/invalid dates)
 $now = new DateTime();
-$days_until_expiry = $now->diff($expiry_date)->days;
-$is_expired = $now > $expiry_date;
+$days_until_expiry = null;
+$is_expired = false;
+if (!empty($member['expiry_date']) && strtotime($member['expiry_date']) !== false) {
+    $expiry_date = new DateTime($member['expiry_date']);
+    $days_until_expiry = $now->diff($expiry_date)->days;
+    $is_expired = $now > $expiry_date;
+}
+
+// Initialize related data for savings and loans
+$database = Database::getInstance();
+$conn = $database->getConnection();
+// Initialize schema-aware savings columns for display fallbacks
+$schema = Utilities::getSavingsSchema($conn);
+$statusCol = $schema['transaction_status'] ?? 'transaction_status';
+$typeCol = $schema['transaction_type'] ?? 'transaction_type';
+$dateCol = $schema['transaction_date'] ?? 'transaction_date';
+
+$accountRepo = new \CSIMS\Repositories\SavingsAccountRepository($conn);
+$savingsRepo = new \CSIMS\Repositories\SavingsTransactionRepository($conn);
+
+// Member total savings balance across accounts
+$member_total_savings = $accountRepo->getTotalBalanceByMember($member_id);
+
+$savings_transactions = array_map(fn($t) => $t->toArray(), $savingsRepo->findByMemberId($member_id));
+// Sort by date desc and limit 50
+usort($savings_transactions, function($a, $b) { return strtotime($b['transaction_date'] ?? '1970-01-01') - strtotime($a['transaction_date'] ?? '1970-01-01'); });
+$savings_transactions = array_slice($savings_transactions, 0, 50);
+
+// Fallback: if no member-scoped transactions, aggregate account histories
+if (empty($savings_transactions)) {
+    $accounts = $accountRepo->findByMemberId($member_id);
+    $aggregated = [];
+    foreach ($accounts as $account) {
+        $history = $savingsRepo->getAccountHistory((int)$account->getAccountId(), 50, 0);
+        foreach ($history as $tx) {
+            $aggregated[] = $tx->toArray();
+        }
+    }
+    if (!empty($aggregated)) {
+        usort($aggregated, function($a, $b) { return strtotime($b['transaction_date'] ?? '1970-01-01') - strtotime($a['transaction_date'] ?? '1970-01-01'); });
+        $savings_transactions = array_slice($aggregated, 0, 50);
+    }
+}
+
+// Fetch member loans using active LoanController methods
+// Note: getLoansByMemberId is a shim to getMemberLoans; both are supported
+$member_loans = [];
+try {
+    if (method_exists($loanController, 'getLoansByMemberId')) {
+        $member_loans = $loanController->getLoansByMemberId($member_id) ?? [];
+    } elseif (method_exists($loanController, 'getMemberLoans')) {
+        $member_loans = $loanController->getMemberLoans($member_id) ?? [];
+    }
+    // Limit to 50 for display consistency if large
+    if (is_array($member_loans)) {
+        $member_loans = array_slice($member_loans, 0, 50);
+    } else {
+        $member_loans = [];
+    }
+} catch (Throwable $e) {
+    error_log('Error fetching member loans: ' . $e->getMessage());
+    $member_loans = [];
+}
+
+// Compute member outstanding loans across schema variants
+$member_loan_outstanding = 0.0;
+try {
+    $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'amount_paid'");
+    $has_amount_paid = $col && $col->num_rows > 0;
+    $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'remaining_balance'");
+    $has_remaining_balance = $col && $col->num_rows > 0;
+    $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'total_repaid'");
+    $has_total_repaid = $col && $col->num_rows > 0;
+
+    if ($has_amount_paid) {
+        $q = $conn->query("SELECT SUM(amount - amount_paid) AS total FROM loans WHERE member_id = {$member_id} AND LOWER(status) IN ('active','disbursed','approved')");
+    } elseif ($has_remaining_balance) {
+        $q = $conn->query("SELECT SUM(remaining_balance) AS total FROM loans WHERE member_id = {$member_id} AND LOWER(status) IN ('active','disbursed','approved')");
+    } elseif ($has_total_repaid) {
+        $q = $conn->query("SELECT SUM(amount - total_repaid) AS total FROM loans WHERE member_id = {$member_id} AND LOWER(status) IN ('active','disbursed','approved')");
+    } else {
+        $q = $conn->query("SELECT SUM(amount) AS total FROM loans WHERE member_id = {$member_id} AND LOWER(status) IN ('active','disbursed','approved')");
+    }
+    if ($q) { $member_loan_outstanding = (float)($q->fetch_assoc()['total'] ?? 0); }
+} catch (Exception $e) { /* ignore and keep default */ }
+
+// Compute member total paid (schema-aware)
+$member_loan_paid_total = 0.0;
+try {
+    // Prefer loan_repayments if available
+    $has_repayments = false;
+    $col = $conn->query("SHOW TABLES LIKE 'loan_repayments'");
+    if ($col && $col->num_rows > 0) { $has_repayments = true; }
+
+    if ($has_repayments) {
+        $q = $conn->query("SELECT SUM(lp.amount) AS total FROM loan_repayments lp JOIN loans l ON lp.loan_id = l.loan_id WHERE l.member_id = {$member_id}");
+    } else {
+        $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'amount_paid'");
+        $has_amount_paid = $col && $col->num_rows > 0;
+        $col = $conn->query("SHOW COLUMNS FROM loans LIKE 'total_repaid'");
+        $has_total_repaid = $col && $col->num_rows > 0;
+        if ($has_amount_paid) {
+            $q = $conn->query("SELECT SUM(amount_paid) AS total FROM loans WHERE member_id = {$member_id}");
+        } elseif ($has_total_repaid) {
+            $q = $conn->query("SELECT SUM(total_repaid) AS total FROM loans WHERE member_id = {$member_id}");
+        } else {
+            $q = false;
+        }
+    }
+    if ($q) { $member_loan_paid_total = (float)($q->fetch_assoc()['total'] ?? 0); }
+} catch (Exception $e) { /* ignore */ }
+
+// Compute member repayments this month (if loan_repayments exists)
+$member_loan_repayments_this_month = 0.0;
+$member_loan_repayments_count_this_month = 0;
+try {
+    $col = $conn->query("SHOW TABLES LIKE 'loan_repayments'");
+    if ($col && $col->num_rows > 0) {
+        $q = $conn->query("SELECT SUM(lp.amount) AS total FROM loan_repayments lp JOIN loans l ON lp.loan_id = l.loan_id WHERE l.member_id = {$member_id} AND YEAR(lp.payment_date) = YEAR(CURDATE()) AND MONTH(lp.payment_date) = MONTH(CURDATE())");
+        if ($q) { $member_loan_repayments_this_month = (float)($q->fetch_assoc()['total'] ?? 0); }
+        $q2 = $conn->query("SELECT COUNT(*) AS cnt FROM loan_repayments lp JOIN loans l ON lp.loan_id = l.loan_id WHERE l.member_id = {$member_id} AND YEAR(lp.payment_date) = YEAR(CURDATE()) AND MONTH(lp.payment_date) = MONTH(CURDATE())");
+        if ($q2) { $member_loan_repayments_count_this_month = (int)($q2->fetch_assoc()['cnt'] ?? 0); }
+    }
+} catch (Exception $e) { /* ignore */ }
 ?>
 
 <!DOCTYPE html>
@@ -60,10 +187,99 @@ $is_expired = $now > $expiry_date;
     <title>View Member - <?php echo APP_NAME; ?></title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .profile-img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            object-fit: cover;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .card-header {
+            border-radius: 15px 15px 0 0 !important;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .table th {
+            font-weight: 600;
+            color: #495057;
+            border-top: none;
+        }
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.5em 0.75em;
+        }
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .stats-card h4 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .stats-card p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        .timeline-item {
+            border-left: 3px solid #667eea;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+        }
+        .timeline-date {
+            font-size: 0.875rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link {
+            border-radius: 10px 10px 0 0;
+            border: none;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #667eea;
+            color: white;
+        }
+        .table-responsive {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+    </style>
+    
 </head>
 <body>
     <!-- Include Header/Navbar -->
@@ -75,7 +291,7 @@ $is_expired = $now > $expiry_date;
             <?php include '../../views/includes/sidebar.php'; ?>
             
             <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4 main-content mt-16">
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php">Dashboard</a></li>
@@ -125,14 +341,14 @@ $is_expired = $now > $expiry_date;
                                     <span class="ms-3"><i class="fas fa-phone me-2"></i> <?php echo $member['phone']; ?></span>
                                 </p>
                                 <p class="mb-0">
-                                    <i class="fas fa-calendar-alt me-2"></i> Joined: <?php echo date('M d, Y', strtotime($member['join_date'])); ?>
+                                    <i class="fas fa-calendar-alt me-2"></i> Joined: <?php echo !empty($member['join_date']) && strtotime($member['join_date']) !== false ? date('M d, Y', strtotime($member['join_date'])) : 'N/A'; ?>
                                     <span class="ms-3">
-                                        <i class="fas fa-clock me-2"></i> Expires: <?php echo date('M d, Y', strtotime($member['expiry_date'])); ?>
+                                        <i class="fas fa-clock me-2"></i> Expires: <?php echo !empty($member['expiry_date']) && strtotime($member['expiry_date']) !== false ? date('M d, Y', strtotime($member['expiry_date'])) : 'N/A'; ?>
                                         <?php if ($is_expired): ?>
                                             <span class="badge bg-danger ms-2">Expired</span>
-                                        <?php elseif ($days_until_expiry <= 30): ?>
+                                        <?php elseif ($days_until_expiry !== null && $days_until_expiry <= 30): ?>
                                             <span class="badge bg-warning ms-2"><?php echo $days_until_expiry; ?> days left</span>
-                                        <?php else: ?>
+                                        <?php elseif ($days_until_expiry !== null): ?>
                                             <span class="badge bg-success ms-2">Active</span>
                                         <?php endif; ?>
                                     </span>
@@ -150,7 +366,7 @@ $is_expired = $now > $expiry_date;
                                         <?php if ($is_expired): ?>
                                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-sync-alt me-2"></i> Renew Membership</a></li>
                                         <?php endif; ?>
-                                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Add Contribution</a></li>
+                                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Add Savings Deposit</a></li>
                                         <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#resetPasswordModal"><i class="fas fa-key me-2"></i> Reset Password</a></li>
                                         <li><a class="dropdown-item" href="#" onclick="window.print();"><i class="fas fa-print me-2"></i> Print Profile</a></li>
                                         <li><hr class="dropdown-divider"></li>
@@ -280,43 +496,51 @@ $is_expired = $now > $expiry_date;
                                         </tr>
                                         <tr>
                                             <th>Member Type</th>
-                                            <td><?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?></td>
+                                            <td><?php echo isset($member['member_type_label']) && !empty($member['member_type_label']) ? ucfirst($member['member_type_label']) : (isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'); ?></td>
                                         </tr>
                                         <tr>
                                             <th>Join Date</th>
-                                            <td><?php echo date('M d, Y', strtotime($member['join_date'])); ?></td>
+                                            <td><?php echo !empty($member['join_date']) && strtotime($member['join_date']) !== false ? date('M d, Y', strtotime($member['join_date'])) : 'N/A'; ?></td>
                                         </tr>
                                         <tr>
                                             <th>Expiry Date</th>
                                             <td>
-                                                <?php echo date('M d, Y', strtotime($member['expiry_date'])); ?>
+                                                <?php echo !empty($member['expiry_date']) && strtotime($member['expiry_date']) !== false ? date('M d, Y', strtotime($member['expiry_date'])) : 'N/A'; ?>
                                                 <?php if ($is_expired): ?>
                                                     <span class="badge bg-danger ms-2">Expired</span>
-                                                <?php elseif ($days_until_expiry <= 30): ?>
-                                                    <span class="badge bg-warning ms-2"><?php echo $days_until_expiry; ?> days left</span>
+                                                <?php elseif (!is_null($days_until_expiry) && $days_until_expiry <= 30): ?>
+                                                    <span class="badge bg-warning ms-2"><?php echo (int)$days_until_expiry; ?> days left</span>
                                                 <?php else: ?>
                                                     <span class="badge bg-success ms-2">Active</span>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
                                         <tr>
+                                            <th>Total Savings Balance</th>
+                                            <td>₦<?php echo number_format($member_total_savings ?? 0, 2); ?></td>
+                                        </tr>
+                                        <tr>
                                             <th>Membership Duration</th>
                                             <td>
                                                 <?php 
-                                                $join_date = new DateTime($member['join_date']);
-                                                $interval = $now->diff($join_date);
-                                                $years = $interval->y;
-                                                $months = $interval->m;
-                                                
-                                                if ($years > 0) {
-                                                    echo $years . ' year' . ($years > 1 ? 's' : '');
-                                                    if ($months > 0) {
-                                                        echo ', ' . $months . ' month' . ($months > 1 ? 's' : '');
+                                                if (!empty($member['join_date']) && strtotime($member['join_date']) !== false) {
+                                                    $join_date = new DateTime($member['join_date']);
+                                                    $interval = $now->diff($join_date);
+                                                    $years = $interval->y;
+                                                    $months = $interval->m;
+
+                                                    if ($years > 0) {
+                                                        echo $years . ' year' . ($years > 1 ? 's' : '');
+                                                        if ($months > 0) {
+                                                            echo ', ' . $months . ' month' . ($months > 1 ? 's' : '');
+                                                        }
+                                                    } else {
+                                                        echo $months . ' month' . ($months > 1 ? 's' : '');
                                                     }
                                                 } else {
-                                                    echo $months . ' month' . ($months > 1 ? 's' : '');
+                                                    echo 'N/A';
                                                 }
-                                                ?>
+                                            ?>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -344,11 +568,11 @@ $is_expired = $now > $expiry_date;
                                 <div class="row">
                                     <div class="col-md-6">
                                         <h6>Created:</h6>
-                                        <p><?php echo date('M d, Y H:i', strtotime($member['created_at'])); ?></p>
+                                        <p><?php echo !empty($member['created_at']) && strtotime($member['created_at']) !== false ? date('M d, Y H:i', strtotime($member['created_at'])) : 'N/A'; ?></p>
                                     </div>
                                     <div class="col-md-6">
                                         <h6>Last Updated:</h6>
-                                        <p><?php echo date('M d, Y H:i', strtotime($member['updated_at'])); ?></p>
+                                        <p><?php echo !empty($member['updated_at']) && strtotime($member['updated_at']) !== false ? date('M d, Y H:i', strtotime($member['updated_at'])) : 'N/A'; ?></p>
                                     </div>
                                 </div>
                             </div>
@@ -361,12 +585,12 @@ $is_expired = $now > $expiry_date;
                     <div class="card-header bg-light p-0">
                         <ul class="nav nav-tabs" id="memberTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="contributions-tab" data-bs-toggle="tab" data-bs-target="#contributions" type="button" role="tab" aria-controls="contributions" aria-selected="true">
-                                    <i class="fas fa-money-bill-wave me-2"></i> Contributions
+                                <button class="nav-link" id="contributions-tab" data-bs-toggle="tab" data-bs-target="#contributions" type="button" role="tab" aria-controls="contributions" aria-selected="false">
+                                    <i class="fas fa-money-bill-wave me-2"></i> Savings
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="loans-tab" data-bs-toggle="tab" data-bs-target="#loans" type="button" role="tab" aria-controls="loans" aria-selected="false">
+                                <button class="nav-link active" id="loans-tab" data-bs-toggle="tab" data-bs-target="#loans" type="button" role="tab" aria-controls="loans" aria-selected="true">
                                     <i class="fas fa-hand-holding-usd me-2"></i> Loans
                                 </button>
                             </li>
@@ -385,12 +609,15 @@ $is_expired = $now > $expiry_date;
                     <div class="card-body">
                         <div class="tab-content" id="memberTabsContent">
                             <!-- Contributions Tab -->
-                            <div class="tab-pane fade show active" id="contributions" role="tabpanel" aria-labelledby="contributions-tab">
+                            <div class="tab-pane fade" id="contributions" role="tabpanel" aria-labelledby="contributions-tab">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0">Contribution History</h5>
-                                    <a href="<?php echo BASE_URL; ?>/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-plus"></i> Add Contribution
-                                    </a>
+                                    <h5 class="mb-0">Savings History</h5>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="badge bg-success">Total Savings: ₦<?php echo number_format($member_total_savings ?? 0, 2); ?></span>
+                                        <a href="<?php echo BASE_URL; ?>/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-plus"></i> Add Savings Deposit
+                                        </a>
+                                    </div>
                                 </div>
                                 
                                 <div class="table-responsive">
@@ -407,29 +634,82 @@ $is_expired = $now > $expiry_date;
                                         </thead>
                                         <tbody>
                                             <!-- This would be populated from the database -->
+<?php if (empty($savings_transactions)): ?>
                                             <tr>
-                                                <td colspan="6" class="text-center">No contribution records found</td>
+                                                <td colspan="6" class="text-center">No savings records found</td>
                                             </tr>
+<?php else: ?>
+<?php foreach ($savings_transactions as $tx): ?>
+                                            <tr>
+                                                <td><?php echo date('M d, Y', strtotime($tx['transaction_date'] ?? ($tx[$dateCol] ?? '1970-01-01'))); ?></td>
+                                                <td>₦<?php echo number_format($tx['amount'] ?? 0, 2); ?></td>
+                                                <td><?php echo htmlspecialchars($tx['transaction_type'] ?? ($tx[$typeCol] ?? '')); ?></td>
+                                                <td><?php echo !empty($tx['reference_number']) ? htmlspecialchars($tx['reference_number']) : (!empty($tx['receipt_number']) ? htmlspecialchars($tx['receipt_number']) : '-'); ?></td>
+                                                <td><?php echo !empty($tx['notes']) ? htmlspecialchars($tx['notes']) : '-'; ?></td>
+                                                <td>-</td>
+                                            </tr>
+<?php endforeach; ?>
+<?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
                             
                             <!-- Loans Tab -->
-                            <div class="tab-pane fade" id="loans" role="tabpanel" aria-labelledby="loans-tab">
+                            <div class="tab-pane fade show active" id="loans" role="tabpanel" aria-labelledby="loans-tab">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">Loan History</h5>
-                                            <a href="<?php echo BASE_URL; ?>/views/admin/add_loan.php?member_id=<?php echo $member['member_id']; ?>"
-                                        <i class="fas fa-plus"></i> Add Loan
-                                    </a>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="badge bg-warning text-dark">Outstanding: ₦<?php echo number_format($member_loan_outstanding ?? 0, 2); ?></span>
+                                        <span class="badge bg-success">Paid Total: ₦<?php echo number_format($member_loan_paid_total ?? 0, 2); ?></span>
+                                        <span class="badge bg-primary">Repayments This Month: ₦<?php echo number_format($member_loan_repayments_this_month ?? 0, 2); ?></span>
+                                        <span class="badge bg-info text-dark">Repayments Count: <?php echo number_format($member_loan_repayments_count_this_month ?? 0); ?></span>
+                                        <a href="<?php echo BASE_URL; ?>/views/admin/add_loan.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-plus"></i> Add Loan
+                                        </a>
+                                    </div>
                                 </div>
                                 
                                 <div class="table-responsive">
+                                    <?php
+                                    // Detect schema for per-loan paid/remaining calculations once
+                                    $has_repayments = false;
+                                    $has_amount_paid = false;
+                                    $has_total_repaid = false;
+                                    try {
+                                        $chk = $conn->query("SHOW TABLES LIKE 'loan_repayments'");
+                                        if ($chk && $chk->num_rows > 0) { $has_repayments = true; }
+                                        $chk = $conn->query("SHOW COLUMNS FROM loans LIKE 'amount_paid'");
+                                        if ($chk && $chk->num_rows > 0) { $has_amount_paid = true; }
+                                        $chk = $conn->query("SHOW COLUMNS FROM loans LIKE 'total_repaid'");
+                                        if ($chk && $chk->num_rows > 0) { $has_total_repaid = true; }
+                                    } catch (Exception $e) { /* ignore */ }
+                                    
+                                    // Prefetch repayment sums for this member's loans to avoid per-row queries
+                                    $repayment_sums_by_loan = [];
+                                    if ($has_repayments && !empty($member_loans)) {
+                                        $loanIds = array_map(function($l){ return (int)$l['loan_id']; }, $member_loans);
+                                        $loanIds = array_filter($loanIds, function($id){ return $id > 0; });
+                                        if (!empty($loanIds)) {
+                                            $in = implode(',', $loanIds);
+                                            try {
+                                                $rs = $conn->query("SELECT loan_id, SUM(amount) AS total FROM loan_repayments WHERE loan_id IN ($in) GROUP BY loan_id");
+                                                if ($rs) {
+                                                    while ($row = $rs->fetch_assoc()) {
+                                                        $repayment_sums_by_loan[(int)$row['loan_id']] = (float)($row['total'] ?? 0);
+                                                    }
+                                                }
+                                            } catch (Exception $e) { /* ignore */ }
+                                        }
+                                    }
+                                    ?>
                                     <table class="table table-striped table-hover">
                                         <thead>
                                             <tr>
                                                 <th>Date</th>
                                                 <th>Amount</th>
+                                                <th>Paid</th>
+                                                <th>Remaining</th>
                                                 <th>Purpose</th>
                                                 <th>Status</th>
                                                 <th>Due Date</th>
@@ -438,9 +718,37 @@ $is_expired = $now > $expiry_date;
                                         </thead>
                                         <tbody>
                                             <!-- This would be populated from the database -->
+<?php if (empty($member_loans)): ?>
                                             <tr>
-                                                <td colspan="6" class="text-center">No loan records found</td>
+                                                <td colspan="8" class="text-center">No loan records found</td>
                                             </tr>
+<?php else: ?>
+<?php foreach ($member_loans as $loan): ?>
+                                            <?php
+                                                $loanAmount = (float)($loan['amount'] ?? 0);
+                                                $loanPaid = 0.0;
+                                                $loanId = (int)($loan['loan_id'] ?? 0);
+                                                if ($has_repayments && $loanId > 0 && isset($repayment_sums_by_loan[$loanId])) {
+                                                    $loanPaid = (float)$repayment_sums_by_loan[$loanId];
+                                                } elseif ($has_amount_paid && isset($loan['amount_paid'])) {
+                                                    $loanPaid = (float)$loan['amount_paid'];
+                                                } elseif ($has_total_repaid && isset($loan['total_repaid'])) {
+                                                    $loanPaid = (float)$loan['total_repaid'];
+                                                }
+                                                $loanRemaining = max(0.0, $loanAmount - $loanPaid);
+                                            ?>
+                                            <tr>
+                                                <td><?php echo date('M d, Y', strtotime($loan['application_date'])); ?></td>
+                                                <td>₦<?php echo number_format($loanAmount, 2); ?></td>
+                                                <td>₦<?php echo number_format($loanPaid, 2); ?></td>
+                                                <td>₦<?php echo number_format($loanRemaining, 2); ?></td>
+                                                <td><?php echo htmlspecialchars($loan['purpose'] ?? ''); ?></td>
+                                                <td><?php echo htmlspecialchars($loan['status'] ?? ''); ?></td>
+                                                <td><?php echo !empty($loan['due_date']) ? date('M d, Y', strtotime($loan['due_date'])) : '-'; ?></td>
+                                                <td><a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan['loan_id']; ?>" class="btn btn-sm btn-outline-primary">View</a></td>
+                                            </tr>
+<?php endforeach; ?>
+<?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -484,7 +792,7 @@ $is_expired = $now > $expiry_date;
                                 <div class="timeline">
                                     <!-- This would be populated from the database -->
                                     <div class="timeline-item">
-                                        <div class="timeline-date"><?php echo date('M d, Y', strtotime($member['created_at'])); ?></div>
+                                    <div class="timeline-date"><?php echo !empty($member['created_at']) && strtotime($member['created_at']) !== false ? date('M d, Y', strtotime($member['created_at'])) : 'N/A'; ?></div>
                                         <div class="timeline-content">
                                             <h6>Member Created</h6>
                                             <p>Member account was created in the system.</p>
@@ -684,9 +992,9 @@ $is_expired = $now > $expiry_date;
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background-color: #007bff;
+            background-color: var(--true-blue);
             border: 2px solid #fff;
-            box-shadow: 0 0 0 2px #007bff;
+            box-shadow: 0 0 0 2px var(--true-blue);
         }
         
         .timeline-date {

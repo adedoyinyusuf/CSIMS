@@ -1,7 +1,8 @@
 <?php
 session_start();
-require_once 'classes/DatabaseConnection.php';
+
 require_once 'classes/WorkflowService.php';
+require_once 'includes/config/database.php';
 
 // Check if user is logged in and is a member
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'member') {
@@ -10,7 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'member') {
 }
 
 $workflowService = new WorkflowService();
-$db = DatabaseConnection::getInstance()->getConnection();
+$db = (new PdoDatabase())->getConnection();
 
 // Get member ID from session or database
 $memberId = null;

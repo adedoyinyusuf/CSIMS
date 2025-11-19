@@ -127,3 +127,32 @@ The SavingsController now loads successfully with all dependencies properly reso
 
 ---
 *Resolution completed: 2025-10-08*
+
+## Header Integration Update (2025-11-06)
+
+### Summary
+- The admin header now uses live data from `controllers/notification_controller.php` to display the unread notification count and recent notifications in the dropdown.
+- All mock `AdminNotificationService` includes and instantiations were removed from admin views.
+
+### Files Updated
+- `views/includes/header.php` – wired unread badge and dropdown to `NotificationController`.
+- Removed `includes/services/NotificationService.php` usage from:
+  - `views/admin/members.php`
+  - `views/admin/transactions.php`
+  - `views/admin/_template_admin_page.php`
+  - `views/admin/savings.php`
+  - `views/admin/reports.php`
+  - `views/admin/loans.php`
+
+### Behavior
+- Unread count reflects `NotificationController->getNotificationStats()` for the current admin.
+- Dropdown lists recent notifications via `getAllNotifications()` (or member-scoped when applicable).
+- Gracefully shows "No notifications" when none exist.
+
+### Rationale
+- Consolidates notification logic to a single controller-backed source of truth.
+- Removes legacy mock service to prevent confusion and undefined variable usage in views.
+
+### Follow-ups
+- Consider formally deprecating `includes/services/NotificationService.php` or archiving it.
+- Extend dropdown to member-scoped notifications where required.

@@ -1,22 +1,42 @@
 <?php
 session_start();
+require_once '../../config/config.php';
 require_once '../../config/database.php';
+require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/system_admin_controller.php';
+require_once '../../includes/config/SystemConfigService.php';
 
-// Check if admin is logged in and has super_admin role
-if (!isset($_SESSION['admin_id']) || $_SESSION['user_type'] !== 'admin') {
-    header('Location: admin_login.php');
+// Centralized auth check
+$auth = new AuthController();
+if (!$auth->isLoggedIn() || ($_SESSION['user_type'] ?? '') !== 'admin') {
+    header('Location: ../auth/login.php');
     exit();
 }
-
-// Check if user has system administration permissions
-if (!in_array($_SESSION['admin_role'] ?? '', ['super_admin'])) {
-    header('Location: admin_dashboard.php?error=insufficient_permissions');
+$current_user = $auth->getCurrentUser();
+// Check super_admin role
+if (!in_array($current_user['role'] ?? '', ['super_admin'])) {
+    header('Location: dashboard.php?error=insufficient_permissions');
     exit();
 }
 
 $systemAdminController = new SystemAdminController();
-$admin_id = $_SESSION['admin_id'];
+
+// Initialize PDO and SystemConfigService for centralized configuration access
+$sysConfig = null;
+try {
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    try {
+        $sysConfig = SystemConfigService::getInstance($pdo);
+    } catch (Exception $e) {
+        $sysConfig = null;
+        error_log('System admin dashboard: SystemConfigService init failed: ' . $e->getMessage());
+    }
+} catch (PDOException $e) {
+    error_log('System admin dashboard: PDO init failed: ' . $e->getMessage());
+}
+$admin_id = $current_user['admin_id'];
 
 // Handle form submissions
 $errors = [];
@@ -63,8 +83,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $settings_updated = 0;
             foreach ($_POST['settings'] as $category => $category_settings) {
                 foreach ($category_settings as $key => $value) {
-                    if ($systemAdminController->updateSystemSetting($category, $key, $value, $admin_id)) {
-                        $settings_updated++;
+                    if ($sysConfig) {
+                        if ($sysConfig->set($key, $value, $_SESSION['user_id'] ?? null)) {
+                            $settings_updated++;
+                        }
+                    } else {
+                        // Graceful fallback to legacy controller if SystemConfigService unavailable
+                        if ($systemAdminController->updateSystemSetting($category, $key, $value, $admin_id)) {
+                            $settings_updated++;
+                        }
                     }
                 }
             }
@@ -114,7 +141,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get dashboard data
 $admin_users = $systemAdminController->getAllAdminUsers(50);
-$system_settings = $systemAdminController->getSystemSettings();
+// Build system settings from SystemConfigService, grouped by category, with legacy fallback
+$system_settings = [];
+if ($sysConfig) {
+    $allConfigs = $sysConfig->getAll();
+    foreach ($allConfigs as $configKey => $configValue) {
+        $meta = $sysConfig->getMetadata($configKey);
+        $category = $meta['category'] ?? 'general';
+        $type = $meta['type'] ?? 'string';
+        $description = $meta['description'] ?? '';
+        // Map types to UI input types used by dashboard
+        $uiType = ($type === 'integer' || $type === 'decimal') ? 'number' : ($type === 'boolean' ? 'boolean' : 'text');
+        $system_settings[$category][] = [
+            'setting_key' => $configKey,
+            'setting_value' => $configValue,
+            'setting_type' => $uiType,
+            'description' => $description,
+        ];
+    }
+    // Optionally sort categories for stable display
+    ksort($system_settings);
+} else {
+    // Fallback to legacy retrieval if SystemConfigService unavailable
+    $system_settings = $systemAdminController->getSystemSettings();
+}
 $audit_stats = $systemAdminController->getAuditStatistics('30_days');
 $recent_audit_logs = $systemAdminController->getSecurityAuditLogs([], 20);
 $system_info = $systemAdminController->getSystemInfo();
@@ -135,71 +185,25 @@ $audit_filters = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Administration - NPC CTLStaff Loan Society</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Tailwind CSS and Font Awesome are provided by the shared header include -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
-                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
-                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="bg-gray-50">
-    <div class="flex min-h-screen">
-        <!-- Sidebar -->
-        <div class="w-64 shadow-xl" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);">
-            <div class="flex flex-col h-full p-6">
-                <h4 class="text-white text-xl font-bold mb-6">
-                    <i class="fas fa-university mr-2"></i> System Admin
-                </h4>
-                
-                <nav class="flex-1 space-y-2">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="admin_dashboard.php">
-                        <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_members.php">
-                        <i class="fas fa-users mr-3"></i> Members
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="manage_loans.php">
-                        <i class="fas fa-money-bill-wave mr-3"></i> Loans
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="reports_dashboard.php">
-                        <i class="fas fa-chart-bar mr-3"></i> Reports
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="communication_dashboard.php">
-                        <i class="fas fa-bullhorn mr-3"></i> Communication
-                    </a>
-                    <a class="flex items-center px-4 py-3 text-white bg-white/20 rounded-lg font-medium" href="system_admin_dashboard.php">
-                        <i class="fas fa-cog mr-3"></i> System Admin
-                    </a>
-                </nav>
-                
-                <div class="mt-auto">
-                    <a class="flex items-center px-4 py-3 text-primary-200 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200" href="admin_logout.php">
-                        <i class="fas fa-sign-out-alt mr-3"></i> Logout
-                    </a>
-                </div>
-            </div>
-        </div>
+    <!-- Page Wrapper -->
+    <div class="wrapper">
+        <?php include_once __DIR__ . '/../includes/sidebar.php'; ?>
+        
+        <!-- Content Wrapper -->
+        <div id="mainContent" class="main-content mt-16">
+            <?php include_once __DIR__ . '/../includes/header.php'; ?>
             
-        <!-- Main Content -->
-        <div class="flex-1 overflow-hidden">
+            <!-- Begin Page Content -->
             <div class="p-8">
                 <!-- Header -->
                 <div class="flex justify-between items-center mb-8">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-                            <i class="fas fa-cog mr-3 text-primary-600"></i> System Administration
+                            <i class="fas fa-cog mr-3 icon-primary" style="color: #3b28cc;"></i> System Administration
                         </h1>
                         <p class="text-gray-600 mt-2">Manage users, system settings, security, and maintenance</p>
                     </div>
@@ -236,7 +240,7 @@ $audit_filters = [
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                         <div class="flex">
                             <div class="flex-shrink-0">
-                                <i class="fas fa-check-circle text-green-400"></i>
+                                <i class="fas fa-check-circle icon-success"></i>
                             </div>
                             <div class="ml-3">
                                 <h3 class="text-sm font-medium text-green-800">Success!</h3>
@@ -247,16 +251,16 @@ $audit_filters = [
                 <?php endif; ?>
 
                 <!-- System Overview Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="systemOverviewGrid">
                     <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Admin Users</p>
+                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: #3b28cc;">Admin Users</p>
                                 <p class="text-2xl font-bold text-gray-800"><?php echo count($admin_users); ?></p>
                                 <p class="text-sm text-gray-500">Active administrators</p>
                             </div>
-                            <div class="bg-blue-100 p-3 rounded-full">
-                                <i class="fas fa-users-cog text-2xl text-blue-600"></i>
+                            <div class="p-3 rounded-full" style="background: #3b28cc;">
+                                <i class="fas fa-users-cog text-2xl" style="color: #ffffff;"></i>
                             </div>
                         </div>
                     </div>
@@ -264,12 +268,12 @@ $audit_filters = [
                     <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">Database Size</p>
+                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: #07beb8;">Database Size</p>
                                 <p class="text-2xl font-bold text-gray-800"><?php echo $database_stats['database_size_mb']; ?> MB</p>
                                 <p class="text-sm text-gray-500">Total database size</p>
                             </div>
-                            <div class="bg-green-100 p-3 rounded-full">
-                                <i class="fas fa-database text-2xl text-green-600"></i>
+                            <div class="p-3 rounded-full" style="background: #07beb8;">
+                                <i class="fas fa-database text-2xl" style="color: #ffffff;"></i>
                             </div>
                         </div>
                     </div>
@@ -277,12 +281,12 @@ $audit_filters = [
                     <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-yellow-500">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">Security Events</p>
+                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: #cb0b0a;">Security Events</p>
                                 <p class="text-2xl font-bold text-gray-800"><?php echo $audit_stats['total_events']; ?></p>
                                 <p class="text-sm text-gray-500">Last 30 days</p>
                             </div>
-                            <div class="bg-yellow-100 p-3 rounded-full">
-                                <i class="fas fa-shield-alt text-2xl text-yellow-600"></i>
+                            <div class="p-3 rounded-full" style="background: #cb0b0a;">
+                                <i class="fas fa-shield-alt text-2xl" style="color: #ffffff;"></i>
                             </div>
                         </div>
                     </div>
@@ -290,7 +294,7 @@ $audit_filters = [
                     <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-red-500">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs font-bold text-red-600 uppercase tracking-wider mb-2">System Health</p>
+                                <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: #214e34;">System Health</p>
                                 <p class="text-2xl font-bold text-gray-800">
                                     <?php 
                                     $free_space_percent = round((intval($system_info['disk_free_space']) / intval($system_info['disk_total_space'])) * 100, 1);
@@ -299,8 +303,8 @@ $audit_filters = [
                                 </p>
                                 <p class="text-sm text-gray-500">Free disk space</p>
                             </div>
-                            <div class="bg-red-100 p-3 rounded-full">
-                                <i class="fas fa-heartbeat text-2xl text-red-600"></i>
+                            <div class="p-3 rounded-full" style="background: #214e34;">
+                                <i class="fas fa-heartbeat text-2xl" style="color: #ffffff;"></i>
                             </div>
                         </div>
                     </div>
@@ -337,7 +341,7 @@ $audit_filters = [
                         <div class="px-6 py-4 border-b border-gray-200">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-xl font-bold text-gray-900 flex items-center">
-                                    <i class="fas fa-users-cog mr-3 text-primary-600"></i> Admin Users Management
+                                    <i class="fas fa-users-cog mr-3 icon-primary" style="color: #3b28cc;"></i> Admin Users Management
                                 </h3>
                                 <button onclick="showCreateAdminModal()" class="text-primary-600 hover:text-primary-700 flex items-center text-sm">
                                     <i class="fas fa-plus mr-2"></i> Add New Admin
@@ -421,59 +425,17 @@ $audit_filters = [
                             </h3>
                         </div>
                         <div class="p-6">
-                            <form method="POST" action="">
-                                <input type="hidden" name="action" value="update_settings">
-                                
-                                <div class="space-y-8">
-                                    <?php foreach ($system_settings as $category => $settings): ?>
-                                        <div class="border border-gray-200 rounded-lg p-6">
-                                            <h4 class="text-lg font-semibold text-gray-900 mb-4 capitalize">
-                                                <?php echo str_replace('_', ' ', $category); ?> Settings
-                                            </h4>
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <?php foreach ($settings as $setting): ?>
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                                            <?php echo ucfirst(str_replace('_', ' ', $setting['setting_key'])); ?>
-                                                            <?php if (!empty($setting['description'])): ?>
-                                                                <span class="text-gray-500 font-normal">- <?php echo $setting['description']; ?></span>
-                                                            <?php endif; ?>
-                                                        </label>
-                                                        <?php if ($setting['setting_type'] === 'boolean'): ?>
-                                                            <select name="settings[<?php echo $category; ?>][<?php echo $setting['setting_key']; ?>]" 
-                                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
-                                                                <option value="1" <?php echo $setting['setting_value'] ? 'selected' : ''; ?>>Yes</option>
-                                                                <option value="0" <?php echo !$setting['setting_value'] ? 'selected' : ''; ?>>No</option>
-                                                            </select>
-                                                        <?php elseif ($setting['setting_type'] === 'number'): ?>
-                                                            <input type="number" 
-                                                                   name="settings[<?php echo $category; ?>][<?php echo $setting['setting_key']; ?>]" 
-                                                                   value="<?php echo htmlspecialchars($setting['setting_value']); ?>"
-                                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
-                                                        <?php elseif ($setting['setting_type'] === 'email'): ?>
-                                                            <input type="email" 
-                                                                   name="settings[<?php echo $category; ?>][<?php echo $setting['setting_key']; ?>]" 
-                                                                   value="<?php echo htmlspecialchars($setting['setting_value']); ?>"
-                                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
-                                                        <?php else: ?>
-                                                            <input type="text" 
-                                                                   name="settings[<?php echo $category; ?>][<?php echo $setting['setting_key']; ?>]" 
-                                                                   value="<?php echo htmlspecialchars($setting['setting_value']); ?>"
-                                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
+                            <?php if (!empty($system_settings)): ?>
+                                <?php 
+                                    $settings_action = 'update_settings';
+                                    $settings_submit_label = 'Save Settings';
+                                    include_once __DIR__ . '/../includes/system_settings_form.php';
+                                ?>
+                            <?php else: ?>
+                                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+                                    SystemConfigService unavailable or no settings found.
                                 </div>
-                                
-                                <div class="mt-6 flex justify-end">
-                                    <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-                                        <i class="fas fa-save mr-2"></i> Save Settings
-                                    </button>
-                                </div>
-                            </form>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -683,9 +645,8 @@ $audit_filters = [
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
+            </div> <!-- end main content -->
+        </div> <!-- end wrapper -->
 
     <!-- Create Admin Modal -->
     <div id="createAdminModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">

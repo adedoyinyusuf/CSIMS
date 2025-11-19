@@ -189,7 +189,7 @@ $pageTitle = "My Profile";
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     
     <!-- Custom Tailwind Configuration -->
     <script>
@@ -225,7 +225,7 @@ $pageTitle = "My Profile";
     </script>
     
     <!-- Custom styles for legacy compatibility -->
-    <link href="../../assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
 
 <body id="page-top">
@@ -240,7 +240,7 @@ $pageTitle = "My Profile";
                 <?php include_once '../includes/header.php'; ?>
 
                 <!-- Begin Page Content -->
-                <div id="main-content" class="p-6 bg-gray-50 min-h-screen transition-all duration-300 ml-64">
+                <div id="main-content" class="main-content p-6 bg-gray-50 min-h-screen transition-all duration-300 mt-16">
                     <!-- Page Heading -->
                     <div class="bg-gradient-to-r from-primary-600 to-primary-800 text-white p-8 rounded-2xl shadow-lg mb-8">
                         <div class="flex justify-between items-center">

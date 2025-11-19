@@ -30,7 +30,7 @@ class SystemConfigService
     {
         if (self::$instance === null) {
             if ($pdo === null) {
-                throw new InvalidArgumentException('PDO instance required for first initialization');
+                throw new InvalidArgumentException('Database connection (PDO or mysqli) required for initialization');
             }
             self::$instance = new self($pdo);
         }
@@ -341,8 +341,17 @@ class SystemConfigService
             $stmt->execute();
             
             $this->cache = [];
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->cache[$row['config_key']] = $row;
+            if (method_exists($stmt, 'get_result')) {
+                $result = $stmt->get_result();
+                if ($result) {
+                    while ($row = $result->fetch_assoc()) {
+                        $this->cache[$row['config_key']] = $row;
+                    }
+                }
+            } else {
+                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $this->cache[$row['config_key']] = $row;
+                }
             }
             
             $this->lastCacheTime = time();

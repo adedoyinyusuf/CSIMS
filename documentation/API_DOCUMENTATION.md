@@ -42,13 +42,13 @@ The API uses session-based authentication. Users must log in through the web int
 
 #### Login Endpoint
 ```http
-POST /auth/login
+POST /api/auth/login
 Content-Type: application/json
 
 {
-    "username": "admin",
+    "username": "admin", // or provide "email"
     "password": "password123",
-    "user_type": "admin" // or "member"
+    "two_factor_code": "123456" // optional if 2FA enabled
 }
 ```
 
@@ -67,9 +67,14 @@ Content-Type: application/json
 }
 ```
 
+#### Current User
+```http
+GET /api/auth/me
+```
+
 #### Logout Endpoint
 ```http
-POST /auth/logout
+POST /api/auth/logout
 ```
 
 ### Authorization Headers
@@ -589,8 +594,7 @@ const login = async (username, password) => {
         },
         body: JSON.stringify({
             username,
-            password,
-            user_type: 'admin'
+            password
         })
     });
     
@@ -634,8 +638,7 @@ function login($username, $password) {
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
         'username' => $username,
-        'password' => $password,
-        'user_type' => 'admin'
+        'password' => $password
     ]));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json'
@@ -673,13 +676,14 @@ class CSIMSClient:
         self.base_url = base_url
         self.session = requests.Session()
     
-    def login(self, username, password, user_type='admin'):
+    def login(self, username, password, two_factor_code=None):
         url = f"{self.base_url}/auth/login"
         data = {
             'username': username,
-            'password': password,
-            'user_type': user_type
+            'password': password
         }
+        if two_factor_code:
+            data['two_factor_code'] = two_factor_code
         response = self.session.post(url, json=data)
         return response.json()
     
@@ -698,6 +702,64 @@ class CSIMSClient:
 client = CSIMSClient('http://localhost/CSIMS/api')
 login_result = client.login('admin', 'password')
 members = client.get_members(page=1, limit=20)
+```
+
+## Additional Member Endpoints
+
+### Search Members
+```http
+GET /api/members/search?q={term}&page=1&limit=20
+```
+
+#### Query Parameters
+- `q` (string) — Search term across `first_name`, `last_name`, `email`, `username`, `ippis_no`
+- `page` (integer) — Page number (default: 1)
+- `limit` (integer) — Items per page (default: 20, max: 100)
+
+#### Response
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john.doe@example.com",
+        "username": "jdoe",
+        "ippis_no": "123456"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1 }
+  }
+}
+```
+
+### Member Summary
+```http
+GET /api/members/{id}/summary
+```
+
+#### Response
+```json
+{
+  "success": true,
+  "data": {
+    "member": {
+      "id": 1,
+      "first_name": "John",
+      "last_name": "Doe",
+      "email": "john.doe@example.com"
+    },
+    "loans": {
+      "active_count": 1,
+      "total_principal": 50000,
+      "total_interest": 2750,
+      "remaining_balance": 32000
+    }
+  }
+}
 ```
 
 ---

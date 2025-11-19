@@ -1,16 +1,17 @@
 <?php
-session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
 require_once '../../controllers/membership_controller.php';
-require_once '../../includes/services/NotificationService.php';
+
+// Ensure we use the unified Session instance and cookie
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
-    $_SESSION['error'] = 'Please login to access the members page';
-    header("Location: " . BASE_URL . "/index.php");
+    $_SESSION['error'] = 'Please login to access this page';
+    header('Location: ' . BASE_URL . '/index.php');
     exit();
 }
 
@@ -20,7 +21,6 @@ $current_user = $auth->getCurrentUser();
 // Initialize controllers and services
 $memberController = new MemberController();
 $membershipController = new MembershipController();
-$notificationService = new NotificationService();
 
 // Get pagination parameters
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -55,9 +55,9 @@ $member_stats = $memberController->getMemberStatistics();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Members - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- CSIMS Color System -->
-    <link rel="stylesheet" href="../../assets/css/csims-colors.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
 </head>
@@ -113,10 +113,10 @@ $member_stats = $memberController->getMemberStatistics();
                     <div class="card-body p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--persian-orange);">Active Members</p>
+                                <p class="form-label text-xs mb-1" style="color: #3b28cc;">Active Members</p>
                                 <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($member_stats['active_members'] ?? 0); ?></p>
                             </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--persian-orange) 0%, var(--jasper) 100%);">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);">
                                 <i class="fas fa-user-check text-white"></i>
                             </div>
                         </div>
@@ -127,10 +127,10 @@ $member_stats = $memberController->getMemberStatistics();
                     <div class="card-body p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--jasper);">New This Month</p>
+                                <p class="form-label text-xs mb-1" style="color: #3b28cc;">New This Month</p>
                                 <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($member_stats['new_members_this_month'] ?? 0); ?></p>
                             </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--jasper) 0%, var(--fire-brick) 100%);">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: #3b28cc;">
                                 <i class="fas fa-user-plus text-white"></i>
                             </div>
                         </div>
@@ -141,19 +141,22 @@ $member_stats = $memberController->getMemberStatistics();
                     <div class="card-body p-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--paynes-gray);">Expiring Soon</p>
+                                <p class="form-label text-xs mb-1" style="color: #cb0b0a;">Expiring Soon</p>
                                 <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php 
                                     $expiring_count = 0;
+                                    $today = strtotime('today');
                                     foreach($members as $member) {
-                                        $expiry_date = strtotime($member['expiry_date']);
-                                        $today = strtotime('today');
-                                        $days_left = round(($expiry_date - $today) / (60 * 60 * 24));
-                                        if ($days_left <= 30 && $days_left >= 0) $expiring_count++;
+                                        $raw = $member['expiry_date'] ?? null;
+                                        if (empty($raw)) { continue; }
+                                        $expiry_ts = strtotime($raw);
+                                        if ($expiry_ts === false) { continue; }
+                                        $days_left = (int)round(($expiry_ts - $today) / (60 * 60 * 24));
+                                        if ($days_left <= 30 && $days_left >= 0) { $expiring_count++; }
                                     }
                                     echo number_format($expiring_count);
                                 ?></p>
                             </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--paynes-gray) 0%, var(--lapis-lazuli) 100%);">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: #cb0b0a;">
                                 <i class="fas fa-clock text-white"></i>
                             </div>
                         </div>
@@ -165,7 +168,7 @@ $member_stats = $memberController->getMemberStatistics();
             <?php if (!empty($success_message)): ?>
                 <div class="alert alert-success flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-check-circle mr-3" style="color: var(--success);"></i>
+                        <i class="fas fa-check-circle mr-3 icon-success"></i>
                         <span><?php echo htmlspecialchars($success_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -177,7 +180,7 @@ $member_stats = $memberController->getMemberStatistics();
             <?php if (!empty($error_message)): ?>
                 <div class="alert alert-error flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <i class="fas fa-exclamation-circle mr-3 icon-error"></i>
                         <span><?php echo htmlspecialchars($error_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -190,7 +193,7 @@ $member_stats = $memberController->getMemberStatistics();
             <div class="card card-admin animate-fade-in">
                 <div class="card-header">
                     <h3 class="text-lg font-semibold flex items-center">
-                        <i class="fas fa-filter mr-2" style="color: var(--lapis-lazuli);"></i>
+                        <i class="fas fa-filter mr-2" style="color: #3b28cc;"></i>
                         Filter & Search Members
                     </h3>
                 </div>
@@ -200,7 +203,7 @@ $member_stats = $memberController->getMemberStatistics();
                             <label for="search" class="form-label">Search Members</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-search" style="color: var(--text-muted);"></i>
+                                    <i class="fas fa-search icon-muted"></i>
                                 </div>
                                 <input type="text" class="form-control pl-10" id="search" name="search" 
                                        placeholder="Name, Email, Phone, Member ID" 
@@ -310,25 +313,31 @@ $member_stats = $memberController->getMemberStatistics();
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <span class="badge badge-info">
-                                                <?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?>
+                                                <?php echo isset($member['member_type_label']) && !empty($member['member_type_label']) ? ucfirst($member['member_type_label']) : (isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'); ?>
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo date('M d, Y', strtotime($member['join_date'])); ?>
+                                            <?php 
+                                                $joinRaw = $member['join_date'] ?? null;
+                                                $joinTs = $joinRaw ? strtotime($joinRaw) : false;
+                                                echo $joinTs ? date('M d, Y', $joinTs) : 'N/A';
+                                            ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <div class="flex flex-col">
-                                                <span><?php echo date('M d, Y', strtotime($member['expiry_date'])); ?></span>
                                                 <?php 
-                                                $expiry_date = strtotime($member['expiry_date']);
-                                                $today = strtotime('today');
-                                                $days_left = round(($expiry_date - $today) / (60 * 60 * 24));
-                                                
-                                                if ($days_left <= 0) {
-                                                    echo '<span class="badge badge-error mt-1">Expired</span>';
-                                                } elseif ($days_left <= 30) {
-                                                    echo '<span class="badge badge-warning mt-1">' . $days_left . ' days left</span>';
-                                                }
+                                                    $expiryRaw = $member['expiry_date'] ?? null;
+                                                    $expiryTs = $expiryRaw ? strtotime($expiryRaw) : false;
+                                                    echo $expiryTs ? date('M d, Y', $expiryTs) : 'N/A';
+                                                    $today = strtotime('today');
+                                                    $days_left = ($expiryTs !== false) ? (int)round(($expiryTs - $today) / (60 * 60 * 24)) : null;
+                                                    if ($days_left !== null) {
+                                                        if ($days_left <= 0) {
+                                                            echo '<span class="badge badge-error mt-1">Expired</span>';
+                                                        } elseif ($days_left <= 30) {
+                                                            echo '<span class="badge badge-warning mt-1">' . $days_left . ' days left</span>';
+                                                        }
+                                                    }
                                                 ?>
                                             </div>
                                         </td>
@@ -349,14 +358,14 @@ $member_stats = $memberController->getMemberStatistics();
                                                 <a href="<?php echo BASE_URL; ?>/views/admin/edit_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-primary btn-sm" title="Edit Member">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                <?php if ($days_left <= 0): ?>
+                                                <?php if ($days_left !== null && $days_left <= 0): ?>
                                                     <a href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>" class="btn btn-secondary btn-sm" title="Renew Membership">
                                                         <i class="fas fa-sync-alt"></i>
                                                     </a>
                                                 <?php endif; ?>
-                                                <a href="<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=<?php echo $member['member_id']; ?>" class="btn btn-outline btn-sm text-error border-error hover:bg-error-bg btn-delete" title="Delete Member">
+                                                <button onclick="confirmDeleteMember(<?php echo $member['member_id']; ?>, '<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name'], ENT_QUOTES); ?>')" class="btn btn-outline btn-sm text-error border-error hover:bg-error-bg" title="Delete Member">
                                                     <i class="fas fa-trash"></i>
-                                                </a>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -587,6 +596,86 @@ $member_stats = $memberController->getMemberStatistics();
                 document.getElementById('importProgress').classList.add('hidden');
                 console.error('Error:', error);
                 alert('An error occurred during import. Please try again.');
+            });
+        });
+        
+        // Export Members Function
+        function exportMembers() {
+            const search = document.querySelector('input[name="search"]')?.value || '';
+            const status = document.querySelector('select[name="status"]')?.value || '';
+            const membership_type = document.querySelector('select[name="membership_type"]')?.value || '';
+            const per_page = document.querySelector('select[name="per_page"]')?.value || '15';
+            
+            // Build export URL with current filters
+            let exportUrl = '<?php echo BASE_URL; ?>/controllers/member_export_controller.php?';
+            const params = [];
+            
+            if (search) params.push('search=' + encodeURIComponent(search));
+            if (status) params.push('status=' + encodeURIComponent(status));
+            if (membership_type) params.push('membership_type=' + encodeURIComponent(membership_type));
+            if (per_page) params.push('per_page=' + encodeURIComponent(per_page));
+            
+            exportUrl += params.join('&');
+            
+            // Open export URL in new window
+            window.open(exportUrl, '_blank');
+        }
+        
+        // Print Members Function
+        function printMembers() {
+            // Create a new window with printable content
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            
+            // Get current filters
+            const search = document.querySelector('input[name="search"]')?.value || '';
+            const status = document.querySelector('select[name="status"]')?.value || '';
+            const membership_type = document.querySelector('select[name="membership_type"]')?.value || '';
+            
+            // Build print URL
+            let printUrl = '<?php echo BASE_URL; ?>/views/admin/print_members.php?';
+            const params = [];
+            
+            if (search) params.push('search=' + encodeURIComponent(search));
+            if (status) params.push('status=' + encodeURIComponent(status));
+            if (membership_type) params.push('membership_type=' + encodeURIComponent(membership_type));
+            
+            printUrl += params.join('&');
+            
+            printWindow.location.href = printUrl;
+        }
+        
+        // Delete Member Confirmation
+        let memberIdToDelete = null;
+        
+        function confirmDeleteMember(memberId, memberName) {
+            memberIdToDelete = memberId;
+            const message = `Are you sure you want to delete ${memberName}?\n\nThis action cannot be undone. The member will be marked as deleted.`;
+            
+            if (confirm(message)) {
+                // Redirect to delete confirmation page
+                window.location.href = '<?php echo BASE_URL; ?>/views/admin/delete_member.php?id=' + memberId;
+            }
+        }
+        
+        // Handle delete buttons with data attributes for confirmation
+        document.addEventListener('DOMContentLoaded', function() {
+            const deleteButtons = document.querySelectorAll('.btn-delete');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const href = this.getAttribute('href');
+                    if (href) {
+                        const url = new URL(href, window.location.origin);
+                        const memberId = url.searchParams.get('id');
+                        if (memberId) {
+                            // Try to get member name from the row
+                            const row = this.closest('tr');
+                            const nameCell = row?.querySelector('td:nth-child(2) .text-sm.font-medium');
+                            const memberName = nameCell?.textContent.trim() || 'this member';
+                            confirmDeleteMember(memberId, memberName);
+                        }
+                    }
+                });
             });
         });
     </script>

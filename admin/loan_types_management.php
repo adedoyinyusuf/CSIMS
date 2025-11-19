@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../classes/DatabaseConnection.php';
+
 require_once '../classes/LoanTypeService.php';
 
 // Check admin authentication

@@ -1,7 +1,11 @@
 <?php
-require_once '../../config/config.php';
-require_once '../../controllers/auth_controller.php';
-require_once '../../src/autoload.php';
+ob_start(); // Start output buffering to prevent headers being sent
+require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../controllers/auth_controller.php';
+require_once __DIR__ . '/../../src/autoload.php';
+
+// Initialize session instance for flash messages and auth checks
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -17,6 +21,83 @@ $current_user = $auth->getCurrentUser();
 // Initialize services
 $database = Database::getInstance();
 $conn = $database->getConnection();
+
+// Normalize column names for cross-schema compatibility via Utilities
+require_once __DIR__ . '/../../includes/utilities.php';
+$schema = Utilities::getSavingsSchema($conn);
+
+$statusCol    = $schema['transactions']['status'];
+$typeCol      = $schema['transactions']['type'];
+$dateCol      = $schema['transactions']['date'];
+$processedCol = $schema['transactions']['processed_at'];
+$saIdCol      = $schema['accounts']['account_id'];
+$mIdCol       = $schema['members']['member_id'];
+
+// Handle POST actions for monthly deposit approvals
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    
+    switch ($action) {
+        case 'approve_monthly_deposit':
+            try {
+                $transaction_id = (int)$_POST['transaction_id'];
+                
+                // Get the pending transaction
+                $stmt = $conn->prepare("SELECT * FROM savings_transactions WHERE id = ? AND UPPER(".$statusCol.") = 'PENDING'");
+                $stmt->bind_param('i', $transaction_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $transaction = $result ? $result->fetch_assoc() : null;
+                
+                if ($transaction) {
+                    // Update transaction status to completed
+                    $stmt = $conn->prepare("UPDATE savings_transactions SET ".$statusCol." = 'completed', ".$processedCol." = NOW() WHERE id = ?");
+                    $stmt->bind_param('i', $transaction_id);
+                    $stmt->execute();
+                    
+                    // Update account balance
+                    $amount = (float)$transaction['amount'];
+                    $accountId = (int)$transaction['account_id'];
+                    $stmt = $conn->prepare("UPDATE savings_accounts SET balance = balance + ? WHERE ".$saIdCol." = ?");
+                    $stmt->bind_param('di', $amount, $accountId);
+                    $stmt->execute();
+                    
+                    $session->setFlash('success', 'Monthly deposit approved successfully');
+                } else {
+                    $session->setFlash('error', 'Transaction not found or already processed');
+                }
+            } catch (Exception $e) {
+                $session->setFlash('error', 'Error approving deposit: ' . $e->getMessage());
+                error_log("Error approving monthly deposit: " . $e->getMessage());
+            }
+            break;
+            
+        case 'reject_monthly_deposit':
+            try {
+                $transaction_id = (int)$_POST['transaction_id'];
+                $rejection_reason = $_POST['rejection_reason'] ?? 'No reason provided';
+                
+                // Update transaction status to rejected
+                $stmt = $conn->prepare("UPDATE savings_transactions SET ".$statusCol." = 'rejected', description = CONCAT(description, ' - Rejected: ', ?), ".$processedCol." = NOW() WHERE id = ? AND UPPER(".$statusCol.") = 'PENDING'");
+                $stmt->bind_param('si', $rejection_reason, $transaction_id);
+                $stmt->execute();
+                
+                if ($stmt->affected_rows > 0) {
+                    $session->setFlash('success', 'Monthly deposit rejected successfully');
+                } else {
+                    $session->setFlash('error', 'Transaction not found or already processed');
+                }
+            } catch (Exception $e) {
+                $session->setFlash('error', 'Error rejecting deposit: ' . $e->getMessage());
+                error_log("Error rejecting monthly deposit: " . $e->getMessage());
+            }
+            break;
+    }
+    
+    // Redirect to prevent form resubmission
+    header("Location: " . $_SERVER['PHP_SELF'] . "?" . http_build_query($_GET));
+    exit();
+}
 
 try {
     $savingsRepository = new \CSIMS\Repositories\SavingsAccountRepository($conn);
@@ -40,11 +121,30 @@ try {
     $offset = ($page - 1) * $limit;
     
     // Get accounts
-    $accounts = $savingsRepository->findAll($filters, ['created_at' => 'DESC'], $limit, $offset);
+    $accounts = $savingsRepository->findAll($filters, ['opening_date' => 'DESC'], $limit, $offset);
     $totalAccounts = $savingsRepository->count($filters);
     
     // Get statistics
     $stats = $savingsRepository->getAccountStatistics();
+    
+    // Get pending monthly deposits
+    $pending_deposits = [];
+    try {
+        $sql = "SELECT st.*, sa.account_number, m.first_name, m.last_name, m.member_number 
+                FROM savings_transactions st
+                JOIN savings_accounts sa ON st.account_id = sa.".$saIdCol.
+               " JOIN members m ON sa.member_id = m.".$mIdCol.
+               " WHERE UPPER(st.".$statusCol.") = 'PENDING'
+                 AND UPPER(st.".$typeCol.") = 'DEPOSIT'
+                 AND st.description LIKE '%Monthly auto-deposit%'
+                ORDER BY st.".$dateCol." DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $pending_deposits = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    } catch (Exception $e) {
+        error_log("Error fetching pending deposits: " . $e->getMessage());
+    }
     
 } catch (Exception $e) {
     $accounts = [];
@@ -60,16 +160,16 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Savings Accounts - <?php echo APP_NAME; ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50">
     <!-- Include Header/Navbar -->
-    <?php include '../../views/includes/header.php'; ?>
+    <?php include __DIR__ . '/../../views/includes/header.php'; ?>
     
     <div class="flex">
         <!-- Include Sidebar -->
-        <?php include '../../views/includes/sidebar.php'; ?>
+        <?php include __DIR__ . '/../../views/includes/sidebar.php'; ?>
         
         <!-- Main Content -->
         <main class="flex-1 md:ml-64 mt-16 p-6">
@@ -85,15 +185,34 @@ try {
                 </div>
             </div>
             
+            <!-- Flash Messages -->
+            <?php if ($session->hasFlash('success')): ?>
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <?php echo $session->getFlash('success'); ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($session->hasFlash('error')): ?>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <?php echo $session->getFlash('error'); ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div id="savingsStatsGrid" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <div class="p-3 rounded-full" style="background-color: #3b28cc; color: #ffffff;">
                             <i class="fas fa-piggy-bank text-xl"></i>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Total Accounts</p>
+                            <p class="text-sm font-medium" style="color: #3b28cc;">Total Accounts</p>
                             <p class="text-2xl font-semibold text-gray-900"><?php echo $totalAccounts; ?></p>
                         </div>
                     </div>
@@ -101,11 +220,11 @@ try {
                 
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <div class="p-3 rounded-full" style="background-color: #214e34; color: #ffffff;">
                             <i class="fas fa-chart-line text-xl"></i>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Active Accounts</p>
+                            <p class="text-sm font-medium" style="color: #214e34;">Active Accounts</p>
                             <p class="text-2xl font-semibold text-gray-900">
                                 <?php 
                                 $activeCount = 0;
@@ -123,11 +242,11 @@ try {
                 
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                        <div class="p-3 rounded-full" style="background-color: #07beb8; color: #ffffff;">
                             <i class="fas fa-coins text-xl"></i>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Total Balance</p>
+                            <p class="text-sm font-medium" style="color: #07beb8;">Total Balance</p>
                             <p class="text-2xl font-semibold text-gray-900">
                                 ₦<?php 
                                 $totalBalance = 0;
@@ -143,11 +262,11 @@ try {
                 
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                        <div class="p-3 rounded-full" style="background-color: #cb0b0a; color: #ffffff;">
                             <i class="fas fa-calculator text-xl"></i>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Avg Balance</p>
+                            <p class="text-sm font-medium" style="color: #cb0b0a;">Avg Balance</p>
                             <p class="text-2xl font-semibold text-gray-900">
                                 ₦<?php 
                                 $avgBalance = 0;
@@ -165,6 +284,79 @@ try {
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Pending Monthly Deposits Section -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-medium text-gray-900">Pending Monthly Deposits</h3>
+                        <span class="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            <?php echo count($pending_deposits); ?> Pending
+                        </span>
+                    </div>
+                </div>
+
+                <?php if (empty($pending_deposits)): ?>
+                    <div class="px-6 py-8 text-center">
+                        <i class="fas fa-clock text-gray-400 text-3xl mb-2"></i>
+                        <div class="text-gray-900 font-medium mb-1">No pending monthly deposits</div>
+                        <div class="text-gray-600 text-sm">When the auto-deposit job runs in pending mode, items appear here for approval.</div>
+                        <a href="<?php echo BASE_URL; ?>/admin/job_management.php" class="mt-3 inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm">
+                            <i class="fas fa-cogs mr-2"></i>View Jobs
+                        </a>
+                    </div>
+                <?php else: ?>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($pending_deposits as $deposit): ?>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        <?php echo htmlspecialchars($deposit['first_name'] . ' ' . $deposit['last_name']); ?>
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        Member #<?php echo htmlspecialchars($deposit['member_number']); ?>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <?php echo htmlspecialchars($deposit['account_number']); ?>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                    ₦<?php echo number_format($deposit['amount'], 2); ?>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <?php echo date('M j, Y', strtotime($deposit['created_at'])); ?>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <form method="POST" class="inline-block mr-2">
+                                        <input type="hidden" name="action" value="approve_monthly_deposit">
+                                        <input type="hidden" name="transaction_id" value="<?php echo $deposit['id']; ?>">
+                                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors">
+                                            <i class="fas fa-check mr-1"></i>Approve
+                                        </button>
+                                    </form>
+                                    <button type="button" onclick="showRejectModal(<?php echo $deposit['id']; ?>, '<?php echo htmlspecialchars($deposit['first_name'] . ' ' . $deposit['last_name']); ?>', <?php echo $deposit['amount']; ?>)" 
+                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors">
+                                        <i class="fas fa-times mr-1"></i>Reject
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
             </div>
             
             <!-- Filters -->
@@ -272,7 +464,7 @@ try {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php echo $account->getCreatedAt()->format('M j, Y'); ?>
+                                        <?php echo $account->getOpeningDate()->format('M j, Y'); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <a href="<?php echo BASE_URL; ?>/views/admin/view_savings_account.php?id=<?php echo $account->getAccountId(); ?>" 
@@ -335,5 +527,71 @@ try {
             </div>
         </main>
     </div>
+
+    <!-- Reject Monthly Deposit Modal -->
+    <div id="rejectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Reject Monthly Deposit</h3>
+                    <button onclick="closeRejectModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form method="POST" id="rejectForm">
+                    <input type="hidden" name="action" value="reject_monthly_deposit">
+                    <input type="hidden" name="transaction_id" id="rejectTransactionId">
+                    
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">
+                            Member: <span id="rejectMemberName" class="font-medium"></span><br>
+                            Amount: <span id="rejectAmount" class="font-medium text-green-600"></span>
+                        </p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="rejection_reason" class="block text-sm font-medium text-gray-700 mb-2">
+                            Rejection Reason <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="rejection_reason" id="rejection_reason" rows="3" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Please provide a reason for rejecting this deposit..." required></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeRejectModal()" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                            <i class="fas fa-times mr-1"></i>Reject Deposit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showRejectModal(transactionId, memberName, amount) {
+            document.getElementById('rejectTransactionId').value = transactionId;
+            document.getElementById('rejectMemberName').textContent = memberName;
+            document.getElementById('rejectAmount').textContent = '₦' + new Intl.NumberFormat().format(amount);
+            document.getElementById('rejection_reason').value = '';
+            document.getElementById('rejectModal').classList.remove('hidden');
+        }
+
+        function closeRejectModal() {
+            document.getElementById('rejectModal').classList.add('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('rejectModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeRejectModal();
+            }
+        });
+    </script>
 </body>
 </html>

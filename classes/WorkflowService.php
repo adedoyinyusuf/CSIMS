@@ -1,17 +1,20 @@
 <?php
-require_once 'DatabaseConnection.php';
-require_once 'LogService.php';
+require_once __DIR__ . '/../includes/config/database.php';
 require_once 'NotificationService.php';
 
 class WorkflowService {
     private $db;
-    private $logService;
     private $notificationService;
     
     public function __construct() {
-        $this->db = DatabaseConnection::getInstance()->getConnection();
-        $this->logService = new LogService();
+        $this->db = (new PdoDatabase())->getConnection();
         $this->notificationService = new NotificationService();
+    }
+
+    private function log(string $event, array $data = []): void {
+        try {
+            error_log('[CSIMS] ' . json_encode(['event' => $event, 'data' => $data, 'ts' => date('c')]));
+        } catch (\Throwable $e) {}
     }
     
     /**
@@ -49,7 +52,7 @@ class WorkflowService {
             
             $this->db->commit();
             
-            $this->logService->log("workflow_started", [
+            $this->log("workflow_started", [
                 'workflow_id' => $workflowId,
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
@@ -60,7 +63,7 @@ class WorkflowService {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            $this->logService->log("workflow_start_failed", [
+            $this->log("workflow_start_failed", [
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
                 'error' => $e->getMessage()
@@ -226,7 +229,7 @@ class WorkflowService {
         // Trigger entity-specific completion logic
         $this->triggerCompletionActions($workflowId, $status);
         
-        $this->logService->log("workflow_completed", [
+        $this->log("workflow_completed", [
             'workflow_id' => $workflowId,
             'final_status' => $status,
             'comments' => $comments
@@ -506,10 +509,10 @@ class WorkflowService {
      */
     public function getWorkflowById($workflowId) {
         $sql = "SELECT wa.*, wt.template_name, wt.entity_type,
-                       u.username as requested_by_name
+                       a.username as requested_by_name
                 FROM workflow_approvals wa
                 JOIN workflow_templates wt ON wa.template_id = wt.id
-                LEFT JOIN users u ON wa.requested_by = u.id
+                LEFT JOIN admins a ON wa.requested_by = a.admin_id
                 WHERE wa.id = ?";
         
         $stmt = $this->db->prepare($sql);
@@ -519,24 +522,42 @@ class WorkflowService {
     }
     
     /**
+     * Resolve approver column name in approval_assignments table
+     */
+    private function resolveApproverColumn() {
+        try {
+            $candidates = ['approver_id', 'admin_id', 'assigned_to', 'user_id'];
+            foreach ($candidates as $col) {
+                $stmt = $this->db->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'approval_assignments' AND COLUMN_NAME = ?");
+                $stmt->execute([$col]);
+                if ((int)$stmt->fetchColumn() > 0) {
+                    return $col;
+                }
+            }
+            return null;
+        } catch (\Throwable $e) {
+            // Conservative default
+            return 'approver_id';
+        }
+    }
+
+    /**
      * Get pending approvals for user
      */
     public function getPendingApprovalsForUser($userId) {
+        $col = $this->resolveApproverColumn();
+        if (!$col) {
+            // If we cannot determine the approver column, return empty to avoid fatal errors
+            return [];
+        }
         $sql = "SELECT wa.*, wt.template_name, wt.entity_type, aa.assigned_at,
-                       al.level_name, u.username as requested_by_name,
-                       CASE 
-                           WHEN wa.entity_type = 'loan' THEN l.member_id
-                           WHEN wa.entity_type = 'member_registration' THEN m.id
-                           ELSE NULL
-                       END as related_member_id
+                       al.level_name, a.username as requested_by_name
                 FROM approval_assignments aa
                 JOIN workflow_approvals wa ON aa.workflow_id = wa.id
                 JOIN workflow_templates wt ON wa.template_id = wt.id
                 JOIN approval_levels al ON wt.id = al.template_id AND aa.level_number = al.level_number
-                LEFT JOIN users u ON wa.requested_by = u.id
-                LEFT JOIN loans l ON wa.entity_type = 'loan' AND wa.entity_id = l.id
-                LEFT JOIN members m ON wa.entity_type = 'member_registration' AND wa.entity_id = m.id
-                WHERE aa.approver_id = ? AND aa.status = 'pending'
+                LEFT JOIN admins a ON wa.requested_by = a.admin_id
+                WHERE aa." . $col . " = ? AND aa.status = 'pending'
                 ORDER BY aa.assigned_at ASC";
         
         $stmt = $this->db->prepare($sql);
@@ -549,10 +570,10 @@ class WorkflowService {
      * Get approval history for workflow
      */
     public function getApprovalHistory($workflowId) {
-        $sql = "SELECT aa.*, u.username, u.first_name, u.last_name,
+        $sql = "SELECT aa.*, a.username, a.first_name, a.last_name,
                        al.level_name, al.level_number
                 FROM approval_actions aa
-                JOIN users u ON aa.approver_id = u.id
+                JOIN admins a ON aa.approver_id = a.admin_id
                 JOIN workflow_approvals wa ON aa.workflow_id = wa.id
                 JOIN approval_levels al ON wa.template_id = al.template_id AND aa.level_number = al.level_number
                 WHERE aa.workflow_id = ?
@@ -608,11 +629,11 @@ class WorkflowService {
      */
     public function getWorkflowsForEntity($entityType, $entityId) {
         $sql = "SELECT wa.*, wt.template_name, 
-                       u.username as requested_by_name,
+                       a.username as requested_by_name,
                        (SELECT COUNT(*) FROM approval_actions aa WHERE aa.workflow_id = wa.id) as action_count
                 FROM workflow_approvals wa
                 JOIN workflow_templates wt ON wa.template_id = wt.id
-                LEFT JOIN users u ON wa.requested_by = u.id
+                LEFT JOIN admins a ON wa.requested_by = a.admin_id
                 WHERE wa.entity_type = ? AND wa.entity_id = ?
                 ORDER BY wa.created_at DESC";
         
@@ -620,6 +641,29 @@ class WorkflowService {
         $stmt->execute([$entityType, $entityId]);
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public function getCurrentApprover($workflowId) {
+        // Returns the next approver (first pending assignment) at the current workflow level
+        $workflow = $this->getWorkflowById($workflowId);
+        if (!$workflow) { return null; }
+    
+        $sql = "SELECT aa.*, a.admin_id AS user_id, a.username, a.email
+                FROM approval_assignments aa
+                JOIN admins a ON aa.approver_id = a.admin_id
+                WHERE aa.workflow_id = ? AND aa.level_number = ? AND aa.status = 'pending'
+                ORDER BY aa.assigned_at ASC
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$workflowId, $workflow['current_level']]);
+        $approver = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+        return $approver ?: null;
+    }
+
+    public function getApplicableWorkflowTemplate($entityType, $amount = null, $loanType = null) {
+        // Public wrapper to expose template selection; $loanType reserved for future filtering
+        return $this->getWorkflowTemplate($entityType, $amount);
     }
 }
 ?>

@@ -219,6 +219,13 @@ class MemberController {
 
 ## 🚀 **IMMEDIATE BENEFITS**
 
+### Notification Refactor (2025-11-06)
+- **Header Integration**: Admin header wired to live data from `controllers/notification_controller.php` for unread count and recent items.
+- **Mock Removal**: Eliminated `AdminNotificationService` instantiations across admin views to prevent undefined variable usage and ensure single source of truth.
+- **Consistency**: Consolidated notification flow through controller methods (`getAllNotifications`, `getNotificationStats`, `markAsRead`).
+- **Graceful UX**: Dropdown shows "No notifications" when the table is empty; unread badge hides when count is zero.
+- **Follow-up**: Consider archiving `includes/services/NotificationService.php` (legacy mock) and documenting deprecation.
+
 ### **Security Improvements**
 - ✅ **Eliminated Security Duplications**: Single source of truth for security
 - ✅ **Consistent CSRF Protection**: Applied automatically across all forms

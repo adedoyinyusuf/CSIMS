@@ -1,25 +1,10 @@
 <?php
-session_start();
+require_once '../config/config.php';
+require_once '../config/member_auth_check.php';
 
-// Check if member is logged in
-if (isset($_SESSION['member_id']) && $_SESSION['user_type'] === 'member') {
-    // Clear all session variables
-    $_SESSION = array();
-    
-    // Destroy the session cookie
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    
-    // Destroy the session
-    session_destroy();
-}
+$session = Session::getInstance();
+$session->logout();
 
-// Redirect to member login page
 header('Location: member_login.php');
 exit();
 ?>

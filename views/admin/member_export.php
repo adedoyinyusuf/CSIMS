@@ -2,7 +2,8 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
-
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {

@@ -1,26 +1,58 @@
 <?php
-// Include required files
-require_once __DIR__ . '/../../controllers/auth_controller.php';
+require_once __DIR__ . '/../../src/bootstrap.php';
 
-// Get current user
+$container = CSIMS\bootstrap();
+$authService = $container->resolve(\CSIMS\Services\AuthenticationService::class);
+
 if (!isset($current_user)) {
-    $authController = new AuthController();
-    $current_user = $authController->getCurrentUser();
+    $userModel = $authService->getCurrentUser();
+    $current_user = $userModel ? [
+        'first_name' => $userModel->getFirstName(),
+        'last_name' => $userModel->getLastName()
+    ] : ['first_name' => 'User', 'last_name' => ''];
 }
 ?>
 
+<?php
+// Notifications: load controller and fetch live data for header
+require_once __DIR__ . '/../../controllers/notification_controller.php';
+$notificationController = new NotificationController();
+// If a member context is present (e.g., view_member.php sets $member_id), scope notifications
+$scopedMemberId = isset($member_id) ? (int)$member_id : null;
+if ($scopedMemberId) {
+    $recentNotifications = $notificationController->getMemberNotifications($scopedMemberId, 5);
+    $recentNotifications = is_array($recentNotifications) ? $recentNotifications : [];
+    $unreadCount = (int)$notificationController->getMemberUnreadCount($scopedMemberId);
+} else {
+    $notificationStats = $notificationController->getNotificationStats();
+    $unreadCount = (int)($notificationStats['unread_notifications'] ?? 0);
+    $recentData = $notificationController->getAllNotifications(1, 5);
+    $recentNotifications = is_array($recentData) ? ($recentData['notifications'] ?? []) : [];
+}
+?>
 <!-- Tailwind CSS Local Build -->
 <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
 <!-- CSIMS Color System -->
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
+<!-- Font Awesome (centralized) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Custom CSS -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+<!-- Shared Components and Icon Utilities -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/components.css">
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/icons.css">
 
 <header class="navbar sticky top-0 z-50">
     <div class="flex items-center justify-between px-4 py-3">
         <!-- Brand -->
         <div class="flex items-center space-x-4">
             <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="navbar-brand flex items-center space-x-2 transition-all duration-300 hover:transform hover:scale-105">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center glass-dark">
-                    <i class="fas fa-university text-white text-lg"></i>
+                <div class="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center border border-gray-200">
+                    <?php if (defined('APP_LOGO_URL') && APP_LOGO_URL): ?>
+                        <img src="<?php echo APP_LOGO_URL; ?>" alt="<?php echo APP_SHORT_NAME; ?> Logo" class="w-full h-full object-contain" />
+                    <?php else: ?>
+                        <i class="fas fa-university text-primary-800 text-lg"></i>
+                    <?php endif; ?>
                 </div>
                 <span class="hidden sm:block font-bold text-lapis-lazuli"><?php echo APP_SHORT_NAME; ?></span>
             </a>
@@ -37,7 +69,7 @@ if (!isset($current_user)) {
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input type="text" class="form-control w-full pl-12 pr-4 py-3" placeholder="Search members, loans, contributions..." aria-label="Search">
+                <input type="text" class="form-control w-full pl-12 pr-4 py-3" placeholder="Search members, loans, savings..." aria-label="Search">
             </div>
         </div>
         
@@ -48,7 +80,7 @@ if (!isset($current_user)) {
                 <button type="button" class="p-3 rounded-xl transition-all duration-300 relative" onclick="toggleNotifications()">
                     <i class="fas fa-bell text-lg"></i>
                     <span class="badge absolute -top-1 -right-1 h-5 w-5 text-xs rounded-full flex items-center justify-center font-bold bg-red-500 text-white">
-                        3
+                        <?php echo max(0, $unreadCount); ?>
                     </span>
                 </button>
                 
@@ -58,36 +90,42 @@ if (!isset($current_user)) {
                         <h3 class="text-lg font-semibold text-primary">Notifications</h3>
                     </div>
                     <div class="max-h-96 overflow-y-auto">
-                        <a href="#" class="block p-4 hover:bg-gray-50 transition-colors border-b border-gray-100">
-                            <div class="flex items-start space-x-3">
-                                <div class="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">Membership expiring soon</p>
-                                    <p class="text-xs text-gray-500 mt-1">5 members have memberships expiring within 30 days</p>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="block p-4 hover:bg-gray-50 transition-colors border-b border-gray-100">
-                            <div class="flex items-start space-x-3">
-                                <div class="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">New member registration</p>
-                                    <p class="text-xs text-gray-500 mt-1">John Doe has submitted a membership application</p>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="block p-4 hover:bg-gray-50 transition-colors">
-                            <div class="flex items-start space-x-3">
-                                <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">Loan application received</p>
-                                    <p class="text-xs text-gray-500 mt-1">New loan application for $5,000 requires review</p>
-                                </div>
-                            </div>
-                        </a>
+                        <?php if (!empty($recentNotifications)): ?>
+                            <?php foreach ($recentNotifications as $n): ?>
+                                <?php 
+                                    $isUnread = (int)($n['is_read'] ?? 0) === 0;
+                                    $dotColor = $isUnread ? 'bg-red-500' : 'bg-gray-300';
+                                    $title = htmlspecialchars($n['title'] ?? ($n['notification_type'] ?? 'Notification'));
+                                    $message = htmlspecialchars($n['message'] ?? '');
+                                    $createdAt = htmlspecialchars($n['created_at'] ?? '');
+                                    $id = (int)($n['notification_id'] ?? 0);
+                                    $link = $id > 0 ? (BASE_URL . '/views/admin/view_notification.php?id=' . $id) : '#';
+                                ?>
+                                <a href="<?php echo $link; ?>" class="block p-4 hover:bg-gray-50 transition-colors border-b border-gray-100">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-2 h-2 <?php echo $dotColor; ?> rounded-full mt-2 flex-shrink-0"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-gray-900"><?php echo $title; ?></p>
+                                            <?php if (!empty($message)): ?>
+                                                <p class="text-xs text-gray-500 mt-1"><?php echo $message; ?></p>
+                                            <?php endif; ?>
+                                            <?php if (!empty($createdAt)): ?>
+                                                <p class="text-xs text-gray-400 mt-1"><?php echo $createdAt; ?></p>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="p-4 text-sm text-gray-500">No notifications to show.</div>
+                        <?php endif; ?>
                     </div>
                     <div class="p-4 border-t border-gray-200">
-                        <a href="#" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View all notifications</a>
+                        <?php if (!empty($scopedMemberId)): ?>
+                            <a href="<?php echo BASE_URL; ?>/views/admin/member_notifications.php?id=<?php echo (int)$scopedMemberId; ?>" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View all notifications</a>
+                        <?php else: ?>
+                            <a href="<?php echo BASE_URL; ?>/views/admin/notifications.php" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View all notifications</a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

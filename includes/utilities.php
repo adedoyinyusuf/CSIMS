@@ -280,5 +280,175 @@ class Utilities {
         
         return $links;
     }
+    
+    public static function hasColumn(mysqli $conn, string $table, string $column): bool {
+        $tableEsc = $conn->real_escape_string($table);
+        $columnEsc = $conn->real_escape_string($column);
+        $sql = "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$tableEsc' AND COLUMN_NAME = '$columnEsc' LIMIT 1";
+        $res = $conn->query($sql);
+        return $res && $res->num_rows > 0;
+    }
+
+    // Add: unified savings schema detection for cross-schema compatibility
+    public static function getSavingsSchema(mysqli $conn): array {
+        // Transactions table columns
+        $statusCol = self::hasColumn($conn, 'savings_transactions', 'transaction_status') ? 'transaction_status'
+            : (self::hasColumn($conn, 'savings_transactions', 'status') ? 'status' : 'transaction_status');
+        $typeCol = self::hasColumn($conn, 'savings_transactions', 'transaction_type') ? 'transaction_type'
+            : (self::hasColumn($conn, 'savings_transactions', 'type') ? 'type' : 'transaction_type');
+        $dateCol = self::hasColumn($conn, 'savings_transactions', 'transaction_date') ? 'transaction_date'
+            : (self::hasColumn($conn, 'savings_transactions', 'date') ? 'date'
+                : (self::hasColumn($conn, 'savings_transactions', 'created_at') ? 'created_at' : 'transaction_date'));
+        $processedCol = self::hasColumn($conn, 'savings_transactions', 'processed_at') ? 'processed_at'
+            : (self::hasColumn($conn, 'savings_transactions', 'updated_at') ? 'updated_at'
+                : (self::hasColumn($conn, 'savings_transactions', 'processed_on') ? 'processed_on' : 'processed_at'));
+        $accountIdColTx = self::hasColumn($conn, 'savings_transactions', 'account_id') ? 'account_id'
+            : (self::hasColumn($conn, 'savings_transactions', 'savings_account_id') ? 'savings_account_id' : 'account_id');
+        $memberIdColTx = self::hasColumn($conn, 'savings_transactions', 'member_id') ? 'member_id' : null;
+
+        // Accounts table columns
+        $accountIdColAccounts = self::hasColumn($conn, 'savings_accounts', 'account_id') ? 'account_id'
+            : (self::hasColumn($conn, 'savings_accounts', 'id') ? 'id' : 'account_id');
+        $memberIdColAccounts = self::hasColumn($conn, 'savings_accounts', 'member_id') ? 'member_id' : null;
+        $accountStatusCol = self::hasColumn($conn, 'savings_accounts', 'account_status') ? 'account_status' : null;
+
+        // Members table columns
+        $memberIdColMembers = self::hasColumn($conn, 'members', 'member_id') ? 'member_id'
+            : (self::hasColumn($conn, 'members', 'id') ? 'id' : 'member_id');
+
+        return [
+            'transactions' => [
+                'status' => $statusCol,
+                'type' => $typeCol,
+                'date' => $dateCol,
+                'processed_at' => $processedCol,
+                'account_id' => $accountIdColTx,
+                'member_id' => $memberIdColTx,
+            ],
+            'accounts' => [
+                'account_id' => $accountIdColAccounts,
+                'member_id' => $memberIdColAccounts,
+                'status' => $accountStatusCol,
+            ],
+            'members' => [
+                'member_id' => $memberIdColMembers,
+            ],
+        ];
+    }
+
+    public static function getUnifiedSavingsKPIs(mysqli $conn): array {
+        // Detect columns for savings_transactions
+        $statusCol = self::hasColumn($conn, 'savings_transactions', 'transaction_status') ? 'transaction_status'
+            : (self::hasColumn($conn, 'savings_transactions', 'status') ? 'status' : null);
+        $typeCol = self::hasColumn($conn, 'savings_transactions', 'transaction_type') ? 'transaction_type' : null;
+        $dateCol = self::hasColumn($conn, 'savings_transactions', 'transaction_date') ? 'transaction_date'
+            : (self::hasColumn($conn, 'savings_transactions', 'created_at') ? 'created_at' : null);
+        $processedCol = self::hasColumn($conn, 'savings_transactions', 'processed_at') ? 'processed_at' : null;
+        $updatedCol = self::hasColumn($conn, 'savings_transactions', 'updated_at') ? 'updated_at' : null;
+        $createdCol = self::hasColumn($conn, 'savings_transactions', 'created_at') ? 'created_at' : null;
+
+        // Detect columns for savings_accounts
+        $memberIdColAccounts = self::hasColumn($conn, 'savings_accounts', 'member_id') ? 'member_id' : null;
+        $accountStatusCol = self::hasColumn($conn, 'savings_accounts', 'account_status') ? 'account_status' : null;
+
+        // Total balance
+        $totalBalance = 0.0;
+        if ($res = $conn->query("SELECT COALESCE(SUM(balance),0) AS total FROM savings_accounts")) {
+            $row = $res->fetch_assoc();
+            $totalBalance = (float)($row['total'] ?? 0);
+        }
+
+        // Total accounts
+        $totalAccounts = 0;
+        if ($res = $conn->query("SELECT COUNT(*) AS cnt FROM savings_accounts")) {
+            $row = $res->fetch_assoc();
+            $totalAccounts = (int)($row['cnt'] ?? 0);
+        }
+
+        // Active members (distinct members with active accounts)
+        $activeMembers = 0;
+        if ($memberIdColAccounts) {
+            $sql = $accountStatusCol
+                ? "SELECT COUNT(DISTINCT $memberIdColAccounts) AS cnt FROM savings_accounts WHERE UPPER($accountStatusCol) = 'ACTIVE'"
+                : "SELECT COUNT(DISTINCT $memberIdColAccounts) AS cnt FROM savings_accounts";
+            if ($res = $conn->query($sql)) {
+                $row = $res->fetch_assoc();
+                $activeMembers = (int)($row['cnt'] ?? 0);
+            }
+        }
+
+        // Completed predicate normalization
+        $completedPredicate = "1=1";
+        if ($statusCol) {
+            $completedPredicate = "UPPER($statusCol) = 'COMPLETED'";
+        } elseif ($processedCol) {
+            $completedPredicate = "$processedCol IS NOT NULL";
+        } elseif ($updatedCol && $createdCol) {
+            $completedPredicate = "$updatedCol > $createdCol";
+        }
+
+        // Type predicates (case-insensitive)
+        $depositPredicate = $typeCol ? "UPPER($typeCol) = 'DEPOSIT'" : "1=1";
+        $withdrawalPredicate = $typeCol ? "UPPER($typeCol) = 'WITHDRAWAL'" : "1=0";
+
+        // Date filters
+        $dateFrom = date('Y-m-01');
+        $dateTo = date('Y-m-t');
+        $lastMonthFrom = date('Y-m-01', strtotime('-1 month'));
+        $lastMonthTo = date('Y-m-t', strtotime('-1 month'));
+        $dateFilterThisMonth = $dateCol ? "$dateCol BETWEEN '$dateFrom' AND '$dateTo'" : "1=1";
+        $dateFilterLastMonth = $dateCol ? "$dateCol BETWEEN '$lastMonthFrom' AND '$lastMonthTo'" : "1=1";
+
+        // Total contributions (all completed deposits overall)
+        $totalContributions = 0.0;
+        $tcSql = "SELECT COALESCE(SUM(amount),0) AS total FROM savings_transactions WHERE $depositPredicate AND $completedPredicate";
+        if ($res = $conn->query($tcSql)) {
+            $row = $res->fetch_assoc();
+            $totalContributions = (float)($row['total'] ?? 0);
+        }
+
+        // Deposits this month
+        $depositsThisMonth = 0.0;
+        $dmSql = "SELECT COALESCE(SUM(amount),0) AS total FROM savings_transactions WHERE $depositPredicate AND $completedPredicate AND $dateFilterThisMonth";
+        if ($res = $conn->query($dmSql)) {
+            $row = $res->fetch_assoc();
+            $depositsThisMonth = (float)($row['total'] ?? 0);
+        }
+
+        // Withdrawals this month
+        $withdrawalsThisMonth = 0.0;
+        $wmSql = "SELECT COALESCE(SUM(amount),0) AS total FROM savings_transactions WHERE $withdrawalPredicate AND $completedPredicate AND $dateFilterThisMonth";
+        if ($res = $conn->query($wmSql)) {
+            $row = $res->fetch_assoc();
+            $withdrawalsThisMonth = (float)($row['total'] ?? 0);
+        }
+
+        // Deposits last month
+        $depositsLastMonth = 0.0;
+        $dlmSql = "SELECT COALESCE(SUM(amount),0) AS total FROM savings_transactions WHERE $depositPredicate AND $completedPredicate AND $dateFilterLastMonth";
+        if ($res = $conn->query($dlmSql)) {
+            $row = $res->fetch_assoc();
+            $depositsLastMonth = (float)($row['total'] ?? 0);
+        }
+
+        // Withdrawals last month
+        $withdrawalsLastMonth = 0.0;
+        $wlmSql = "SELECT COALESCE(SUM(amount),0) AS total FROM savings_transactions WHERE $withdrawalPredicate AND $completedPredicate AND $dateFilterLastMonth";
+        if ($res = $conn->query($wlmSql)) {
+            $row = $res->fetch_assoc();
+            $withdrawalsLastMonth = (float)($row['total'] ?? 0);
+        }
+
+        return [
+            'total_savings_balance' => $totalBalance,
+            'total_accounts' => $totalAccounts,
+            'active_members' => $activeMembers,
+            'total_contributions' => $totalContributions,
+            'deposits_this_month' => $depositsThisMonth,
+            'withdrawals_this_month' => $withdrawalsThisMonth,
+            'deposits_last_month' => $depositsLastMonth,
+            'withdrawals_last_month' => $withdrawalsLastMonth,
+        ];
+    }
 }
 ?>

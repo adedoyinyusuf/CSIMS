@@ -2,12 +2,14 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/notification_controller.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
     $session->setFlash('error', 'Please login to access the notifications page');
-    header("Location: " . BASE_URL . "index.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -75,7 +77,7 @@ $notification_types = $notificationController->getNotificationTypes();
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
 </head>
 <body>
     <!-- Include Header/Navbar -->
@@ -85,7 +87,7 @@ $notification_types = $notificationController->getNotificationTypes();
     <div class="row">
         <?php require_once '../includes/sidebar.php'; ?>
         
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Notifications Management</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
@@ -370,18 +372,7 @@ $notification_types = $notificationController->getNotificationTypes();
 <script src="<?php echo BASE_URL; ?>/assets/js/script.js"></script>
 
 <style>
-.border-left-primary {
-    border-left: 0.25rem solid #4e73df !important;
-}
-.border-left-success {
-    border-left: 0.25rem solid #1cc88a !important;
-}
-.border-left-warning {
-    border-left: 0.25rem solid #f6c23e !important;
-}
-.border-left-info {
-    border-left: 0.25rem solid #36b9cc !important;
-}
+/* border-left-* classes now provided by global style.css */
 
 .table-warning {
     background-color: rgba(255, 193, 7, 0.1) !important;

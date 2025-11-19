@@ -129,6 +129,23 @@ $sql_messages = "CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";
 
+// Create Announcements table
+$sql_announcements = "CREATE TABLE IF NOT EXISTS announcements (
+    announcement_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(150) NOT NULL,
+    content TEXT NOT NULL,
+    priority ENUM('normal','medium','high') DEFAULT 'normal',
+    target_audience ENUM('all','active','expired','expiring') DEFAULT 'all',
+    expiry_date DATETIME NULL,
+    created_by INT NOT NULL,
+    status ENUM('active','archived','draft') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status),
+    INDEX idx_priority_created (priority, created_at),
+    FOREIGN KEY (created_by) REFERENCES admins(admin_id)
+)";
+
 // Execute queries
 $tables = [
     'Members' => $sql_members,
@@ -138,7 +155,8 @@ $tables = [
     'Loans' => $sql_loans,
     'Investments' => $sql_investments,
     'Notifications' => $sql_notifications,
-    'Messages' => $sql_messages
+    'Messages' => $sql_messages,
+    'Announcements' => $sql_announcements
 ];
 
 $success = true;

@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bulk import/export enhancements
 - Custom notification templates
 
+### Changed
+- **Header Notifications**: Admin header now displays live unread count and recent items using `NotificationController` data.
+
+### Removed
+- **Mock AdminNotificationService**: Eliminated mock service includes/instantiations from admin views (`members.php`, `transactions.php`, `_template_admin_page.php`, `savings.php`, `reports.php`, `loans.php`).
+
+### Documentation
+- Updated documentation to reflect live notification integration and removal of mock services.
+
 ## [1.1.0] - 2024-01-20
 
 ### Added

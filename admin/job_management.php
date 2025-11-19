@@ -1,16 +1,40 @@
 <?php
 session_start();
-require_once '../classes/DatabaseConnection.php';
-require_once '../classes/JobSchedulerService.php';
 
-// Check admin authentication
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ../login.php');
+require_once '../classes/JobSchedulerService.php';
+require_once '../includes/config/database.php';
+
+// Simple admin authentication check that matches login_process.php
+if (!isset($_SESSION['admin_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+    header('Location: ../views/auth/login.php');
     exit();
 }
 
 $jobScheduler = new JobSchedulerService();
-$db = DatabaseConnection::getInstance()->getConnection();
+$db = (new PdoDatabase())->getConnection();
+
+// Helper function to check if a column exists
+function hasColumn($db, $table, $column) {
+    try {
+        $stmt = $db->prepare(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?"
+        );
+        $stmt->execute([$table, $column]);
+        return (int)$stmt->fetchColumn() > 0;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+// Check what columns exist in system_jobs table
+$hasStatus = hasColumn($db, 'system_jobs', 'status');
+$hasScheduledAt = hasColumn($db, 'system_jobs', 'scheduled_at');
+$hasCreatedAt = hasColumn($db, 'system_jobs', 'created_at');
+$hasPriority = hasColumn($db, 'system_jobs', 'priority');
+$hasExecutedAt = hasColumn($db, 'system_jobs', 'executed_at');
+$hasCompletedAt = hasColumn($db, 'system_jobs', 'completed_at');
+$hasParameters = hasColumn($db, 'system_jobs', 'parameters');
+$hasUpdatedAt = hasColumn($db, 'system_jobs', 'updated_at');
 
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -70,17 +94,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $stats = $jobScheduler->getJobStatistics(30);
 
 // Get recent jobs
+$orderBy = $hasCreatedAt ? 'created_at DESC' : 'id DESC';
 $sql = "SELECT * FROM system_jobs 
-        ORDER BY created_at DESC 
+        ORDER BY $orderBy 
         LIMIT 50";
 $stmt = $db->prepare($sql);
 $stmt->execute();
 $recentJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get pending jobs
+$whereParts = [];
+if ($hasStatus) {
+    $whereParts[] = "status = 'pending'";
+} elseif ($hasExecutedAt && $hasCompletedAt) {
+    $whereParts[] = "(executed_at IS NULL AND completed_at IS NULL)";
+} elseif ($hasCompletedAt) {
+    $whereParts[] = "completed_at IS NULL";
+} elseif ($hasExecutedAt) {
+    $whereParts[] = "executed_at IS NULL";
+} elseif ($hasUpdatedAt && $hasCreatedAt) {
+    // Fallback: treat rows with updated_at equal to created_at as not yet processed
+    $whereParts[] = "(updated_at IS NULL OR updated_at = created_at)";
+}
+
+$whereClause = count($whereParts) ? ('WHERE ' . implode(' AND ', $whereParts)) : '';
+
+$orderParts = [];
+if ($hasPriority) {
+    $orderParts[] = 'priority DESC';
+}
+if ($hasScheduledAt) {
+    $orderParts[] = 'scheduled_at ASC';
+} elseif ($hasCreatedAt) {
+    $orderParts[] = 'created_at ASC';
+} else {
+    $orderParts[] = 'id ASC';
+}
+$orderBy = implode(', ', $orderParts);
+
 $sql = "SELECT * FROM system_jobs 
-        WHERE status = 'pending' 
-        ORDER BY priority DESC, scheduled_at ASC 
+        $whereClause 
+        ORDER BY $orderBy 
         LIMIT 20";
 $stmt = $db->prepare($sql);
 $stmt->execute();
@@ -89,8 +143,24 @@ $pendingJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Calculate summary statistics
 $totalJobs = count($recentJobs);
 $pendingCount = count($pendingJobs);
-$completedCount = count(array_filter($recentJobs, function($job) { return $job['status'] === 'completed'; }));
-$failedCount = count(array_filter($recentJobs, function($job) { return $job['status'] === 'failed'; }));
+if ($hasStatus) {
+    $completedCount = count(array_filter($recentJobs, function($job) { return isset($job['status']) && $job['status'] === 'completed'; }));
+    $failedCount = count(array_filter($recentJobs, function($job) { return isset($job['status']) && $job['status'] === 'failed'; }));
+} else {
+    // Fallback: derive from timestamps or updated_at > created_at
+    if ($hasCompletedAt) {
+        $completedCount = count(array_filter($recentJobs, function($job) { return isset($job['completed_at']) && $job['completed_at']; }));
+    } elseif ($hasUpdatedAt && $hasCreatedAt) {
+        $completedCount = count(array_filter($recentJobs, function($job) {
+            return isset($job['updated_at']) && isset($job['created_at']) && $job['updated_at'] > $job['created_at'];
+        }));
+    } else {
+        $completedCount = 0;
+    }
+    // Without status we cannot reliably detect failures; set to 0
+    $failedCount = 0;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -169,7 +239,7 @@ $failedCount = count(array_filter($recentJobs, function($job) { return $job['sta
                         <button class="btn btn-primary me-3" data-bs-toggle="modal" data-bs-target="#scheduleJobModal">
                             <i class="fas fa-plus me-1"></i>Schedule Job
                         </button>
-                        <a href="dashboard.php" class="btn btn-outline-secondary">
+                        <a href="../views/admin/dashboard.php" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
                         </a>
                     </div>
@@ -248,26 +318,34 @@ $failedCount = count(array_filter($recentJobs, function($job) { return $job['sta
                             </div>
                         <?php else: ?>
                             <?php foreach ($pendingJobs as $job): ?>
+                                <?php
+                                $priorityVal = ($hasPriority && isset($job['priority'])) ? (int)$job['priority'] : 0;
+                                $displayJobType = isset($job['job_type']) ? htmlspecialchars($job['job_type']) : 'Job';
+                                $displayJobId = isset($job['id']) ? $job['id'] : (isset($job['job_id']) ? $job['job_id'] : null);
+                                $scheduledText = ($hasScheduledAt && isset($job['scheduled_at']) && $job['scheduled_at']) 
+                                    ? date('M j, Y g:i A', strtotime($job['scheduled_at'])) 
+                                    : 'Not scheduled';
+                                ?>
                                 <div class="job-card card mb-3">
-                                    <div class="priority-indicator priority-<?= $job['priority'] >= 7 ? 'high' : ($job['priority'] >= 5 ? 'medium' : 'low') ?>"></div>
+                                    <div class="priority-indicator priority-<?= $priorityVal >= 7 ? 'high' : ($priorityVal >= 5 ? 'medium' : 'low') ?>"></div>
                                     <div class="card-body ps-4">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1">
-                                                    <span class="badge job-type-badge me-2"><?= htmlspecialchars($job['job_type']) ?></span>
-                                                    Job #<?= $job['id'] ?>
+                                                    <span class="badge job-type-badge me-2"><?= $displayJobType ?></span>
+                                                    Job #<?= $displayJobId ?? 'N/A' ?>
                                                 </h6>
                                                 <div class="small text-muted mb-2">
                                                     <div>
                                                         <i class="fas fa-clock me-1"></i>
-                                                        Scheduled: <?= date('M j, Y g:i A', strtotime($job['scheduled_at'])) ?>
+                                                        Scheduled: <?= $scheduledText ?>
                                                     </div>
                                                     <div>
                                                         <i class="fas fa-star me-1"></i>
-                                                        Priority: <?= $job['priority'] ?>
+                                                        Priority: <?= ($hasPriority && isset($job['priority'])) ? $job['priority'] : 'N/A' ?>
                                                     </div>
                                                 </div>
-                                                <?php if ($job['parameters']): ?>
+                                                <?php if ($hasParameters && isset($job['parameters']) && $job['parameters']): ?>
                                                     <div class="small">
                                                         <strong>Parameters:</strong>
                                                         <div class="code-block mt-1">
@@ -277,11 +355,13 @@ $failedCount = count(array_filter($recentJobs, function($job) { return $job['sta
                                                 <?php endif; ?>
                                             </div>
                                             <div class="ms-3">
+                                                <?php if ($displayJobId): ?>
                                                 <button class="btn btn-sm btn-outline-danger" 
-                                                        onclick="cancelJob(<?= $job['id'] ?>)"
+                                                        onclick="cancelJob(<?= (int)$displayJobId ?>)"
                                                         title="Cancel Job">
                                                     <i class="fas fa-times"></i>
                                                 </button>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>
@@ -308,7 +388,28 @@ $failedCount = count(array_filter($recentJobs, function($job) { return $job['sta
                                     $statusIcon = 'fas fa-circle';
                                     $statusColor = 'text-muted';
                                     
-                                    switch ($job['status']) {
+                                    // Determine status from available columns
+                                    $jobStatus = 'unknown';
+                                    if ($hasStatus && isset($job['status'])) {
+                                        $jobStatus = $job['status'];
+                                    } else {
+                                        if ($hasCompletedAt && isset($job['completed_at']) && $job['completed_at']) {
+                                            $jobStatus = 'completed';
+                                        } elseif ($hasExecutedAt && isset($job['executed_at']) && $job['executed_at']) {
+                                            $jobStatus = 'running';
+                                        } elseif ($hasExecutedAt || $hasCompletedAt) {
+                                            $jobStatus = 'pending';
+                                        } elseif ($hasUpdatedAt && $hasCreatedAt) {
+                                            // If updated_at advanced beyond created_at, assume completed
+                                            if (isset($job['updated_at']) && isset($job['created_at']) && $job['updated_at'] > $job['created_at']) {
+                                                $jobStatus = 'completed';
+                                            } else {
+                                                $jobStatus = 'pending';
+                                            }
+                                        }
+                                    }
+                                    
+                                    switch ($jobStatus) {
                                         case 'completed':
                                             $statusIcon = 'fas fa-check-circle';
                                             $statusColor = 'text-success';
@@ -329,22 +430,31 @@ $failedCount = count(array_filter($recentJobs, function($job) { return $job['sta
                                             $statusIcon = 'fas fa-ban';
                                             $statusColor = 'text-secondary';
                                             break;
+                                        default:
+                                            $statusIcon = 'fas fa-question-circle';
+                                            $statusColor = 'text-muted';
+                                            break;
                                     }
                                     ?>
                                     <i class="<?= $statusIcon ?> <?= $statusColor ?>"></i>
                                 </div>
                                 <div class="flex-grow-1 min-width-0">
                                     <div class="d-flex align-items-center mb-1">
-                                        <span class="badge job-type-badge me-2"><?= htmlspecialchars($job['job_type']) ?></span>
-                                        <small class="text-muted">Job #<?= $job['id'] ?></small>
+                                        <span class="badge job-type-badge me-2"><?= isset($job['job_type']) ? htmlspecialchars($job['job_type']) : 'Job' ?></span>
+                                        <small class="text-muted">Job #<?= isset($job['id']) ? $job['id'] : (isset($job['job_id']) ? $job['job_id'] : 'N/A') ?></small>
                                     </div>
                                     <div class="small text-muted">
-                                        <?= date('M j, g:i A', strtotime($job['created_at'])) ?>
-                                        <?php if ($job['completed_at']): ?>
+                                        <?php if ($hasCreatedAt && isset($job['created_at'])): ?>
+                                            <?= date('M j, g:i A', strtotime($job['created_at'])) ?>
+                                        <?php else: ?>
+                                            <?php $displayJobId = isset($job['id']) ? $job['id'] : (isset($job['job_id']) ? $job['job_id'] : null); ?>
+                                            <?php if ($displayJobId): ?>Job #<?= $displayJobId ?><?php endif; ?>
+                                        <?php endif; ?>
+                                        <?php if ($hasCompletedAt && isset($job['completed_at']) && $job['completed_at']): ?>
                                             → <?= date('g:i A', strtotime($job['completed_at'])) ?>
                                         <?php endif; ?>
                                     </div>
-                                    <?php if ($job['result_message']): ?>
+                                    <?php if (isset($job['result_message']) && $job['result_message']): ?>
                                         <div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
                                             <?= htmlspecialchars($job['result_message']) ?>
                                         </div>
@@ -352,11 +462,11 @@ $failedCount = count(array_filter($recentJobs, function($job) { return $job['sta
                                 </div>
                                 <div class="flex-shrink-0">
                                     <span class="badge job-status-badge bg-<?= 
-                                        $job['status'] === 'completed' ? 'success' : 
-                                        ($job['status'] === 'failed' ? 'danger' : 
-                                        ($job['status'] === 'running' ? 'primary' : 
-                                        ($job['status'] === 'pending' ? 'warning' : 'secondary'))) ?>">
-                                        <?= ucfirst($job['status']) ?>
+                                        $jobStatus === 'completed' ? 'success' : 
+                                        ($jobStatus === 'failed' ? 'danger' : 
+                                        ($jobStatus === 'running' ? 'primary' : 
+                                        ($jobStatus === 'pending' ? 'warning' : 'secondary'))) ?>">
+                                        <?= ucfirst($jobStatus) ?>
                                     </span>
                                 </div>
                             </div>

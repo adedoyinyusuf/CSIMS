@@ -2,7 +2,9 @@
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
 require_once '../../controllers/member_controller.php';
-require_once '../../controllers/contribution_controller.php';
+require_once '../../src/autoload.php';
+require_once '../../includes/session.php';
+$session = Session::getInstance();
 
 // Check if user is logged in
 $auth = new AuthController();
@@ -23,7 +25,11 @@ if (!$member_id) {
 
 // Initialize controllers
 $memberController = new MemberController();
-$contributionController = new ContributionController();
+// Initialize savings repositories for stats and activity
+$database = Database::getInstance();
+$conn = $database->getConnection();
+$savingsRepository = new \CSIMS\Repositories\SavingsAccountRepository($conn);
+$transactionRepository = new \CSIMS\Repositories\SavingsTransactionRepository($conn);
 
 // Get member details
 $member = $memberController->getMemberById($member_id);
@@ -48,15 +54,42 @@ $today = new DateTime();
 $is_expired = $today > $expiry_date;
 $days_to_expiry = $today->diff($expiry_date)->days;
 
-// Get member contributions
-$contributions = $contributionController->getMemberContributions($member_id, 1, 10);
+// Build savings-based statistics and recent activity
+$savings_accounts = $savingsRepository->findByMemberId((int)$member_id);
+$recent_transactions = [];
+foreach ($savings_accounts as $account) {
+    $history = $transactionRepository->getAccountHistory($account->getAccountId(), 10, 0);
+    if (is_array($history)) {
+        $recent_transactions = array_merge($recent_transactions, $history);
+    }
+}
+usort($recent_transactions, function($a, $b) {
+    return strtotime($b->getTransactionDate()->format('Y-m-d H:i:s')) - strtotime($a->getTransactionDate()->format('Y-m-d H:i:s'));
+});
+$recent_transactions = array_slice($recent_transactions, 0, 10);
 
-// Get member statistics
+$summary = $transactionRepository->getMemberTransactionSummary((int)$member_id);
+$total_transactions = 0;
+foreach ($summary as $row) { $total_transactions += (int)$row['count']; }
+
 $member_stats = [
-    'total_contributions' => $contributionController->getMemberTotalContributions($member_id),
-    'contribution_count' => $contributionController->getMemberContributionCount($member_id),
-    'last_contribution' => $contributionController->getMemberLastContribution($member_id)
+    'total_savings_balance' => $savingsRepository->getTotalBalanceByMember((int)$member_id),
+    'transaction_count' => $total_transactions
 ];
+
+// Get last savings transaction across all accounts
+$last_transaction = null;
+$last_ts = 0;
+foreach ($savings_accounts as $account) {
+    $tx = $transactionRepository->getLastTransactionForAccount($account->getAccountId());
+    if ($tx) {
+        $ts = strtotime($tx->getTransactionDate()->format('Y-m-d H:i:s'));
+        if ($ts > $last_ts) {
+            $last_ts = $ts;
+            $last_transaction = $tx;
+        }
+    }
+}
 
 // Handle quick actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -107,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -256,9 +289,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="card text-center">
                             <div class="card-body">
                                 <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
-                                <h5 class="card-title">Total Contributions</h5>
-                                <p class="card-text">$<?php echo number_format($member_stats['total_contributions'], 2); ?></p>
-                                <small class="text-muted"><?php echo $member_stats['contribution_count']; ?> transactions</small>
+                                <h5 class="card-title">Total Savings Balance</h5>
+                                <p class="card-text">$<?php echo number_format($member_stats['total_savings_balance'], 2); ?></p>
+                                <small class="text-muted"><?php echo $member_stats['transaction_count']; ?> total transactions</small>
                             </div>
                         </div>
                     </div>
@@ -284,8 +317,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="contributions-tab" data-bs-toggle="tab" data-bs-target="#contributions" type="button" role="tab">
-                                    <i class="fas fa-money-bill-wave me-1"></i> Contributions
+                                <button class="nav-link" id="savings-tab" data-bs-toggle="tab" data-bs-target="#savings" type="button" role="tab">
+                                    <i class="fas fa-piggy-bank me-1"></i> Savings
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -402,7 +435,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <!-- Member Type Display -->
                                             <tr>
                                                 <th>Member Type</th>
-                                                <td><?php echo isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'; ?></td>
+                                                <td><?php echo isset($member['member_type_label']) && !empty($member['member_type_label']) ? ucfirst($member['member_type_label']) : (isset($member['member_type']) ? ucfirst($member['member_type']) : 'Member'); ?></td>
                                             </tr>
                                         </table>
                                     </div>
@@ -426,16 +459,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
                             </div>
                             
-                            <!-- Contributions Tab -->
-                            <div class="tab-pane fade" id="contributions" role="tabpanel">
+                            <!-- Savings Tab -->
+                            <div class="tab-pane fade" id="savings" role="tabpanel">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5>Contribution History</h5>
-                                    <a href="<?php echo BASE_URL; ?>/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-primary btn-sm">
-                                        <i class="fas fa-plus me-1"></i> Add Contribution
+                                    <h5>Savings Activity</h5>
+                                    <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-university me-1"></i> Manage Savings
                                     </a>
                                 </div>
                                 
-                                <?php if (!empty($contributions['contributions'])): ?>
+                                <?php if (!empty($recent_transactions)): ?>
                                     <div class="table-responsive">
                                         <table class="table table-hover">
                                             <thead>
@@ -444,17 +477,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                     <th>Type</th>
                                                     <th>Amount</th>
                                                     <th>Description</th>
-                                                    <th>Received By</th>
+                                                    <th>Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <?php foreach ($contributions['contributions'] as $contribution): ?>
+                                                <?php foreach ($recent_transactions as $tx): ?>
                                                     <tr>
-                                                        <td><?php echo date('M d, Y', strtotime($contribution['contribution_date'])); ?></td>
-                                                        <td><span class="badge bg-secondary"><?php echo htmlspecialchars($contribution['contribution_type']); ?></span></td>
-                                                        <td>$<?php echo number_format($contribution['amount'], 2); ?></td>
-                                                        <td><?php echo htmlspecialchars($contribution['description']); ?></td>
-                                                        <td><?php echo htmlspecialchars($contribution['received_by_name'] ?? 'N/A'); ?></td>
+                                                        <td><?php echo $tx->getTransactionDate()->format('M d, Y'); ?></td>
+                                                        <td><span class="badge bg-secondary"><?php echo htmlspecialchars($tx->getTransactionType()); ?></span></td>
+                                                        <td>$<?php echo number_format($tx->getAmount(), 2); ?></td>
+                                                        <td><?php echo htmlspecialchars($tx->getDescription() ?? ''); ?></td>
+                                                        <td>
+                                                            <span class="badge bg-<?php echo $tx->getTransactionStatus() === 'Completed' ? 'success' : ($tx->getTransactionStatus() === 'Pending' ? 'warning' : 'secondary'); ?>">
+                                                                <?php echo htmlspecialchars($tx->getTransactionStatus()); ?>
+                                                            </span>
+                                                        </td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                             </tbody>
@@ -462,17 +499,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                     
                                     <div class="text-center mt-3">
-                                        <a href="<?php echo BASE_URL; ?>/admin/member_contributions.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-outline-primary">
-                                            View All Contributions
+                                        <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-outline-primary">
+                                            View Savings Accounts
                                         </a>
                                     </div>
                                 <?php else: ?>
                                     <div class="text-center py-4">
-                                        <i class="fas fa-money-bill-wave fa-3x text-muted mb-3"></i>
-                                        <h5 class="text-muted">No Contributions Yet</h5>
-                                        <p class="text-muted">This member hasn't made any contributions yet.</p>
-                                        <a href="<?php echo BASE_URL; ?>/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-primary">
-                                            <i class="fas fa-plus me-1"></i> Add First Contribution
+                                        <i class="fas fa-piggy-bank fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted">No Savings Activity Yet</h5>
+                                        <p class="text-muted">This member hasn't made any savings transactions yet.</p>
+                                        <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-primary">
+                                            <i class="fas fa-university me-1"></i> Manage Savings
                                         </a>
                                     </div>
                                 <?php endif; ?>
@@ -495,8 +532,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <div class="timeline-item">
                                             <div class="timeline-marker bg-success"></div>
                                             <div class="timeline-content">
-                                                <h6 class="timeline-title">Last Contribution</h6>
-                                                <p class="timeline-text">Made a contribution of $<?php echo number_format($member_stats['last_contribution']['amount'], 2); ?></p>
+                                                <h6 class="timeline-title">Last Savings Deposit</h6>
+                                                <p class="timeline-text">Savings deposit of $<?php echo number_format($member_stats['last_contribution']['amount'], 2); ?></p>
                                                 <small class="text-muted"><?php echo date('M d, Y', strtotime($member_stats['last_contribution']['contribution_date'])); ?></small>
                                             </div>
                                         </div>
@@ -653,7 +690,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
-            border-left: 3px solid #007bff;
+            border-left: 3px solid var(--true-blue);
         }
         
         .timeline-title {
@@ -702,3 +739,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
 </body>
 </html>
+
+// Build savings-based stats and recent transactions
+$savings_accounts = $savingsRepository->findByMemberId((int)$member_id);
+$recent_transactions = [];
+foreach ($savings_accounts as $account) {
+    $recent_transactions = array_merge(
+        $recent_transactions,
+        $transactionRepository->getAccountHistory($account->getAccountId(), 10, 0)
+    );
+}
+usort($recent_transactions, function($a, $b) {
+    return strtotime($b->getTransactionDate()->format('Y-m-d H:i:s')) - strtotime($a->getTransactionDate()->format('Y-m-d H:i:s'));
+});
+$recent_transactions = array_slice($recent_transactions, 0, 10);
+
+$summary = $transactionRepository->getMemberTransactionSummary((int)$member_id);
+$total_transactions = 0;
+foreach ($summary as $row) { $total_transactions += (int)$row['count']; }
+
+$member_stats = [
+    'total_savings_balance' => $savingsRepository->getTotalBalanceByMember((int)$member_id),
+    'transaction_count' => $total_transactions
+];
+
+// Get last savings transaction across all accounts
+$last_transaction = null;
+$last_ts = 0;
+foreach ($savings_accounts as $account) {
+    $tx = $transactionRepository->getLastTransactionForAccount($account->getAccountId());
+    if ($tx) {
+        $ts = strtotime($tx->getTransactionDate()->format('Y-m-d H:i:s'));
+        if ($ts > $last_ts) {
+            $last_ts = $ts;
+            $last_transaction = $tx;
+        }
+    }
+}
+
+<li class="nav-item" role="presentation">
+    <button class="nav-link" id="savings-tab" data-bs-toggle="tab" data-bs-target="#savings" type="button" role="tab">
+        <i class="fas fa-piggy-bank me-1"></i> Savings
+    </button>
+</li>
+<!-- Savings Tab -->
+<div class="tab-pane fade" id="savings" role="tabpanel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5>Savings Activity</h5>
+        <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-primary btn-sm">
+            <i class="fas fa-university me-1"></i> Manage Savings
+        </a>
+    </div>
+    
+    <?php if (!empty($recent_transactions)): ?>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recent_transactions as $tx): ?>
+                        <tr>
+                            <td><?php echo $tx->getTransactionDate()->format('M d, Y'); ?></td>
+                            <td><span class="badge bg-secondary"><?php echo htmlspecialchars($tx->getTransactionType()); ?></span></td>
+                            <td>$<?php echo number_format($tx->getAmount(), 2); ?></td>
+                            <td><?php echo htmlspecialchars($tx->getDescription() ?? ''); ?></td>
+                            <td>
+                                <span class="badge bg-<?php echo $tx->getTransactionStatus() === 'Completed' ? 'success' : ($tx->getTransactionStatus() === 'Pending' ? 'warning' : 'secondary'); ?>">
+                                    <?php echo htmlspecialchars($tx->getTransactionStatus()); ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="text-center mt-3">
+            <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-outline-primary">
+                View Savings Accounts
+            </a>
+        </div>
+    <?php else: ?>
+        <div class="text-center py-4">
+            <i class="fas fa-piggy-bank fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No Savings Activity Yet</h5>
+            <p class="text-muted">This member hasn't made any savings transactions yet.</p>
+            <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-primary">
+                <i class="fas fa-university me-1"></i> Manage Savings
+            </a>
+        </div>
+    <?php endif; ?>
+</div>
+    <?php if ($last_transaction): ?>
+        <div class="timeline-item">
+            <div class="timeline-marker bg-success"></div>
+            <div class="timeline-content">
+                <h6 class="timeline-title">Last Savings Transaction</h6>
+                <p class="timeline-text"><?php echo htmlspecialchars($last_transaction->getTransactionType()); ?> of $<?php echo number_format($last_transaction->getAmount(), 2); ?></p>
+                <small class="text-muted"><?php echo $last_transaction->getTransactionDate()->format('M d, Y'); ?></small>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>
+</div>
+
+<?php if ($last_transaction): $lt = $last_transaction->toArray(); ?>
+    <div class="timeline-item">
+        <div class="timeline-marker bg-success"></div>
+        <div class="timeline-content">
+            <h6 class="timeline-title">Last Savings Transaction</h6>
+            <p class="timeline-text"><?php echo htmlspecialchars($lt['transaction_type']); ?> of $<?php echo number_format($lt['amount'], 2); ?></p>
+            <small class="text-muted"><?php echo date('M d, Y', strtotime($lt['transaction_date'])); ?></small>
+        </div>
+    </div>
+<?php endif; ?>
+</div>
+</div>

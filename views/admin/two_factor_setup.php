@@ -77,22 +77,17 @@ $hasSecret = !empty($twoFactorData['two_factor_secret']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Two-Factor Authentication - NPC CTLStaff Loan Society</title>
+    <title>Two-Factor Authentication - <?php echo APP_NAME; ?></title>
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- CSIMS Color System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
+    <!-- Tailwind CSS -->
+    <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
+    <!-- Bootstrap for existing components -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .main-content {
-            margin-left: 0;
-            padding: 20px;
-        }
-        
         .card {
             border: none;
             border-radius: 15px;
@@ -200,171 +195,270 @@ $hasSecret = !empty($twoFactorData['two_factor_secret']);
             border-radius: 10px;
             margin-bottom: 20px;
         }
+        
+        .btn-primary {
+            background: var(--lapis-lazuli);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: var(--true-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(6, 182, 212, 0.4);
+        }
+        
+        .btn-danger {
+            background: var(--fire-brick);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+        }
+        
+        .form-control {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: var(--lapis-lazuli);
+            box-shadow: 0 0 0 0.2rem rgba(6, 182, 212, 0.25);
+        }
+        
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        
+        .status-enabled {
+            background: var(--success);
+            color: white;
+        }
+        
+        .status-disabled {
+            background: var(--text-muted);
+            color: white;
+        }
+        
+        .qr-container {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 0 5px;
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+        
+        .step.active {
+            background: var(--lapis-lazuli);
+            color: white;
+        }
+        
+        .step.completed {
+            background: var(--success);
+            color: white;
+        }
+        
+        .security-info {
+            background: var(--true-blue);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
-<body>
-    <div class="main-content">
-        <div class="container-fluid">
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="mb-0">
-                                <i class="fas fa-shield-alt me-2"></i>
-                                Two-Factor Authentication Setup
-                            </h4>
-                        </div>
-                        <div class="card-body p-4">
-                            <?php if ($message): ?>
-                                <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show" role="alert">
-                                    <?php echo htmlspecialchars($message); ?>
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                </div>
-                            <?php endif; ?>
-                            
-                            <div class="security-info">
-                                <h5><i class="fas fa-info-circle me-2"></i>About Two-Factor Authentication</h5>
-                                <p class="mb-0">Two-factor authentication (2FA) adds an extra layer of security to your account by requiring a verification code from your mobile device in addition to your password.</p>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h5>Current Status</h5>
-                                    <div class="mb-3">
-                                        <span class="status-badge <?php echo $is2FAEnabled ? 'status-enabled' : 'status-disabled'; ?>">
-                                            <i class="fas <?php echo $is2FAEnabled ? 'fa-check-circle' : 'fa-times-circle'; ?> me-1"></i>
-                                            <?php echo $is2FAEnabled ? 'Enabled' : 'Disabled'; ?>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <h5>Account Security</h5>
-                                    <p class="text-muted">User: <?php echo htmlspecialchars($user['username']); ?></p>
-                                </div>
-                            </div>
-                            
-                            <hr>
-                            
-                            <?php if (!$is2FAEnabled): ?>
-                                <?php if (!$hasSecret || $secret): ?>
-                                    <!-- Step 1: Enable 2FA -->
-                                    <div class="step-indicator">
-                                        <div class="step <?php echo $secret ? 'completed' : 'active'; ?>">
-                                            <i class="fas fa-mobile-alt"></i><br>
-                                            <small>Setup</small>
-                                        </div>
-                                        <div class="step <?php echo $secret ? 'active' : ''; ?>">
-                                            <i class="fas fa-qrcode"></i><br>
-                                            <small>Scan QR</small>
-                                        </div>
-                                        <div class="step">
-                                            <i class="fas fa-check"></i><br>
-                                            <small>Verify</small>
-                                        </div>
-                                    </div>
-                                    
-                                    <?php if (!$secret): ?>
-                                        <div class="text-center">
-                                            <h5>Enable Two-Factor Authentication</h5>
-                                            <p class="text-muted mb-4">Click the button below to start setting up 2FA for your account.</p>
-                                            <form method="POST">
-                                                <input type="hidden" name="action" value="enable_2fa">
-                                                <button type="submit" class="btn btn-primary btn-lg">
-                                                    <i class="fas fa-shield-alt me-2"></i>
-                                                    Start 2FA Setup
-                                                </button>
-                                            </form>
-                                        </div>
-                                    <?php else: ?>
-                                        <!-- Step 2: Show QR Code -->
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <h5>Step 1: Install Authenticator App</h5>
-                                                <p>Download and install an authenticator app on your mobile device:</p>
-                                                <ul>
-                                                    <li>Google Authenticator</li>
-                                                    <li>Microsoft Authenticator</li>
-                                                    <li>Authy</li>
-                                                    <li>Any TOTP-compatible app</li>
-                                                </ul>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <h5>Step 2: Scan QR Code</h5>
-                                                <div class="qr-container">
-                                                    <canvas id="qrcode"></canvas>
-                                                    <p class="mt-2 mb-0"><small>Or enter this code manually:</small></p>
-                                                    <code><?php echo $secret; ?></code>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <hr>
-                                        
-                                        <h5>Step 3: Verify Setup</h5>
-                                        <p>Enter the 6-digit code from your authenticator app to complete the setup:</p>
-                                        <form method="POST" class="row g-3">
-                                            <input type="hidden" name="action" value="confirm_2fa">
-                                            <div class="col-md-6">
-                                                <input type="text" class="form-control" name="verification_code" placeholder="Enter 6-digit code" maxlength="6" required>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <button type="submit" class="btn btn-primary">
-                                                    <i class="fas fa-check me-2"></i>
-                                                    Verify & Enable 2FA
-                                                </button>
-                                            </div>
-                                        </form>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <!-- 2FA is enabled -->
-                                <div class="text-center mb-4">
-                                    <div class="alert alert-success">
-                                        <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                        <h5>Two-Factor Authentication is Active</h5>
-                                        <p class="mb-0">Your account is protected with two-factor authentication.</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h5>Security Benefits</h5>
-                                        <ul class="list-unstyled">
-                                            <li><i class="fas fa-check text-success me-2"></i>Enhanced account security</li>
-                                            <li><i class="fas fa-check text-success me-2"></i>Protection against unauthorized access</li>
-                                            <li><i class="fas fa-check text-success me-2"></i>Compliance with security standards</li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h5>Disable 2FA</h5>
-                                        <p class="text-muted">If you need to disable two-factor authentication, enter your password below:</p>
-                                        <form method="POST">
-                                            <input type="hidden" name="action" value="disable_2fa">
-                                            <div class="mb-3">
-                                                <input type="password" class="form-control" name="password" placeholder="Enter your password" required>
-                                            </div>
-                                            <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.')">
-                                                <i class="fas fa-times me-2"></i>
-                                                Disable 2FA
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            <?php endif; ?>
-                            
-                            <hr>
-                            
-                            <div class="text-center">
-                                <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left me-2"></i>
-                                    Back to Dashboard
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+
+<body class="bg-admin">
+    <!-- Include Header/Navbar -->
+    <?php include '../../views/includes/header.php'; ?>
+    
+        
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-64 mt-16 p-6" id="mainContent">
+            <!-- Page Header -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div class="animate-slide-in">
+                    <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">
+                        <i class="fas fa-shield-alt mr-3 icon-accent"></i>
+                        Two-Factor Authentication Setup
+                    </h1>
+                    <p style="color: var(--text-muted);">Secure your account with two-factor authentication</p>
                 </div>
             </div>
-        </div>
+
+            <!-- Main Content Card -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <?php if ($message): ?>
+                    <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show mb-4" role="alert">
+                        <?php echo htmlspecialchars($message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+                
+                <div class="security-info mb-6">
+                    <h5><i class="fas fa-info-circle me-2 icon-accent"></i>About Two-Factor Authentication</h5>
+                    <p class="mb-0">Two-factor authentication (2FA) adds an extra layer of security to your account by requiring a verification code from your mobile device in addition to your password.</p>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>Current Status</h5>
+                        <div class="mb-3">
+                            <span class="status-badge <?php echo $is2FAEnabled ? 'status-enabled' : 'status-disabled'; ?>">
+    <i class="fas <?php echo $is2FAEnabled ? 'fa-check-circle icon-success' : 'fa-times-circle icon-accent'; ?> me-1"></i>
+    <?php echo $is2FAEnabled ? 'Enabled' : 'Disabled'; ?>
+</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Account Security</h5>
+                        <p class="text-muted">User: <?php echo htmlspecialchars($user['username']); ?></p>
+                    </div>
+                </div>
+                
+                <hr>
+                                
+                                <?php if (!$is2FAEnabled): ?>
+                                    <?php if (!$hasSecret || $secret): ?>
+                                        <!-- Step 1: Enable 2FA -->
+                                        <div class="step-indicator">
+    <div class="step <?php echo $secret ? 'completed' : 'active'; ?>">
+        <i class="fas fa-mobile-alt icon-accent"></i><br>
+        <small>Setup</small>
+    </div>
+    <div class="step <?php echo $secret ? 'active' : ''; ?>">
+        <i class="fas fa-qrcode icon-accent"></i><br>
+        <small>Scan QR</small>
+    </div>
+    <div class="step">
+        <i class="fas fa-check icon-accent"></i><br>
+        <small>Verify</small>
+    </div>
+</div>
+                                        
+                                        <?php if (!$secret): ?>
+                                            <div class="text-center">
+                                                <h5>Enable Two-Factor Authentication</h5>
+                                                <p class="text-muted mb-4">Click the button below to start setting up 2FA for your account.</p>
+                                                <form method="POST">
+                                                    <input type="hidden" name="action" value="enable_2fa">
+                                                    <button type="submit" class="btn btn-primary btn-lg">
+    <i class="fas fa-shield-alt me-2 icon-accent"></i>
+    Start 2FA Setup
+</button>
+                                                </form>
+                                            </div>
+                                        <?php else: ?>
+                                            <!-- Step 2: Show QR Code -->
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h5>Step 1: Install Authenticator App</h5>
+                                                    <p>Download and install an authenticator app on your mobile device:</p>
+                                                    <ul>
+                                                        <li>Google Authenticator</li>
+                                                        <li>Microsoft Authenticator</li>
+                                                        <li>Authy</li>
+                                                        <li>Any TOTP-compatible app</li>
+                                                    </ul>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h5>Step 2: Scan QR Code</h5>
+                                                    <div class="qr-container">
+                                                        <canvas id="qrcode"></canvas>
+                                                        <p class="mt-2 mb-0"><small>Or enter this code manually:</small></p>
+                                                        <code><?php echo $secret; ?></code>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <hr>
+                                            
+                                            <h5>Step 3: Verify Setup</h5>
+                                            <p>Enter the 6-digit code from your authenticator app to complete the setup:</p>
+                                            <form method="POST" class="row g-3">
+                                                <input type="hidden" name="action" value="confirm_2fa">
+                                                <div class="col-md-6">
+                                                    <input type="text" class="form-control" name="verification_code" placeholder="Enter 6-digit code" maxlength="6" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <button type="submit" class="btn btn-primary">
+    <i class="fas fa-check me-2 icon-success"></i>
+    Verify & Enable 2FA
+</button>
+                                                </div>
+                                            </form>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <!-- 2FA is enabled -->
+                                    <div class="text-center mb-4">
+                                        <div class="alert alert-success">
+    <i class="fas fa-check-circle fa-2x mb-2 icon-success"></i>
+    <h5>Two-Factor Authentication is Active</h5>
+    <p class="mb-0">Your account is protected with two-factor authentication.</p>
+</div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h5>Security Benefits</h5>
+                                            <ul class="list-unstyled">
+    <li><i class="fas fa-check text-success me-2 icon-success"></i>Enhanced account security</li>
+    <li><i class="fas fa-check text-success me-2 icon-success"></i>Protection against unauthorized access</li>
+      <li><i class="fas fa-check text-success me-2 icon-success"></i>Compliance with security standards</li>
+</ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h5>Disable 2FA</h5>
+                                            <p class="text-muted">If you need to disable two-factor authentication, enter your password below:</p>
+                                            <form method="POST">
+                                                <input type="hidden" name="action" value="disable_2fa">
+                                                <div class="mb-3">
+                                                    <input type="password" class="form-control" name="password" placeholder="Enter your password" required>
+                                                </div>
+                                                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.')">
+    <i class="fas fa-times me-2 icon-accent"></i>
+    Disable 2FA
+</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <hr>
+                                
+                                <div class="text-center">
+                                    <a href="<?php echo BASE_URL; ?>/views/admin/dashboard.php" class="btn btn-secondary">
+    <i class="fas fa-arrow-left me-2 icon-primary"></i>
+    Back to Dashboard
+</a>
+                                </div>
+            </div>
+        </main>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

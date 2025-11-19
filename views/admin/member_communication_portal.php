@@ -96,17 +96,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = "Error creating announcement: " . $e->getMessage();
             }
         }
+    } elseif ($action === 'update_announcement') {
+        $announcementId = isset($_POST['announcement_id']) ? (int)$_POST['announcement_id'] : 0;
+        $title = $_POST['announcement_title'] ?? '';
+        $content = $_POST['announcement_content'] ?? '';
+        $priority = $_POST['announcement_priority'] ?? 'normal';
+        $targetAudience = $_POST['target_audience'] ?? 'all';
+        $expiryDate = $_POST['expiry_date'] ?? null;
+        $status = $_POST['status'] ?? 'active';
+
+        if ($announcementId <= 0) {
+            $errors[] = 'Invalid announcement ID';
+        }
+        if (empty($title) || empty($content)) {
+            $errors[] = 'Title and content are required for announcements';
+        }
+
+        if (empty($errors)) {
+            try {
+                $updateData = [
+                    'title' => $title,
+                    'content' => $content,
+                    'priority' => $priority,
+                    'target_audience' => $targetAudience,
+                    'expiry_date' => $expiryDate,
+                    'status' => $status,
+                ];
+                if ($messageController->updateAnnouncement($announcementId, $updateData)) {
+                    $success = true;
+                    $successMessage = 'Announcement updated successfully';
+                } else {
+                    $errors[] = 'Failed to update announcement';
+                }
+            } catch (Exception $e) {
+                $errors[] = 'Error updating announcement: ' . $e->getMessage();
+            }
+        }
+    } elseif ($action === 'archive_announcement') {
+        $announcementId = isset($_POST['announcement_id']) ? (int)$_POST['announcement_id'] : 0;
+        if ($announcementId <= 0) {
+            $errors[] = 'Invalid announcement ID';
+        } else {
+            try {
+                if ($messageController->setAnnouncementStatus($announcementId, 'archived')) {
+                    $success = true;
+                    $successMessage = 'Announcement archived';
+                } else {
+                    $errors[] = 'Failed to archive announcement';
+                }
+            } catch (Exception $e) {
+                $errors[] = 'Error archiving announcement: ' . $e->getMessage();
+            }
+        }
+    } elseif ($action === 'delete_announcement') {
+        $announcementId = isset($_POST['announcement_id']) ? (int)$_POST['announcement_id'] : 0;
+        if ($announcementId <= 0) {
+            $errors[] = 'Invalid announcement ID';
+        } else {
+            try {
+                if ($messageController->deleteAnnouncement($announcementId)) {
+                    $success = true;
+                    $successMessage = 'Announcement deleted';
+                } else {
+                    $errors[] = 'Failed to delete announcement';
+                }
+            } catch (Exception $e) {
+                $errors[] = 'Error deleting announcement: ' . $e->getMessage();
+            }
+        }
     }
 }
 
 // Get communication statistics
-$communicationStats = $messageController->getCommunicationStatistics();
+$communicationStats = getCommunicationStatistics($messageController);
 
 // Get recent messages
 $recentMessages = $messageController->getRecentMessages(10);
 
 // Get active announcements (placeholder for now)
-$activeAnnouncements = [];
+$activeAnnouncements = getActiveAnnouncements(5);
 
 // Get member groups for targeting
 $memberGroups = getMemberGroups($messageController);
@@ -134,7 +202,7 @@ function getRecipients($type, $ids, $messageController) {
 
 function getCommunicationStatistics($messageController) {
     global $memberController;
-    
+
     $stats = [
         'total_messages' => 0,
         'messages_today' => 0,
@@ -143,94 +211,49 @@ function getCommunicationStatistics($messageController) {
         'active_announcements' => 0,
         'total_members' => 0
     ];
-    
-    // Get message counts
-    $sql = "SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) as today,
-                SUM(CASE WHEN YEARWEEK(created_at) = YEARWEEK(NOW()) THEN 1 ELSE 0 END) as this_week,
-                SUM(CASE WHEN MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW()) THEN 1 ELSE 0 END) as this_month
-            FROM messages";
-    
-    $result = $messageController->conn->query($sql);
-    if ($result && $row = $result->fetch_assoc()) {
-        $stats['total_messages'] = $row['total'];
-        $stats['messages_today'] = $row['today'];
-        $stats['messages_this_week'] = $row['this_week'];
-        $stats['messages_this_month'] = $row['this_month'];
-    }
-    
-    // Get announcement count
-    $sql = "SELECT COUNT(*) as count FROM announcements WHERE status = 'active' AND (expiry_date IS NULL OR expiry_date > NOW())";
-    $result = $messageController->conn->query($sql);
-    if ($result && $row = $result->fetch_assoc()) {
-        $stats['active_announcements'] = $row['count'];
-    }
-    
+
+    // Get message counts using controller
+    $commStats = $messageController->getCommunicationStatistics();
+    $stats['total_messages'] = $commStats['total_messages'] ?? 0;
+    $stats['messages_today'] = $commStats['messages_today'] ?? 0;
+    $stats['messages_this_week'] = $commStats['messages_this_week'] ?? 0;
+    $stats['messages_this_month'] = $commStats['messages_this_month'] ?? 0;
+
+    // Get announcement count via controller
+    $activeAnnouncements = $messageController->getActiveAnnouncements(1);
+    $stats['active_announcements'] = is_array($activeAnnouncements) ? count($activeAnnouncements) : 0;
+
     // Get total members
-    $stats['total_members'] = $memberController->getMemberStatistics()['total'];
-    
+    $memberStats = $memberController->getMemberStatistics();
+    $stats['total_members'] = $memberStats['total_members'] ?? ($memberStats['total'] ?? 0);
+
     return $stats;
 }
 
 function createAnnouncement($data) {
     global $messageController;
-    
-    $sql = "INSERT INTO announcements (title, content, priority, target_audience, expiry_date, created_by, status, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
-    
-    $stmt = $messageController->conn->prepare($sql);
-    $stmt->bind_param('sssssis', 
-        $data['title'], 
-        $data['content'], 
-        $data['priority'], 
-        $data['target_audience'], 
-        $data['expiry_date'], 
-        $data['created_by'], 
-        $data['status']
-    );
-    
-    return $stmt->execute();
+    return $messageController->createAnnouncement($data);
 }
 
 function getActiveAnnouncements($limit) {
     global $messageController;
-    
-    $sql = "SELECT a.*, u.username as created_by_name 
-            FROM announcements a 
-            LEFT JOIN users u ON a.created_by = u.id 
-            WHERE a.status = 'active' AND (a.expiry_date IS NULL OR a.expiry_date > NOW()) 
-            ORDER BY a.priority DESC, a.created_at DESC 
-            LIMIT ?";
-    
-    $stmt = $messageController->conn->prepare($sql);
-    $stmt->bind_param('i', $limit);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    return $result->fetch_all(MYSQLI_ASSOC);
+    return $messageController->getActiveAnnouncements($limit);
 }
 
 function getMemberGroups($messageController) {
-    // Get member counts from database directly
     $stats = [];
-    
-    // Total members
-    $result = $messageController->conn->query("SELECT COUNT(*) as count FROM members");
-    $stats['total'] = $result->fetch_assoc()['count'];
-    
-    // Active members
-    $result = $messageController->conn->query("SELECT COUNT(*) as count FROM members WHERE status = 'Active'");
-    $stats['active'] = $result->fetch_assoc()['count'];
-    
-    // Expired members
-    $result = $messageController->conn->query("SELECT COUNT(*) as count FROM members WHERE status = 'Expired'");
-    $stats['expired'] = $result->fetch_assoc()['count'];
-    
+
+    // Use MemberController statistics
+    $memberController = new MemberController();
+    $memberStats = $memberController->getMemberStatistics();
+    $stats['total'] = $memberStats['total_members'] ?? 0;
+    $stats['active'] = $memberStats['active_members'] ?? 0;
+    $stats['expired'] = $memberStats['expired_members'] ?? 0;
+
     // Expiring members
     $expiringMembers = $messageController->getExpiringMembers(30);
     $stats['expiring'] = count($expiringMembers);
-    
+
     return [
         'all' => ['name' => 'All Members', 'count' => $stats['total']],
         'active' => ['name' => 'Active Members', 'count' => $stats['active']],
@@ -247,9 +270,10 @@ function getMemberGroups($messageController) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Communication Portal - CSIMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
-    <link href="../../assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>/assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css" rel="stylesheet">
     <style>
         .communication-card {
             transition: transform 0.2s;
@@ -258,30 +282,17 @@ function getMemberGroups($messageController) {
             transform: translateY(-2px);
         }
         .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-500) 100%);
+            color: var(--text-white);
         }
         .message-item {
-            border-left: 4px solid #dee2e6;
             transition: border-color 0.3s;
         }
         .message-item:hover {
-            border-left-color: #0d6efd;
-        }
-        .priority-high {
-            border-left-color: #dc3545 !important;
-        }
-        .priority-medium {
-            border-left-color: #ffc107 !important;
-        }
-        .priority-normal {
-            border-left-color: #28a745 !important;
-        }
-        .announcement-card {
-            border-left: 4px solid #17a2b8;
+            border-left-color: var(--primary-500);
         }
         .recipient-count {
-            background: #e9ecef;
+            background: var(--bg-muted);
             border-radius: 20px;
             padding: 2px 8px;
             font-size: 0.8em;
@@ -295,7 +306,7 @@ function getMemberGroups($messageController) {
         <div class="row">
             <?php include '../../views/includes/sidebar.php'; ?>
             
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content mt-16">
                 <!-- Breadcrumb -->
                 <nav aria-label="breadcrumb" class="mt-3">
                     <ol class="breadcrumb">
@@ -456,7 +467,7 @@ function getMemberGroups($messageController) {
                                 <?php else: ?>
                                     <div class="list-group list-group-flush">
                                         <?php foreach ($recentMessages as $message): ?>
-                                            <div class="list-group-item px-0 message-item priority-<?= $message['priority'] ?>">
+                                            <div class="list-group-item px-0 message-item <?php echo ($message['priority'] === 'high' ? 'border-left-error' : ($message['priority'] === 'medium' ? 'border-left-warning' : 'border-left-success')); ?>">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div class="flex-grow-1">
                                                         <h6 class="mb-1"><?= htmlspecialchars($message['subject']) ?></h6>
@@ -495,7 +506,7 @@ function getMemberGroups($messageController) {
                                     </div>
                                 <?php else: ?>
                                     <?php foreach ($activeAnnouncements as $announcement): ?>
-                                        <div class="card announcement-card mb-3">
+                                        <div class="card announcement-card border-left-info mb-3">
                                             <div class="card-body py-2">
                                                 <h6 class="card-title mb-1"><?= htmlspecialchars($announcement['title']) ?></h6>
                                                 <p class="card-text small text-muted mb-1">
@@ -508,6 +519,35 @@ function getMemberGroups($messageController) {
                                                     <span class="badge bg-<?= $announcement['priority'] === 'high' ? 'danger' : ($announcement['priority'] === 'medium' ? 'warning' : 'info') ?>">
                                                         <?= ucfirst($announcement['priority']) ?>
                                                     </span>
+                                                    <div class="btn-group btn-group-sm ms-2" role="group">
+                                                        <button type="button"
+                                                                class="btn btn-outline-secondary"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#editAnnouncementModal"
+                                                                data-announcement-id="<?= (int)$announcement['announcement_id'] ?>"
+                                                                data-title="<?= htmlspecialchars($announcement['title']) ?>"
+                                                                data-content='<?= htmlspecialchars($announcement['content'], ENT_QUOTES) ?>'
+                                                                data-priority="<?= htmlspecialchars($announcement['priority']) ?>"
+                                                                data-audience="<?= htmlspecialchars($announcement['target_audience']) ?>"
+                                                                data-expiry="<?= htmlspecialchars($announcement['expiry_date'] ?? '') ?>'
+                                                                title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <form method="POST" class="d-inline">
+                                                            <input type="hidden" name="action" value="archive_announcement">
+                                                            <input type="hidden" name="announcement_id" value="<?= (int)$announcement['announcement_id'] ?>">
+                                                            <button type="submit" class="btn btn-outline-warning" title="Archive">
+                                                                <i class="fas fa-archive"></i>
+                                                            </button>
+                                                        </form>
+                                                        <form method="POST" class="d-inline" onsubmit="return confirm('Delete this announcement?');">
+                                                            <input type="hidden" name="action" value="delete_announcement">
+                                                            <input type="hidden" name="announcement_id" value="<?= (int)$announcement['announcement_id'] ?>">
+                                                            <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -683,7 +723,67 @@ function getMemberGroups($messageController) {
             </div>
         </div>
     </div>
-    
+
+    <!-- Edit Announcement Modal -->
+    <div class="modal fade" id="editAnnouncementModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Announcement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="action" value="update_announcement">
+                    <input type="hidden" id="edit_announcement_id" name="announcement_id" value="">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="edit_announcement_title" class="form-label">Title</label>
+                                <input type="text" class="form-control" id="edit_announcement_title" name="announcement_title" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="edit_announcement_priority" class="form-label">Priority</label>
+                                <select class="form-select" id="edit_announcement_priority" name="announcement_priority">
+                                    <option value="normal">Normal</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label for="edit_target_audience" class="form-label">Target Audience</label>
+                                <select class="form-select" id="edit_target_audience" name="target_audience">
+                                    <option value="all">All Members</option>
+                                    <option value="active">Active Members</option>
+                                    <option value="expired">Expired Members</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="edit_expiry_date" class="form-label">Expiry Date (Optional)</label>
+                                <input type="datetime-local" class="form-control" id="edit_expiry_date" name="expiry_date">
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label for="edit_announcement_content" class="form-label">Content</label>
+                            <textarea class="form-control" id="edit_announcement_content" name="announcement_content" rows="8" required></textarea>
+                        </div>
+
+                        <input type="hidden" id="edit_status" name="status" value="active">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -734,7 +834,45 @@ function getMemberGroups($messageController) {
                 ]
             });
         });
-        
+
+        // Initialize rich text editor for Edit Announcement
+        $(document).ready(function() {
+            $('#edit_announcement_content').summernote({
+                height: 300,
+                toolbar: [
+                    ['style', ['style']],
+                    ['font', ['bold', 'underline', 'clear']],
+                    ['color', ['color']],
+                    ['para', ['ul', 'ol', 'paragraph']],
+                    ['table', ['table']],
+                    ['insert', ['link']],
+                    ['view', ['fullscreen', 'codeview', 'help']]
+                ]
+            });
+        });
+
+        // Populate Edit Announcement modal with selected item data
+        const editModalEl = document.getElementById('editAnnouncementModal');
+        if (editModalEl) {
+            editModalEl.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                if (!button) return;
+                const id = button.getAttribute('data-announcement-id');
+                const title = button.getAttribute('data-title') || '';
+                const content = button.getAttribute('data-content') || '';
+                const priority = button.getAttribute('data-priority') || 'normal';
+                const audience = button.getAttribute('data-audience') || 'all';
+                const expiry = button.getAttribute('data-expiry') || '';
+
+                document.getElementById('edit_announcement_id').value = id;
+                document.getElementById('edit_announcement_title').value = title;
+                document.getElementById('edit_announcement_priority').value = priority;
+                document.getElementById('edit_target_audience').value = audience;
+                document.getElementById('edit_expiry_date').value = expiry;
+                $('#edit_announcement_content').summernote('code', content);
+            });
+        }
+
         // Charts
         const messageChartCtx = document.getElementById('messageChart').getContext('2d');
         new Chart(messageChartCtx, {
@@ -766,7 +904,7 @@ function getMemberGroups($messageController) {
                 labels: ['Normal', 'Medium', 'High'],
                 datasets: [{
                     data: [<?= $communicationStats['total_messages'] * 0.7 ?>, <?= $communicationStats['total_messages'] * 0.2 ?>, <?= $communicationStats['total_messages'] * 0.1 ?>],
-                    backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+                    backgroundColor: [successColor, warningColor, errorColor]
                 }]
             },
             options: {

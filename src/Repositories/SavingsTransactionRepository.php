@@ -8,6 +8,7 @@ use CSIMS\Models\SavingsTransaction;
 use CSIMS\Database\QueryBuilder;
 use CSIMS\Exceptions\DatabaseException;
 use mysqli;
+require_once __DIR__ . '/../../includes/utilities.php';
 
 /**
  * Savings Transaction Repository
@@ -18,10 +19,19 @@ class SavingsTransactionRepository implements RepositoryInterface
 {
     private mysqli $connection;
     private string $table = 'savings_transactions';
+    private string $txStatusCol = 'transaction_status';
+    private string $txTypeCol = 'transaction_type';
+    private string $txDateCol = 'transaction_date';
     
     public function __construct(mysqli $connection)
     {
         $this->connection = $connection;
+        if (class_exists('Utilities') && method_exists('Utilities', 'getSavingsSchema')) {
+            $schema = \Utilities::getSavingsSchema($this->connection);
+            $this->txStatusCol = $schema['transaction_status'] ?? $this->txStatusCol;
+            $this->txTypeCol = $schema['transaction_type'] ?? $this->txTypeCol;
+            $this->txDateCol = $schema['transaction_date'] ?? $this->txDateCol;
+        }
     }
     
     /**
@@ -30,7 +40,7 @@ class SavingsTransactionRepository implements RepositoryInterface
     public function find(mixed $id): ?ModelInterface
     {
         $query = QueryBuilder::table($this->table)
-            ->select(['*'])
+            ->select(['*', "{$this->txStatusCol} AS transaction_status", "{$this->txTypeCol} AS transaction_type", "{$this->txDateCol} AS transaction_date"])
             ->where('transaction_id', $id);
             
         [$sql, $params] = $query->build();
@@ -60,10 +70,20 @@ class SavingsTransactionRepository implements RepositoryInterface
      */
     public function findAll(array $filters = [], array $orderBy = [], ?int $limit = null, ?int $offset = null): array
     {
-        $query = QueryBuilder::table($this->table)->select(['*']);
+        $query = QueryBuilder::table($this->table)->select(['*', "{$this->txStatusCol} AS transaction_status", "{$this->txTypeCol} AS transaction_type", "{$this->txDateCol} AS transaction_date"]);
         
-        // Apply filters
+        // Apply filters with schema-aware mapping
+        $mappedFilters = [];
         foreach ($filters as $field => $value) {
+            $mapped = match ($field) {
+                'transaction_status' => $this->txStatusCol,
+                'transaction_type' => $this->txTypeCol,
+                'transaction_date' => $this->txDateCol,
+                default => $field,
+            };
+            $mappedFilters[$mapped] = $value;
+        }
+        foreach ($mappedFilters as $field => $value) {
             if (is_array($value)) {
                 $query->whereIn($field, $value);
             } else {
@@ -307,10 +327,10 @@ class SavingsTransactionRepository implements RepositoryInterface
      */
     public function findRequiringApproval(): array
     {
-        $sql = "SELECT * FROM {$this->table} 
-                WHERE transaction_status = 'Pending' 
+        $sql = "SELECT *, {$this->txStatusCol} AS transaction_status, {$this->txTypeCol} AS transaction_type, {$this->txDateCol} AS transaction_date FROM {$this->table} 
+                WHERE {$this->txStatusCol} = 'Pending' 
                 AND (
-                    transaction_type IN ('Withdrawal', 'Adjustment', 'Transfer_Out') 
+                    {$this->txTypeCol} IN ('Withdrawal', 'Adjustment', 'Transfer_Out') 
                     OR amount > 50000
                 )
                 ORDER BY created_at ASC";
@@ -330,12 +350,13 @@ class SavingsTransactionRepository implements RepositoryInterface
      */
     public function getAccountHistory(int $accountId, int $limit = 50, int $offset = 0): array
     {
-        $sql = "SELECT st.*, sa.account_number, m.first_name, m.last_name, m.member_number
+        $sql = "SELECT st.*, sa.account_number, m.first_name, m.last_name,
+                st.{$this->txTypeCol} AS transaction_type, st.{$this->txStatusCol} AS transaction_status, st.{$this->txDateCol} AS transaction_date
                 FROM {$this->table} st
                 LEFT JOIN savings_accounts sa ON st.account_id = sa.account_id
                 LEFT JOIN members m ON st.member_id = m.member_id
                 WHERE st.account_id = ?
-                ORDER BY st.transaction_date DESC, st.transaction_time DESC
+                ORDER BY st.{$this->txDateCol} DESC, st.transaction_time DESC
                 LIMIT ? OFFSET ?";
         
         $stmt = $this->connection->prepare($sql);
@@ -359,10 +380,10 @@ class SavingsTransactionRepository implements RepositoryInterface
     /**
      * Get member transaction summary
      */
-    public function getMemberTransactionSummary(int $memberId, string $dateFrom = null, string $dateTo = null): array
+    public function getMemberTransactionSummary(int $memberId, ?string $dateFrom = null, ?string $dateTo = null): array
     {
         $sql = "SELECT 
-                    transaction_type,
+                    {$this->txTypeCol} AS transaction_type,
                     COUNT(*) as count,
                     SUM(amount) as total_amount,
                     AVG(amount) as avg_amount
@@ -372,19 +393,19 @@ class SavingsTransactionRepository implements RepositoryInterface
         $params = [$memberId];
         $types = 'i';
         
-        if ($dateFrom) {
-            $sql .= " AND transaction_date >= ?";
+        if ($dateFrom !== null) {
+            $sql .= " AND {$this->txDateCol} >= ?";
             $params[] = $dateFrom;
             $types .= 's';
         }
         
-        if ($dateTo) {
-            $sql .= " AND transaction_date <= ?";
+        if ($dateTo !== null) {
+            $sql .= " AND {$this->txDateCol} <= ?";
             $params[] = $dateTo;
             $types .= 's';
         }
         
-        $sql .= " GROUP BY transaction_type
+        $sql .= " GROUP BY {$this->txTypeCol}
                   ORDER BY total_amount DESC";
         
         $stmt = $this->connection->prepare($sql);
@@ -412,15 +433,15 @@ class SavingsTransactionRepository implements RepositoryInterface
     public function getDailyTotals(string $dateFrom, string $dateTo): array
     {
         $sql = "SELECT 
-                    transaction_date,
-                    transaction_type,
+                    {$this->txDateCol} AS transaction_date,
+                    {$this->txTypeCol} AS transaction_type,
                     COUNT(*) as transaction_count,
                     SUM(amount) as total_amount
                 FROM {$this->table}
-                WHERE transaction_date BETWEEN ? AND ?
-                AND transaction_status = 'Completed'
-                GROUP BY transaction_date, transaction_type
-                ORDER BY transaction_date DESC, transaction_type";
+                WHERE {$this->txDateCol} BETWEEN ? AND ?
+                AND {$this->txStatusCol} = 'Completed'
+                GROUP BY {$this->txDateCol}, {$this->txTypeCol}
+                ORDER BY {$this->txDateCol} DESC, {$this->txTypeCol}";
         
         $stmt = $this->connection->prepare($sql);
         $stmt->bind_param('ss', $dateFrom, $dateTo);
@@ -549,7 +570,7 @@ class SavingsTransactionRepository implements RepositoryInterface
      */
     public function searchTransactions(array $filters): array
     {
-        $sql = "SELECT st.*, sa.account_number, m.first_name, m.last_name, m.member_number,
+        $sql = "SELECT st.*, sa.account_number, m.first_name, m.last_name,
                        au.username as processed_by_name
                 FROM {$this->table} st
                 LEFT JOIN savings_accounts sa ON st.account_id = sa.account_id
@@ -673,7 +694,7 @@ class SavingsTransactionRepository implements RepositoryInterface
     {
         $sql = "SELECT * FROM {$this->table} 
                 WHERE account_id = ? 
-                ORDER BY transaction_date DESC, transaction_time DESC, transaction_id DESC 
+                ORDER BY {$this->txDateCol} DESC, transaction_time DESC, transaction_id DESC 
                 LIMIT 1";
         
         $stmt = $this->connection->prepare($sql);
@@ -697,8 +718,19 @@ class SavingsTransactionRepository implements RepositoryInterface
         $query = QueryBuilder::table($this->table)
             ->select(['COUNT(*) as total']);
         
-        // Apply filters
+        // Apply filters with schema-aware mapping
+        $mappedFilters = [];
         foreach ($filters as $field => $value) {
+            $mapped = match ($field) {
+                'transaction_status' => $this->txStatusCol,
+                'transaction_type' => $this->txTypeCol,
+                'transaction_date' => $this->txDateCol,
+                default => $field,
+            };
+            $mappedFilters[$mapped] = $value;
+        }
+        
+        foreach ($mappedFilters as $field => $value) {
             if (is_array($value)) {
                 $query->whereIn($field, $value);
             } else {

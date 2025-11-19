@@ -10,7 +10,6 @@
 session_start();
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
-require_once '../../includes/services/NotificationService.php';
 require_once '../../includes/services/SimpleBusinessRulesService.php';
 
 // Check if user is logged in
@@ -25,7 +24,6 @@ if (!$auth->isLoggedIn()) {
 $current_user = $auth->getCurrentUser();
 
 // Initialize common services
-$notificationService = new NotificationService();
 $businessRulesService = new SimpleBusinessRulesService();
 
 // Get session messages
@@ -46,7 +44,7 @@ $pageIcon = "fas fa-cog";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $pageTitle; ?> - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- CSIMS Color System -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <!-- Tailwind CSS -->
@@ -66,12 +64,12 @@ $pageIcon = "fas fa-cog";
         <?php include '../../views/includes/sidebar.php'; ?>
         
         <!-- Main Content -->
-        <main class="flex-1 md:ml-64 mt-16 p-6" id="mainContent">
+        <main class="flex-1 main-content mt-16 p-6" id="mainContent">
             <!-- Page Header -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div class="animate-slide-in">
                     <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">
-                        <i class="<?php echo $pageIcon; ?> mr-3" style="color: var(--persian-orange);"></i>
+                        <i class="<?php echo $pageIcon; ?> mr-3" style="color: #3b28cc;"></i>
                         <?php echo $pageTitle; ?>
                     </h1>
                     <p style="color: var(--text-muted);"><?php echo $pageDescription; ?></p>
@@ -129,7 +127,7 @@ $pageIcon = "fas fa-cog";
             <?php if (!empty($error_message)): ?>
                 <div class="alert alert-error flex items-center justify-between animate-slide-in">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-3" style="color: var(--error);"></i>
+                        <i class="fas fa-exclamation-circle mr-3 icon-error"></i>
                         <span><?php echo htmlspecialchars($error_message); ?></span>
                     </div>
                     <button type="button" class="text-current opacity-75 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
@@ -142,7 +140,7 @@ $pageIcon = "fas fa-cog";
             <div class="card card-admin animate-fade-in mb-6">
                 <div class="card-header">
                     <h3 class="text-lg font-semibold flex items-center">
-                        <i class="fas fa-filter mr-2" style="color: var(--lapis-lazuli);"></i>
+                        <i class="fas fa-filter mr-2 icon-lapis"></i>
                         Filter & Search
                     </h3>
                 </div>
@@ -152,7 +150,7 @@ $pageIcon = "fas fa-cog";
                             <label for="search" class="form-label">Search</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-search" style="color: var(--text-muted);"></i>
+                                    <i class="fas fa-search icon-muted"></i>
                                 </div>
                                 <input type="text" class="form-control pl-10" id="search" name="search" 
                                        placeholder="Search..." value="">

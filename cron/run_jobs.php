@@ -10,7 +10,7 @@
  * 
  * Recommended schedule:
  * - Every minute for critical jobs: * * * * *
- * - Every 5 minutes for regular jobs: */5 * * * *
+ * - Every 5 minutes for regular jobs: * /5 * * * *
  * - Daily for maintenance: 0 2 * * *
  */
 
@@ -27,13 +27,14 @@ ini_set('error_log', __DIR__ . '/../logs/cron_errors.log');
 
 // Include required files
 require_once __DIR__ . '/../classes/JobSchedulerService.php';
-require_once __DIR__ . '/../classes/LogService.php';
+
+require_once __DIR__ . '/../includes/config/database.php';
 
 try {
     echo "[" . date('Y-m-d H:i:s') . "] Starting job scheduler...\n";
     
     $jobScheduler = new JobSchedulerService();
-    $logService = new LogService();
+
     
     // Run pending jobs
     $results = $jobScheduler->runPendingJobs();
@@ -66,93 +67,166 @@ try {
  */
 function scheduleRecurringJobs($jobScheduler) {
     try {
-        $db = DatabaseConnection::getInstance()->getConnection();
+        $db = (new PdoDatabase())->getConnection();
+
+        $hasColumn = function($table, $column) use ($db) {
+            try {
+                $stmt = $db->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+                $stmt->execute([$table, $column]);
+                return (int)$stmt->fetchColumn() > 0;
+            } catch (\Throwable $e) {
+                return true; // assume present to avoid breaking scheduling
+            }
+        };
         
+        $hasStatus = $hasColumn('system_jobs', 'status');
+        $hasScheduledAt = $hasColumn('system_jobs', 'scheduled_at');
+        $hasCreatedAt = $hasColumn('system_jobs', 'created_at');
+        $hasExecutedAt = $hasColumn('system_jobs', 'executed_at');
+        $hasCompletedAt = $hasColumn('system_jobs', 'completed_at');
+        $hasParameters = $hasColumn('system_jobs', 'parameters');
+        $hasJobName = $hasColumn('system_jobs', 'job_name');
+
         // Check if monthly interest job needs to be scheduled
         $currentMonth = date('Y-m-01');
         $nextMonth = date('Y-m-01', strtotime('+1 month'));
+        $monthlyJobName = 'monthly_interest_' . date('Ym', strtotime($nextMonth));
         
-        $sql = "SELECT COUNT(*) FROM system_jobs 
-                WHERE job_type = 'monthly_interest' 
-                AND status = 'pending' 
-                AND JSON_EXTRACT(parameters, '$.target_date') = ?";
-        
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$nextMonth]);
+        if ($hasJobName) {
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE job_type = 'monthly_interest' AND job_name = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$monthlyJobName]);
+        } else {
+            $where = "job_type = 'monthly_interest'";
+            if ($hasStatus) {
+                $where .= " AND status = 'pending'";
+            } elseif ($hasExecutedAt && $hasCompletedAt) {
+                $where .= " AND (executed_at IS NULL AND completed_at IS NULL)";
+            }
+            if ($hasParameters) {
+                $where .= " AND JSON_EXTRACT(parameters, '$.target_date') = ?";
+                $dateFilterParam = $nextMonth;
+            } elseif ($hasScheduledAt) {
+                $where .= " AND DATE_FORMAT(scheduled_at, '%Y-%m-01') = ?";
+                $dateFilterParam = $nextMonth;
+            } elseif ($hasCreatedAt) {
+                $where .= " AND DATE_FORMAT(created_at, '%Y-%m-01') = ?";
+                $dateFilterParam = $nextMonth;
+            } else {
+                $dateFilterParam = null;
+            }
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE {$where}";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($dateFilterParam !== null ? [$dateFilterParam] : []);
+        }
         
         if ($stmt->fetchColumn() == 0) {
-            // Schedule next month's interest calculation
-            $scheduledAt = $nextMonth . ' 02:00:00'; // 2 AM on first day of month
-            
-            $jobScheduler->scheduleJob(
-                'monthly_interest',
-                null,
-                $scheduledAt,
-                ['target_date' => $nextMonth],
-                8 // High priority
-            );
-            
+            $scheduledAt = $nextMonth . ' 02:00:00';
+            $params = ['target_date' => $nextMonth];
+            $jobScheduler->scheduleJob('monthly_interest', null, $scheduledAt, $params, 8);
             echo "[" . date('Y-m-d H:i:s') . "] Scheduled monthly interest calculation for {$nextMonth}\n";
         }
         
-        // Check if penalty calculation job needs to be scheduled (daily)
-        $tomorrow = date('Y-m-d', strtotime('+1 day'));
-        
-        $sql = "SELECT COUNT(*) FROM system_jobs 
-                WHERE job_type = 'penalty_calculation' 
-                AND status = 'pending' 
-                AND DATE(scheduled_at) = ?";
-        
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$tomorrow]);
+        // Schedule monthly savings auto-deposits (runs after interest)
+        $savingsDepJobName = 'monthly_savings_deposit_' . date('Ym', strtotime($nextMonth));
+        if ($hasJobName) {
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE job_type = 'monthly_savings_deposit' AND job_name = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$savingsDepJobName]);
+        } else {
+            $where = "job_type = 'monthly_savings_deposit'";
+            if ($hasStatus) {
+                $where .= " AND status = 'pending'";
+            } elseif ($hasExecutedAt && $hasCompletedAt) {
+                $where .= " AND (executed_at IS NULL AND completed_at IS NULL)";
+            }
+            if ($hasParameters) {
+                $where .= " AND JSON_EXTRACT(parameters, '$.target_date') = ?";
+                $dateFilterParam = $nextMonth;
+            } elseif ($hasScheduledAt) {
+                $where .= " AND DATE_FORMAT(scheduled_at, '%Y-%m-01') = ?";
+                $dateFilterParam = $nextMonth;
+            } elseif ($hasCreatedAt) {
+                $where .= " AND DATE_FORMAT(created_at, '%Y-%m-01') = ?";
+                $dateFilterParam = $nextMonth;
+            } else {
+                $dateFilterParam = null;
+            }
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE {$where}";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($dateFilterParam !== null ? [$dateFilterParam] : []);
+        }
         
         if ($stmt->fetchColumn() == 0) {
-            // Schedule tomorrow's penalty calculation
-            $scheduledAt = $tomorrow . ' 03:00:00'; // 3 AM daily
-            
-            $jobScheduler->scheduleJob(
-                'penalty_calculation',
-                null,
-                $scheduledAt,
-                ['target_date' => $tomorrow],
-                7 // High priority
-            );
-            
+            $scheduledAt = $nextMonth . ' 02:10:00';
+            $params = ['target_date' => $nextMonth, 'require_approval' => true];
+            $jobScheduler->scheduleJob('monthly_savings_deposit', $savingsDepJobName, $scheduledAt, $params, 8);
+            echo "[" . date('Y-m-d H:i:s') . "] Scheduled monthly savings auto-deposit for {$nextMonth}\n";
+        }
+        
+        // Penalty calculation (daily)
+        $tomorrow = date('Y-m-d', strtotime('+1 day'));
+        $penaltyJobName = 'penalty_calculation_' . date('Ymd', strtotime($tomorrow));
+        if ($hasJobName) {
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE job_type = 'penalty_calculation' AND job_name = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$penaltyJobName]);
+        } else {
+            $where = "job_type = 'penalty_calculation'";
+            if ($hasStatus) {
+                $where .= " AND status = 'pending'";
+            } elseif ($hasExecutedAt && $hasCompletedAt) {
+                $where .= " AND (executed_at IS NULL AND completed_at IS NULL)";
+            }
+            if ($hasScheduledAt) {
+                $where .= " AND DATE(scheduled_at) = ?";
+            } elseif ($hasCreatedAt) {
+                $where .= " AND DATE(created_at) = ?";
+            } else {
+                $where .= " AND 1 = 1"; // no date filter available
+            }
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE {$where}";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$tomorrow]);
+        }
+        if ($stmt->fetchColumn() == 0) {
+            $scheduledAt = $tomorrow . ' 03:00:00';
+            $jobScheduler->scheduleJob('penalty_calculation', null, $scheduledAt, ['target_date' => $tomorrow], 7);
             echo "[" . date('Y-m-d H:i:s') . "] Scheduled penalty calculation for {$tomorrow}\n";
         }
         
-        // Check if account maintenance job needs to be scheduled (weekly)
+        // Account maintenance (weekly)
         $nextSunday = date('Y-m-d', strtotime('next sunday'));
-        
-        $sql = "SELECT COUNT(*) FROM system_jobs 
-                WHERE job_type = 'account_maintenance' 
-                AND status = 'pending' 
-                AND DATE(scheduled_at) = ?";
-        
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$nextSunday]);
-        
+        $acctMaintJobName = 'account_maintenance_' . date('Ymd', strtotime($nextSunday));
+        if ($hasJobName) {
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE job_type = 'account_maintenance' AND job_name = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$acctMaintJobName]);
+        } else {
+            $where = "job_type = 'account_maintenance'";
+            if ($hasStatus) {
+                $where .= " AND status = 'pending'";
+            } elseif ($hasExecutedAt && $hasCompletedAt) {
+                $where .= " AND (executed_at IS NULL AND completed_at IS NULL)";
+            }
+            if ($hasScheduledAt) {
+                $where .= " AND DATE(scheduled_at) = ?";
+            } elseif ($hasCreatedAt) {
+                $where .= " AND DATE(created_at) = ?";
+            } else {
+                $where .= " AND 1 = 1";
+            }
+            $sql = "SELECT COUNT(*) FROM system_jobs WHERE {$where}";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$nextSunday]);
+        }
         if ($stmt->fetchColumn() == 0) {
-            // Schedule weekly maintenance
-            $scheduledAt = $nextSunday . ' 01:00:00'; // 1 AM on Sunday
-            
-            $jobScheduler->scheduleJob(
-                'account_maintenance',
-                null,
-                $scheduledAt,
-                [
-                    'tasks' => [
-                        'cleanup_logs',
-                        'update_credit_scores', 
-                        'archive_old_data'
-                    ]
-                ],
-                3 // Lower priority
-            );
-            
+            $scheduledAt = $nextSunday . ' 01:00:00';
+            $jobScheduler->scheduleJob('account_maintenance', null, $scheduledAt, [
+                'tasks' => ['cleanup_logs','update_credit_scores','archive_old_data']
+            ], 3);
             echo "[" . date('Y-m-d H:i:s') . "] Scheduled account maintenance for {$nextSunday}\n";
         }
-        
     } catch (Exception $e) {
         echo "[" . date('Y-m-d H:i:s') . "] Error scheduling recurring jobs: " . $e->getMessage() . "\n";
     }
