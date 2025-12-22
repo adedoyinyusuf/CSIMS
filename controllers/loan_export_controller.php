@@ -178,3 +178,4 @@ if ($format === 'csv' || $format === '') {
 // Default: redirect back
 header("Location: " . BASE_URL . "/views/admin/loans.php");
 exit();
+

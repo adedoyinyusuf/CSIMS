@@ -1,6 +1,0 @@
-first_name,last_name,email,phone,gender,date_of_birth,address,membership_type_id,ippis_no
-John,Doe,john.doe@example.com,08012345678,Male,1990-01-15,123 Main Street Lagos,1,123456
-Jane,Smith,jane.smith@example.com,08087654321,Female,1985-05-20,456 Oak Avenue Abuja,1,234567
-Michael,Johnson,michael.johnson@example.com,08098765432,Male,1988-03-10,789 Pine Road Port Harcourt,2,345678
-Sarah,Williams,sarah.williams@example.com,08076543210,Female,1992-11-25,321 Elm Street Kano,1,456789
-David,Brown,david.brown@example.com,08065432109,Male,1987-07-08,654 Cedar Lane Ibadan,2,567890

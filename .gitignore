@@ -142,6 +142,8 @@ staging.php
 # Runtime
 runtime/
 var/
+storage/*
+!storage/archive/**
 
 # Composer
 /vendor/
