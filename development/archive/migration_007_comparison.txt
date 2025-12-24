@@ -1,0 +1,52 @@
+
+========================================
+Migration 007 File Comparison Analysis
+========================================
+
+Analyzing: 007_enhanced_cooperative_schema.sql
+  File Size: 23231 bytes
+  Tables Created: 12
+  Creates loan_types: NO
+  Has workflow_approvals: YES
+  Has loan_guarantors: YES
+  Has savings_accounts: NO
+  Has member_types: NO
+
+Analyzing: 007_enhanced_cooperative_schema_fixed.sql
+  File Size: 22960 bytes
+  Tables Created: 12
+  Creates loan_types: NO
+  Has workflow_approvals: YES
+  Has loan_guarantors: YES
+  Has savings_accounts: NO
+  Has member_types: NO
+
+Analyzing: 007_enhanced_cooperative_schema_simple.sql
+  File Size: 18906 bytes
+  Tables Created: 12
+  Creates loan_types: NO
+  Has workflow_approvals: YES
+  Has loan_guarantors: YES
+  Has savings_accounts: NO
+  Has member_types: NO
+
+
+========================================
+RECOMMENDATION
+========================================
+
+Current Database State (from investigation):
+  âo workflow_approvals - EXISTS -ForegroundColor Green
+Write-Host  âo loan_guarantors - EXISTS
+  âo savings_accounts - EXISTS -ForegroundColor Green
+Write-Host  âo member_types - EXISTS
+  âo- loan_types - MISSING
+
+
+
+
+âs ï,?  WARNING: No exact match found.
+   Files may have been modified or database state is different.
+
+========================================
+

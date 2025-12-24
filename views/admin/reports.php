@@ -86,8 +86,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $report_data) {
             echo "Financial Summary Report\n";
             echo "Category,Amount,Count\n";
             // Update CSV header label
-            echo "Total Savings," . $report_data['contributions']['total_contributions'] . "," . $report_data['contributions']['total_transactions'] . "\n";
-            echo "Total Investments," . $report_data['investments']['total_investments'] . "," . $report_data['investments']['total_investment_count'] . "\n";
+            echo "Total Savings," . $report_data['savings']['total_savings'] . "," . $report_data['savings']['total_transactions'] . "\n";
             echo "Total Loans," . $report_data['loans']['total_loans'] . "," . $report_data['loans']['total_loan_count'] . "\n";
             break;
     }
@@ -402,26 +401,10 @@ function getDateRangeFromPreset($preset) {
                                     <div class="row no-gutters align-items-center">
                                         <div class="col mr-2">
                                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Savings</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">₦<?php echo number_format($report_data['contributions']['total_contributions'], 2); ?></div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">₦<?php echo number_format($report_data['savings']['total_savings'], 2); ?></div>
                                         </div>
                                         <div class="col-auto">
                                             <i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-info shadow h-100 py-2">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Investments</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">₦<?php echo number_format($report_data['investments']['total_investments'], 2); ?></div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
                                         </div>
                                     </div>
                                 </div>
@@ -438,22 +421,6 @@ function getDateRangeFromPreset($preset) {
                                         </div>
                                         <div class="col-auto">
                                             <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card border-left-primary shadow h-100 py-2">
-                                <div class="card-body">
-                                    <div class="row no-gutters align-items-center">
-                                        <div class="col mr-2">
-                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Expected Returns</div>
-                                            <div class="h5 mb-0 font-weight-bold text-gray-800">₦<?php echo number_format($report_data['investments']['total_expected_returns'], 2); ?></div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <i class="fas fa-coins fa-2x text-gray-300"></i>
                                         </div>
                                     </div>
                                 </div>
@@ -479,15 +446,9 @@ function getDateRangeFromPreset($preset) {
                                     <tbody>
                                         <tr>
                                             <td>Savings</td>
-                                            <td>₦<?php echo number_format($report_data['contributions']['total_contributions'], 2); ?></td>
-                                            <td><?php echo number_format($report_data['contributions']['total_transactions']); ?></td>
-                                            <td>₦<?php echo number_format($report_data['contributions']['average_contribution'], 2); ?></td>
-                                        </tr>
-                                        <tr>
-                                            <td>Investments</td>
-                                            <td>₦<?php echo number_format($report_data['investments']['total_investments'], 2); ?></td>
-                                            <td><?php echo number_format($report_data['investments']['total_investment_count']); ?></td>
-                                            <td>₦<?php echo $report_data['investments']['total_investment_count'] > 0 ? number_format($report_data['investments']['total_investments'] / $report_data['investments']['total_investment_count'], 2) : '0.00'; ?></td>
+                                            <td>₦<?php echo number_format($report_data['savings']['total_savings'], 2); ?></td>
+                                            <td><?php echo number_format($report_data['savings']['total_transactions']); ?></td>
+                                            <td>₦<?php echo number_format($report_data['savings']['average_savings'], 2); ?></td>
                                         </tr>
                                         <tr>
                                             <td>Loans</td>

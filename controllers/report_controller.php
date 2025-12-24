@@ -62,18 +62,13 @@ class ReportController
 
         // New metrics in range
         $newMembers = $this->scalar("SELECT COUNT(*) AS c FROM members {$dateFilter['where']}", $dateFilter['params'], $dateFilter['types']) ?? 0;
-        $newContributions = 0; // placeholder: requires savings/transactions table
+        $newSavings = $this->scalar("SELECT COUNT(*) AS c FROM savings_transactions {$this->buildDateFilter('savings_transactions','created_at',$start,$end)['where']}") ?? 0;
         $newLoans = $this->scalar("SELECT COUNT(*) AS c FROM loans {$this->buildDateFilter('loans','created_at',$start,$end)['where']}") ?? 0;
-        $newInvestments = $this->scalar("SELECT COUNT(*) AS c FROM investments {$this->buildDateFilter('investments','created_at',$start,$end)['where']}") ?? 0;
 
         // Financial summary sections
-        $totalContributions = $this->scalar("SELECT COALESCE(SUM(amount),0) AS s FROM savings_transactions") ?? 0;
-        $totalContributionTx = $this->scalar("SELECT COUNT(*) AS c FROM savings_transactions") ?? 0;
-        $avgContribution = $totalContributionTx > 0 ? ($totalContributions / $totalContributionTx) : 0;
-
-        $totalInvestments = $this->scalar("SELECT COALESCE(SUM(amount),0) AS s FROM investments") ?? 0;
-        $investmentCount = $this->scalar("SELECT COUNT(*) AS c FROM investments") ?? 0;
-        $expectedReturns = $this->scalar("SELECT COALESCE(SUM(expected_return),0) AS s FROM investments") ?? 0;
+        $totalSavings = $this->scalar("SELECT COALESCE(SUM(amount),0) AS s FROM savings_transactions") ?? 0;
+        $totalSavingsTx = $this->scalar("SELECT COUNT(*) AS c FROM savings_transactions") ?? 0;
+        $avgSavings = $totalSavingsTx > 0 ? ($totalSavings / $totalSavingsTx) : 0;
 
         $totalLoans = $this->scalar("SELECT COALESCE(SUM(amount),0) AS s FROM loans") ?? 0;
         $loanCount = $this->scalar("SELECT COUNT(*) AS c FROM loans") ?? 0;
@@ -93,15 +88,10 @@ class ReportController
             'member_status' => $memberStatus,
             'registration_trends' => $registrationTrends,
             'age_distribution' => $ageDistribution,
-            'contributions' => [
-                'total_contributions' => (float)$totalContributions,
-                'total_transactions' => (int)$totalContributionTx,
-                'average_contribution' => (float)$avgContribution,
-            ],
-            'investments' => [
-                'total_investments' => (float)$totalInvestments,
-                'total_investment_count' => (int)$investmentCount,
-                'total_expected_returns' => (float)$expectedReturns,
+            'savings' => [
+                'total_savings' => (float)$totalSavings,
+                'total_transactions' => (int)$totalSavingsTx,
+                'average_savings' => (float)$avgSavings,
             ],
             'loans' => [
                 'total_loans' => (float)$totalLoans,
@@ -111,9 +101,8 @@ class ReportController
             'amount_ranges' => $amountRanges,
             'top_borrowers' => $topBorrowers,
             'new_members' => (int)$newMembers,
-            'new_contributions' => (int)$newContributions,
+            'new_savings' => (int)$newSavings,
             'new_loans' => (int)$newLoans,
-            'new_investments' => (int)$newInvestments,
         ];
     }
 
@@ -144,9 +133,8 @@ class ReportController
         // Minimal activity metrics
         return [
             'new_members' => (int)($this->scalar("SELECT COUNT(*) FROM members {$this->buildDateFilter('members','created_at',$start,$end)['where']}") ?? 0),
-            'new_contributions' => 0,
+            'new_savings' => (int)($this->scalar("SELECT COUNT(*) FROM savings_transactions {$this->buildDateFilter('savings_transactions','created_at',$start,$end)['where']}") ?? 0),
             'new_loans' => (int)($this->scalar("SELECT COUNT(*) FROM loans {$this->buildDateFilter('loans','created_at',$start,$end)['where']}") ?? 0),
-            'new_investments' => (int)($this->scalar("SELECT COUNT(*) FROM investments {$this->buildDateFilter('investments','created_at',$start,$end)['where']}") ?? 0),
         ];
     }
 
@@ -174,6 +162,145 @@ class ReportController
         if ($res) { while ($r = $res->fetch_assoc()) { $rows[] = $r; } }
         $stmt->close();
         return $rows;
+    }
+
+    // Dashboard Support Methods
+    
+    public function getKPIs(): array
+    {
+        $today = date('Y-m-d');
+        $monthStart = date('Y-m-01');
+        $yearStart = date('Y-01-01');
+
+        $activeMembers = (int)($this->scalar("SELECT COUNT(*) FROM members WHERE status = 'Active'") ?? 0);
+        $newMembersMonth = (int)($this->scalar("SELECT COUNT(*) FROM members WHERE join_date >= ?", [$monthStart], 's') ?? 0);
+        $outstandingLoans = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM loans WHERE status IN ('Active', 'Disbursed')") ?? 0.0);
+        $savingsYTD = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM savings_transactions WHERE type = 'deposit' AND created_at >= ?", [$yearStart], 's') ?? 0.0);
+
+        $totalLoansCount = (int)($this->scalar("SELECT COUNT(*) FROM loans WHERE status IN ('Active', 'Disbursed', 'Overdue')") ?? 0);
+        $overdueLoansCount = (int)($this->scalar("SELECT COUNT(*) FROM loans WHERE status = 'Overdue'") ?? 0);
+        $par = $totalLoansCount > 0 ? round(($overdueLoansCount / $totalLoansCount) * 100, 1) : 0;
+
+        return [
+            'total_active_members' => $activeMembers,
+            'new_members_this_month' => $newMembersMonth,
+            'outstanding_loans' => $outstandingLoans,
+            'savings_this_year' => $savingsYTD,
+            'portfolio_at_risk' => $par,
+            'overdue_loans' => $overdueLoansCount
+        ];
+    }
+
+    public function getFinancialSummary(?string $start = null, ?string $end = null): array
+    {
+        $totalSavings = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM savings_transactions WHERE type = 'deposit'") ?? 0);
+        $totalWithdrawals = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM savings_transactions WHERE type = 'withdrawal'") ?? 0);
+        $netSavings = $totalSavings - $totalWithdrawals;
+        $outstandingLoans = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM loans WHERE status IN ('Active', 'Disbursed', 'Overdue')") ?? 0);
+        
+        return [
+            'net_position' => [
+                'total_assets' => $netSavings, 
+                'outstanding_loans' => $outstandingLoans,
+                'liquid_reserves' => $netSavings - $outstandingLoans
+            ],
+            'savings' => [
+                'total_savings' => (int)($this->scalar("SELECT COUNT(*) FROM savings_transactions WHERE type = 'deposit'") ?? 0),
+                'total_amount' => $totalSavings
+            ],
+            'shares' => [
+                'total_share_purchases' => 0,
+                'total_paid' => 0
+            ],
+            'withdrawals' => [
+                'total_withdrawals' => (int)($this->scalar("SELECT COUNT(*) FROM savings_transactions WHERE type = 'withdrawal'") ?? 0),
+                'net_amount' => $totalWithdrawals
+            ],
+            'loans' => [
+                 'total_loans' => (int)($this->scalar("SELECT COUNT(*) FROM loans WHERE status IN ('Active', 'Disbursed')") ?? 0)
+            ]
+        ];
+    }
+
+    public function getLoanPortfolioAnalysis(string $period): array
+    {
+        $statusCounts = $this->rows("SELECT status, COUNT(*) as c FROM loans GROUP BY status");
+        $labels = [];
+        $data = [];
+        foreach($statusCounts as $row) {
+            $labels[] = $row['status'];
+            $data[] = (int)$row['c'];
+        }
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+    public function getMemberStatistics(string $period): array
+    {
+         $total = (int)($this->scalar("SELECT COUNT(*) FROM members") ?? 0);
+         $rows = $this->rows("SELECT status, COUNT(*) as c FROM members GROUP BY status");
+         $dist = [];
+         foreach($rows as $r) {
+             $c = (int)$r['c'];
+             $dist[] = [
+                 'status' => $r['status'],
+                 'count' => $c,
+                 'percentage' => $total > 0 ? round(($c / $total) * 100, 1) : 0
+             ];
+         }
+         
+         $activeSavers = (int)($this->scalar("SELECT COUNT(DISTINCT member_id) FROM savings_transactions") ?? 0);
+         $totalSavings = (float)($this->scalar("SELECT SUM(amount) FROM savings_transactions WHERE type='deposit'") ?? 0);
+         $avgSavings = $activeSavers > 0 ? $totalSavings / $activeSavers : 0;
+         $maxSavings = (float)($this->scalar("SELECT MAX(amount) FROM savings_transactions WHERE type='deposit'") ?? 0);
+         
+         return [
+             'status_distribution' => $dist,
+             'savings_participation' => [
+                 'active_savers' => $activeSavers,
+                 'avg_savings' => $avgSavings,
+                 'max_savings' => $maxSavings
+             ]
+         ];
+    }
+
+    public function getSavingsPerformance(string $period): array
+    {
+        $rows = $this->rows("SELECT DATE_FORMAT(created_at, '%Y-%m') as m, SUM(amount) as total FROM savings_transactions WHERE type='deposit' GROUP BY m ORDER BY m DESC LIMIT 12");
+        $labels = [];
+        $data = [];
+        foreach(array_reverse($rows) as $row) {
+            $labels[] = date('M Y', strtotime($row['m'] . '-01'));
+            $data[] = (float)$row['total'];
+        }
+
+        $typeAnalysis = $this->rows("SELECT type as savings_type, COUNT(*) as transaction_count, SUM(amount) as total_amount, AVG(amount) as avg_amount, COUNT(DISTINCT member_id) as unique_savers FROM savings_transactions GROUP BY type");
+        
+        $topSavers = $this->rows("SELECT m.member_id, CONCAT(m.first_name,' ',m.last_name) AS member_name, COUNT(*) as savings_count, SUM(amount) as total_saved, AVG(amount) as avg_savings FROM savings_transactions st JOIN members m ON st.member_id = m.member_id WHERE st.type='deposit' GROUP BY st.member_id ORDER BY total_saved DESC LIMIT 10");
+
+        return [
+            'labels' => $labels, 
+            'data' => $data,
+            'type_analysis' => $typeAnalysis,
+            'top_savers' => $topSavers
+        ];
+    }
+
+    public function getRecentTransactions(int $limit = 10): array
+    {
+        return $this->rows("SELECT t.id, t.amount, t.type, t.created_at, m.first_name, m.last_name FROM savings_transactions t LEFT JOIN members m ON t.member_id = m.member_id ORDER BY t.created_at DESC LIMIT ?", [$limit], 'i');
+    }
+    
+    public function exportToCSV(array $data, string $filename): void
+    {
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="' . $filename . '.csv"');
+        $out = fopen('php://output', 'w');
+        // Basic CSV dump - in real app would need specific formatting per report type
+        foreach ($data as $row) {
+            if (is_array($row)) fputcsv($out, $row);
+            else fputcsv($out, [$row]);
+        }
+        fclose($out);
     }
 
     private function buildDateFilter(string $table, string $col, ?string $start, ?string $end): array

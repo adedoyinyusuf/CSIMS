@@ -131,9 +131,9 @@ class BusinessRulesService
         $stmt->execute([$memberId, $minMandatory]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($result['compliant_months'] < 6) {
-            $errors[] = "Member must have 6 consecutive months of minimum mandatory contributions (₦" . number_format($minMandatory, 2) . "). Found {$result['compliant_months']} compliant months";
-        }
+            if ($result['compliant_months'] < 6) {
+                $errors[] = "Member must have 6 consecutive months of minimum mandatory savings (₦" . number_format($minMandatory, 2) . "). Found {$result['compliant_months']} compliant months";
+            }
         
         return $errors;
     }
@@ -235,9 +235,9 @@ class BusinessRulesService
     // ============ SAVINGS VALIDATION ============
 
     /**
-     * Validate mandatory savings contribution
+     * Validate mandatory savings deposit
      */
-    public function validateMandatorySavingsContribution(int $memberId, float $amount): array 
+    public function validateMandatorySavingsDeposit(int $memberId, float $amount): array 
     {
         $errors = [];
         
@@ -245,11 +245,11 @@ class BusinessRulesService
         $maxMandatory = $this->config->getMaxMandatorySavings();
         
         if ($amount < $minMandatory) {
-            $errors[] = "Mandatory contribution must be at least ₦" . number_format($minMandatory, 2);
+            $errors[] = "Mandatory deposit must be at least ₦" . number_format($minMandatory, 2);
         }
         
         if ($amount > $maxMandatory) {
-            $errors[] = "Mandatory contribution cannot exceed ₦" . number_format($maxMandatory, 2);
+            $errors[] = "Mandatory deposit cannot exceed ₦" . number_format($maxMandatory, 2);
         }
         
         return $errors;
@@ -587,9 +587,9 @@ class BusinessRulesService
         $stmt = $this->pdo->prepare($monthsSql);
         $stmt->execute([$memberId]);
         $monthsRow = $stmt->fetch(PDO::FETCH_ASSOC);
-        $contributionMonths = isset($monthsRow['months']) ? (int)$monthsRow['months'] : 0;
+        $savingsMonths = isset($monthsRow['months']) ? (int)$monthsRow['months'] : 0;
 
-        // Last contribution date (based on latest completed savings deposit)
+        // Last deposit date (based on latest completed savings deposit)
         $lastDateSql = "SELECT MAX(st.$dateCol) AS last_date
                         FROM savings_transactions st
                         WHERE st.$memberIdCol = ?
@@ -598,15 +598,15 @@ class BusinessRulesService
         $stmt = $this->pdo->prepare($lastDateSql);
         $stmt->execute([$memberId]);
         $lastDateRow = $stmt->fetch(PDO::FETCH_ASSOC);
-        $lastContributionDate = $lastDateRow && isset($lastDateRow['last_date']) ? $lastDateRow['last_date'] : null;
+        $lastDepositDate = $lastDateRow && isset($lastDateRow['last_date']) ? $lastDateRow['last_date'] : null;
 
         return [
             'total_savings' => (float)$totalSavings,
             'mandatory_savings' => (float)$mandatorySavings,
             'voluntary_savings' => (float)$voluntarySavings,
             'active_loans' => $activeLoans,
-            'contribution_months' => $contributionMonths,
-            'last_contribution_date' => $lastContributionDate,
+            'savings_months' => $savingsMonths,
+            'last_deposit_date' => $lastDepositDate,
         ];
     }
 

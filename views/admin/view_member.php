@@ -366,7 +366,7 @@ try {
                                         <?php if ($is_expired): ?>
                                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/renew_membership.php?id=<?php echo $member['member_id']; ?>"><i class="fas fa-sync-alt me-2"></i> Renew Membership</a></li>
                                         <?php endif; ?>
-                                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Add Savings Deposit</a></li>
+                                        <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>/views/admin/savings.php?member_id=<?php echo $member['member_id']; ?>"><i class="fas fa-money-bill-wave me-2"></i> Manage Savings</a></li>
                                         <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#resetPasswordModal"><i class="fas fa-key me-2"></i> Reset Password</a></li>
                                         <li><a class="dropdown-item" href="#" onclick="window.print();"><i class="fas fa-print me-2"></i> Print Profile</a></li>
                                         <li><hr class="dropdown-divider"></li>
@@ -585,18 +585,13 @@ try {
                     <div class="card-header bg-light p-0">
                         <ul class="nav nav-tabs" id="memberTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="contributions-tab" data-bs-toggle="tab" data-bs-target="#contributions" type="button" role="tab" aria-controls="contributions" aria-selected="false">
-                                    <i class="fas fa-money-bill-wave me-2"></i> Savings
-                                </button>
+                                <button class="nav-link" id="savings-tab" data-bs-toggle="tab" data-bs-target="#savings" type="button" role="tab" aria-controls="savings" aria-selected="false">
+                                <i class="fas fa-piggy-bank me-2"></i> Savings
+                            </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="loans-tab" data-bs-toggle="tab" data-bs-target="#loans" type="button" role="tab" aria-controls="loans" aria-selected="true">
                                     <i class="fas fa-hand-holding-usd me-2"></i> Loans
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="investments-tab" data-bs-toggle="tab" data-bs-target="#investments" type="button" role="tab" aria-controls="investments" aria-selected="false">
-                                    <i class="fas fa-chart-line me-2"></i> Investments
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -608,14 +603,14 @@ try {
                     </div>
                     <div class="card-body">
                         <div class="tab-content" id="memberTabsContent">
-                            <!-- Contributions Tab -->
-                            <div class="tab-pane fade" id="contributions" role="tabpanel" aria-labelledby="contributions-tab">
+                            <!-- Savings Tab -->
+                            <div class="tab-pane fade" id="savings" role="tabpanel" aria-labelledby="savings-tab">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">Savings History</h5>
                                     <div class="d-flex align-items-center gap-3">
                                         <span class="badge bg-success">Total Savings: ₦<?php echo number_format($member_total_savings ?? 0, 2); ?></span>
-                                        <a href="<?php echo BASE_URL; ?>/admin/add_contribution.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary">
-                                            <i class="fas fa-plus"></i> Add Savings Deposit
+                                        <a href="<?php echo BASE_URL; ?>/views/admin/savings.php" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-plus"></i> Manage Savings
                                         </a>
                                     </div>
                                 </div>
@@ -749,37 +744,6 @@ try {
                                             </tr>
 <?php endforeach; ?>
 <?php endif; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            <!-- Investments Tab -->
-                            <div class="tab-pane fade" id="investments" role="tabpanel" aria-labelledby="investments-tab">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0">Investment History</h5>
-                                    <a href="<?php echo BASE_URL; ?>/admin/add_investment.php?member_id=<?php echo $member['member_id']; ?>" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-plus"></i> Add Investment
-                                    </a>
-                                </div>
-                                
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Amount</th>
-                                                <th>Type</th>
-                                                <th>Status</th>
-                                                <th>Return</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <!-- This would be populated from the database -->
-                                            <tr>
-                                                <td colspan="6" class="text-center">No investment records found</td>
-                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>

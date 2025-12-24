@@ -399,12 +399,12 @@ class Utilities {
         $dateFilterThisMonth = $dateCol ? "$dateCol BETWEEN '$dateFrom' AND '$dateTo'" : "1=1";
         $dateFilterLastMonth = $dateCol ? "$dateCol BETWEEN '$lastMonthFrom' AND '$lastMonthTo'" : "1=1";
 
-        // Total contributions (all completed deposits overall)
-        $totalContributions = 0.0;
+        // Total deposits (all completed deposits overall)
+        $totalDeposits = 0.0;
         $tcSql = "SELECT COALESCE(SUM(amount),0) AS total FROM savings_transactions WHERE $depositPredicate AND $completedPredicate";
         if ($res = $conn->query($tcSql)) {
             $row = $res->fetch_assoc();
-            $totalContributions = (float)($row['total'] ?? 0);
+            $totalDeposits = (float)($row['total'] ?? 0);
         }
 
         // Deposits this month
@@ -443,7 +443,7 @@ class Utilities {
             'total_savings_balance' => $totalBalance,
             'total_accounts' => $totalAccounts,
             'active_members' => $activeMembers,
-            'total_contributions' => $totalContributions,
+            'total_deposits' => $totalDeposits,
             'deposits_this_month' => $depositsThisMonth,
             'withdrawals_this_month' => $withdrawalsThisMonth,
             'deposits_last_month' => $depositsLastMonth,

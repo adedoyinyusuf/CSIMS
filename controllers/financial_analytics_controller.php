@@ -18,16 +18,15 @@ class FinancialAnalyticsController
         $range = $this->resolvePeriodRange($period);
 
         // Totals
-        $totalContributions = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM savings_transactions WHERE created_at BETWEEN ? AND ?", [$range['start'], $range['end']], 'ss') ?? 0.0);
-        $totalInvestments = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM investments WHERE created_at BETWEEN ? AND ?", [$range['start'], $range['end']], 'ss') ?? 0.0);
+        $totalSavings = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM savings_transactions WHERE created_at BETWEEN ? AND ?", [$range['start'], $range['end']], 'ss') ?? 0.0);
         $outstandingLoans = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM loans WHERE status NOT IN ('Paid','Closed') AND created_at <= ?", [$range['end']], 's') ?? 0.0);
 
-        $totalAssets = $totalContributions + $totalInvestments; // simplistic assets approximation
+        $totalAssets = $totalSavings; // simplistic assets approximation
         $loanToAssetRatio = $totalAssets > 0 ? (($outstandingLoans / $totalAssets) * 100.0) : 0.0;
         $financialHealthScore = max(0, min(100, 100 - $loanToAssetRatio));
 
         // Cash flow: income vs outflow
-        $income = $totalContributions + (float)($this->scalar("SELECT COALESCE(SUM(expected_return),0) FROM investments WHERE created_at BETWEEN ? AND ?", [$range['start'], $range['end']], 'ss') ?? 0.0);
+        $income = $totalSavings;
         $outflow = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM loans WHERE created_at BETWEEN ? AND ?", [$range['start'], $range['end']], 'ss') ?? 0.0);
         $netCashFlow = $income - $outflow;
         $cashFlowRatio = $outflow > 0 ? ($income / $outflow) : 0.0;
@@ -39,9 +38,9 @@ class FinancialAnalyticsController
         $defaultRate = $totalLoanCount > 0 ? (($defaultCount / $totalLoanCount) * 100.0) : 0.0;
         $collectionRate = $totalLoanCount > 0 ? (($collectionCount / $totalLoanCount) * 100.0) : 0.0;
 
-        // Savings performance (placeholders based on contributions)
+        // Savings performance
         $avgInterestRate = 3.5; // placeholder
-        $growthRate = $totalContributions > 0 ? 5.0 : 0.0; // placeholder
+        $growthRate = $totalSavings > 0 ? 5.0 : 0.0; // placeholder
 
         // Build chart-ready arrays (minimal placeholders)
         $cashFlowChart = [
@@ -54,8 +53,8 @@ class FinancialAnalyticsController
             'data' => [$collectionCount, $defaultCount],
         ];
         $savingsChart = [
-            'labels' => ['Contributions'],
-            'data' => [$totalContributions],
+            'labels' => ['Savings'],
+            'data' => [$totalSavings],
         ];
 
         return [
@@ -64,7 +63,7 @@ class FinancialAnalyticsController
                 'outstanding_loans' => $outstandingLoans,
                 'financial_health_score' => $financialHealthScore,
                 'loan_to_asset_ratio' => $loanToAssetRatio,
-                'liquidity_ratio' => $totalContributions, // simple proxy
+                'liquidity_ratio' => $totalSavings, // simple proxy
             ],
             'cash_flow' => [
                 'income' => $income,

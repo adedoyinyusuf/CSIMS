@@ -42,7 +42,7 @@ $stats = [
     'new_members_this_month' => 0,
     'active_loans' => 0,
     'loan_amount' => 0,
-    'total_contributions' => 0,
+    'total_deposits' => 0,
     'total_savings_balance' => 0,
     'deposits_this_month' => 0,
     'loan_outstanding' => 0,
@@ -319,7 +319,7 @@ if ($conn) {
                 $kpi = Utilities::getUnifiedSavingsKPIs($conn);
 
                 $stats['total_savings_balance'] = (float)($kpi['total_savings_balance'] ?? 0);
-                $stats['total_contributions'] = (float)($kpi['total_contributions'] ?? 0);
+                $stats['total_deposits'] = (float)($kpi['total_deposits'] ?? 0);
                 $stats['deposits_this_month'] = (float)($kpi['deposits_this_month'] ?? 0);
                 $stats['withdrawals_this_month'] = (float)($kpi['withdrawals_this_month'] ?? 0);
                 $stats['deposits_last_month'] = (float)($kpi['deposits_last_month'] ?? 0);

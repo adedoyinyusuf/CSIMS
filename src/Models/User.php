@@ -50,23 +50,20 @@ class User implements ModelInterface
             'users.create', 'users.read', 'users.update', 'users.delete',
             'members.create', 'members.read', 'members.update', 'members.delete',
             'loans.create', 'loans.read', 'loans.update', 'loans.delete', 'loans.approve', 'loans.disburse',
-            'contributions.create', 'contributions.read', 'contributions.update', 'contributions.delete', 'contributions.confirm',
             'reports.generate', 'settings.manage', 'system.admin'
         ],
         'Manager' => [
             'members.create', 'members.read', 'members.update',
             'loans.create', 'loans.read', 'loans.update', 'loans.approve', 'loans.disburse',
-            'contributions.create', 'contributions.read', 'contributions.update', 'contributions.confirm',
             'reports.generate'
         ],
         'Officer' => [
             'members.create', 'members.read', 'members.update',
             'loans.create', 'loans.read', 'loans.update',
-            'contributions.create', 'contributions.read', 'contributions.update',
             'reports.generate'
         ],
         'Viewer' => [
-            'members.read', 'loans.read', 'contributions.read', 'reports.generate'
+            'members.read', 'loans.read', 'reports.generate'
         ]
     ];
     

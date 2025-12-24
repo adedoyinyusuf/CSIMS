@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $max_loan_amount = $_POST['max_loan_amount'];
                 $default_interest_rate = $_POST['default_interest_rate'];
                 $max_loan_duration = $_POST['max_loan_duration'];
-                $min_contribution_months = $_POST['min_contribution_months'];
+                $min_savings_months = $_POST['min_savings_months'];
                 
                 // Persist only to centralized system_config
                 
@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try { $sysConfig->set('MAX_LOAN_AMOUNT', (float)$max_loan_amount, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MAX_LOAN_AMOUNT failed: ' . $e->getMessage()); }
                     try { $sysConfig->set('DEFAULT_INTEREST_RATE', (float)$default_interest_rate, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set DEFAULT_INTEREST_RATE failed: ' . $e->getMessage()); }
                     try { $sysConfig->set('MAX_LOAN_DURATION', (int)$max_loan_duration, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MAX_LOAN_DURATION failed: ' . $e->getMessage()); }
-                    try { $sysConfig->set('MIN_CONTRIBUTION_MONTHS', (int)$min_contribution_months, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MIN_CONTRIBUTION_MONTHS failed: ' . $e->getMessage()); }
+                    try { $sysConfig->set('MIN_SAVINGS_MONTHS', (int)$min_savings_months, $_SESSION['user_id'] ?? null); } catch (Exception $e) { error_log('syscfg set MIN_SAVINGS_MONTHS failed: ' . $e->getMessage()); }
                 }
                 
                 $success = 'Loan settings updated successfully.';

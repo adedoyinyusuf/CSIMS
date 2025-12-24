@@ -344,7 +344,7 @@ class MemberController
             $email = trim($data['email'] ?? '');
             $occupation = trim($data['occupation'] ?? '');
             $membership_type_id = (int)($data['membership_type_id'] ?? 0);
-            $monthly_contribution = isset($data['monthly_contribution']) ? (int)$data['monthly_contribution'] : 0;
+            $monthly_contribution = 0;
 
             // New optional extended fields
             $marital_status = trim($data['marital_status'] ?? '');
@@ -392,16 +392,16 @@ class MemberController
             // Updated insert to include extended fields
             $sql = "INSERT INTO members (
                         ippis_no, username, password, first_name, last_name, dob, gender, address, phone, email, occupation,
-                        membership_type_id, monthly_contribution, marital_status, bank_name, account_number, account_name,
+                        membership_type_id, marital_status, bank_name, account_number, account_name,
                         next_of_kin_name, next_of_kin_relationship, next_of_kin_phone, next_of_kin_address,
                         join_date, expiry_date, status
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending'
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending'
                     )";
             $stmt = $this->connection->prepare($sql);
             if (!$stmt) { return false; }
             $stmt->bind_param(
-                'ssssssssssssissssssssssss',
+                'sssssssssssisssssssssss',
                 $ippis_no,
                 $username,
                 $password_hash,
@@ -414,7 +414,6 @@ class MemberController
                 $email,
                 $occupation,
                 $membership_type_id,
-                $monthly_contribution,
                 $marital_status,
                 $bank_name,
                 $account_number,

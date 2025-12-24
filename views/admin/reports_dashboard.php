@@ -1,7 +1,7 @@
 <?php
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
-require_once '../../controllers/reports_controller.php';
+require_once '../../controllers/report_controller.php';
 
 $auth = new AuthController();
 if (!$auth->isLoggedIn()) {
@@ -12,7 +12,7 @@ if (!$auth->isLoggedIn()) {
 $current_user = $auth->getCurrentUser();
 $admin_id = $current_user['admin_id'];
 
-$reportsController = new ReportsController();
+$reportsController = new ReportController();
 
 // Get filter parameters
 $period = $_GET['period'] ?? '1_year';
@@ -38,9 +38,9 @@ if ($export) {
             $data = $reportsController->getMemberStatistics($period);
             $filename = 'member_statistics_' . date('Y-m-d');
             break;
-        case 'contribution_performance':
-            $data = $reportsController->getContributionPerformance($period);
-            $filename = 'contribution_performance_' . date('Y-m-d');
+        case 'savings_performance':
+            $data = $reportsController->getSavingsPerformance($period);
+            $filename = 'savings_performance_' . date('Y-m-d');
             break;
     }
     
@@ -55,7 +55,7 @@ $kpis = $reportsController->getKPIs();
 $financial_summary = $reportsController->getFinancialSummary($start_date, $end_date);
 $loan_portfolio = $reportsController->getLoanPortfolioAnalysis($period);
 $member_stats = $reportsController->getMemberStatistics($period);
-$contribution_performance = $reportsController->getContributionPerformance($period);
+$savings_performance = $reportsController->getSavingsPerformance($period);
 $recent_transactions = $reportsController->getRecentTransactions(10);
 ?>
 
@@ -132,7 +132,7 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color: var(--lapis-lazuli);">Savings YTD</p>
-                                <p class="text-2xl font-bold text-gray-800">₦<?php echo number_format($kpis['contributions_this_year'], 2); ?></p>
+                                <p class="text-2xl font-bold text-gray-800">₦<?php echo number_format($kpis['savings_this_year'], 2); ?></p>
                                 <p class="text-sm text-gray-500">Year to date</p>
                             </div>
                             <div class="p-3 rounded-full" style="background-color: rgba(26, 85, 153, 0.1);">
@@ -246,9 +246,9 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                                     <tbody class="divide-y divide-gray-200">
                                         <tr>
                                             <td class="px-4 py-3 font-medium">Total Savings</td>
-                                            <td class="px-4 py-3 text-right"><?php echo number_format($financial_summary['contributions']['total_contributions']); ?></td>
-                                            <td class="px-4 py-3 text-right text-green-600">₦<?php echo number_format($financial_summary['contributions']['total_amount'], 2); ?></td>
-                                            <td class="px-4 py-3 text-right">₦<?php echo $financial_summary['contributions']['total_contributions'] > 0 ? number_format($financial_summary['contributions']['total_amount'] / $financial_summary['contributions']['total_contributions'], 2) : '0.00'; ?></td>
+                                            <td class="px-4 py-3 text-right"><?php echo number_format($financial_summary['savings']['total_savings']); ?></td>
+                                            <td class="px-4 py-3 text-right text-green-600">₦<?php echo number_format($financial_summary['savings']['total_amount'], 2); ?></td>
+                                            <td class="px-4 py-3 text-right">₦<?php echo $financial_summary['savings']['total_savings'] > 0 ? number_format($financial_summary['savings']['total_amount'] / $financial_summary['savings']['total_savings'], 2) : '0.00'; ?></td>
                                         </tr>
                                         <tr>
                                             <td class="px-4 py-3 font-medium">Share Capital</td>
@@ -303,11 +303,11 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Active Savers:</span>
-                                        <span class="font-medium"><?php echo number_format($member_stats['contribution_participation']['active_contributors']); ?></span>
+                                        <span class="font-medium"><?php echo number_format($member_stats['savings_participation']['active_savers']); ?></span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Average Savings:</span>
-                                        <span class="font-medium">₦<?php echo number_format($member_stats['contribution_participation']['avg_contributions'], 2); ?></span>
+                                        <span class="font-medium">₦<?php echo number_format($member_stats['savings_participation']['avg_savings'], 2); ?></span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Highest Savings:</span>
@@ -441,12 +441,12 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-200">
-                                        <?php foreach ($contribution_performance['top_contributors'] as $contributor): ?>
+                                        <?php foreach ($savings_performance['top_savers'] as $contributor): ?>
                                             <tr>
                                                 <td class="px-4 py-3 font-medium"><?php echo $contributor['member_name']; ?></td>
-                                                <td class="px-4 py-3 text-right"><?php echo $contributor['contribution_count']; ?></td>
-                                                <td class="px-4 py-3 text-right text-green-600">₦<?php echo number_format($contributor['total_contributed'], 2); ?></td>
-                                                <td class="px-4 py-3 text-right">₦<?php echo number_format($contributor['avg_contribution'], 2); ?></td>
+                                                <td class="px-4 py-3 text-right"><?php echo $contributor['savings_count']; ?></td>
+                                                <td class="px-4 py-3 text-right text-green-600">₦<?php echo number_format($contributor['total_saved'], 2); ?></td>
+                                                <td class="px-4 py-3 text-right">₦<?php echo number_format($contributor['avg_savings'], 2); ?></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -552,9 +552,9 @@ $recent_transactions = $reportsController->getRecentTransactions(10);
         const financialData = <?php echo json_encode([
             'labels' => ['Savings', 'Shares', 'Loan Payments', 'Withdrawals'],
             'data' => [
-                $financial_summary['contributions']['total_amount'],
+                $financial_summary['savings']['total_amount'],
                 $financial_summary['shares']['total_paid'],
-                $financial_summary['loans']['total_paid'],
+                $financial_summary['loans']['total_paid'] ?? 0,
                 $financial_summary['withdrawals']['net_amount']
             ]
         ]); ?>;

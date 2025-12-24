@@ -56,10 +56,10 @@ try {
         'mandatory_savings' => (float)($row['mandatory_balance'] ?? 0),
         'voluntary_savings' => (float)($row['voluntary_balance'] ?? 0),
         'total_savings' => (float)$totalBalance,
-        'contribution_months' => (int)($summary['contribution_months'] ?? 0),
+        'savings_months' => (int)($summary['savings_months'] ?? 0),
     ];
 } catch (Exception $e) {
-    $savingsData = ['mandatory_savings' => 0, 'voluntary_savings' => 0, 'total_savings' => 0, 'contribution_months' => 0];
+    $savingsData = ['mandatory_savings' => 0, 'voluntary_savings' => 0, 'total_savings' => 0, 'savings_months' => 0];
 }
 
 // Get loan information
@@ -167,7 +167,7 @@ $businessConfig = [
 
 // Minimum savings months requirement and default interest rate via SystemConfigService only
 // Remove legacy settings table fallbacks; rely on defined defaults
-$minSavingsMonths = (int)$config->get('MIN_CONTRIBUTION_MONTHS', 6);
+$minSavingsMonths = (int)$config->get('MIN_SAVINGS_MONTHS', 6);
 $defaultInterestRate = (float)$config->get('DEFAULT_INTEREST_RATE', 12.0);
 
 // Check membership duration
@@ -463,7 +463,7 @@ try {
                             <div class="dashboard-card card stat-card-primary">
                                 <div class="card-body text-center p-4">
                                     <i class="fas fa-calendar-check fa-2x mb-3"></i>
-                                    <h3 class="fw-bold"><?php echo $savingsData['contribution_months']; ?></h3>
+                                    <h3 class="fw-bold"><?php echo $savingsData['savings_months']; ?></h3>
                                     <p class="mb-2">Savings Participation</p>
                                     <small class="opacity-75">
                                         Savings deposits in last 12 months<br>
@@ -496,10 +496,10 @@ try {
                                                     <small class="ms-2 opacity-75">Current: <?php echo (int)$membershipMonths; ?> months</small>
                                                 </li>
                                                 <li class="mb-2">
-                                                    <?php $meetsSavings = $savingsData['contribution_months'] >= $minSavingsMonths; ?>
-                                                    <i class="fas <?php echo $meetsSavings ? 'fa-check text-success' : 'fa-times text-danger'; ?> me-2"></i>
-                                                    Regular monthly savings
-                                                    <small class="ms-2 opacity-75">Required: <?php echo (int)$minSavingsMonths; ?> of last 12 months, Current: <?php echo (int)$savingsData['contribution_months']; ?></small>
+                                                    <?php $meetsSavings = $savingsData['savings_months'] >= $minSavingsMonths; ?>
+                                <i class="fas <?php echo $meetsSavings ? 'fa-check text-success' : 'fa-times text-danger'; ?> me-2"></i>
+                                Regular monthly savings
+                                <small class="ms-2 opacity-75">Required: <?php echo (int)$minSavingsMonths; ?> of last 12 months, Current: <?php echo (int)$savingsData['savings_months']; ?></small>
                                                 </li>
                                                 <li class="mb-2">
                                                     <i class="fas fa-percentage me-2 text-primary"></i>
@@ -533,7 +533,7 @@ try {
                                             $canApplyForLoan = $membershipMonths >= $businessConfig['min_membership_months'] 
                                                             && $loanData['active_loans'] < $businessConfig['max_active_loans'] 
                                                             && !$hasOverdue 
-                                                            && ($savingsData['contribution_months'] >= $minSavingsMonths);
+                                                            && ($savingsData['savings_months'] >= $minSavingsMonths);
                                             ?>
                                             <div class="form-check mb-2">
                                                 <input class="form-check-input" type="checkbox" id="agreeInterest">

@@ -144,7 +144,7 @@ $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stats = [];
 
 // Count tables and records
-$tables = ['members', 'contributions', 'loans', 'investments', 'notifications', 'admins'];
+$tables = ['members', 'savings_transactions', 'loans', 'notifications', 'admins'];
 foreach ($tables as $table) {
     try {
         $stmt = $db->prepare("SELECT COUNT(*) as count FROM `$table`");
@@ -220,7 +220,7 @@ require_once '../includes/header.php';
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wide" style="color: #214e34;">Total Savings</p>
-                        <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['contributions']); ?></p>
+                        <p class="text-2xl font-bold text-gray-900 mt-2"><?php echo number_format($stats['savings_transactions']); ?></p>
                     </div>
                     <div class="p-3 rounded-full" style="background: #214e34;">
                         <i class="fas fa-hand-holding-usd text-xl" style="color: #ffffff;"></i>

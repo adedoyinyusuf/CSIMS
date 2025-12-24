@@ -236,9 +236,7 @@ class AuthController {
                         // General legacy keys used in various views
                         'view_dashboard' => 'reports.generate',
                         'manage_members' => 'members.read',
-                        'manage_contributions' => 'contributions.read',
                         'manage_loans' => 'loans.read',
-                        'manage_investments' => 'reports.generate',
                         'send_messages' => 'members.read',
                         'send_notifications' => 'members.read',
                         'view_reports' => 'reports.generate',
@@ -265,9 +263,7 @@ class AuthController {
             $adminPermissions = [
                 'view_dashboard',
                 'manage_members',
-                'manage_contributions',
                 'manage_loans',
-                'manage_investments',
                 'send_messages',
                 'send_notifications',
                 'view_reports',

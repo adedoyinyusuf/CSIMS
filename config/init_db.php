@@ -52,22 +52,9 @@ $sql_membership_types = "CREATE TABLE IF NOT EXISTS membership_types (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )";
 
-// Create Contributions table
-$sql_contributions = "CREATE TABLE IF NOT EXISTS contributions (
-    contribution_id INT AUTO_INCREMENT PRIMARY KEY,
-    member_id INT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    contribution_date DATE NOT NULL,
-    contribution_type ENUM('Dues', 'Investment', 'Other') NOT NULL,
-    description TEXT,
-    received_by INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (member_id) REFERENCES members(member_id),
-    FOREIGN KEY (received_by) REFERENCES admins(admin_id)
-)";
+// Contributions table removed as per project requirement
 
-// Create Loans table
+// Loans table
 $sql_loans = "CREATE TABLE IF NOT EXISTS loans (
     loan_id INT AUTO_INCREMENT PRIMARY KEY,
     member_id INT NOT NULL,
@@ -85,19 +72,7 @@ $sql_loans = "CREATE TABLE IF NOT EXISTS loans (
     FOREIGN KEY (approved_by) REFERENCES admins(admin_id)
 )";
 
-// Create Investments table
-$sql_investments = "CREATE TABLE IF NOT EXISTS investments (
-    investment_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    amount DECIMAL(10,2) NOT NULL,
-    investment_date DATE NOT NULL,
-    investment_type ENUM('Debenture', 'Asset', 'Stock', 'Other') NOT NULL,
-    expected_return DECIMAL(10,2),
-    maturity_date DATE,
-    status ENUM('Active', 'Matured', 'Liquidated') DEFAULT 'Active',
-    created_by INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+// Investments table removed as per project requirement
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES admins(admin_id)
 )";
@@ -151,9 +126,9 @@ $tables = [
     'Members' => $sql_members,
     'Admins' => $sql_admins,
     'Membership_Types' => $sql_membership_types,
-    'Contributions' => $sql_contributions,
+    // 'Contributions' => $sql_contributions, // Removed
     'Loans' => $sql_loans,
-    'Investments' => $sql_investments,
+    // 'Investments' => $sql_investments, // Removed
     'Notifications' => $sql_notifications,
     'Messages' => $sql_messages,
     'Announcements' => $sql_announcements

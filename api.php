@@ -20,7 +20,17 @@ require_once __DIR__ . '/src/bootstrap.php';
 
 // Handle CORS preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
+    // CORS Configuration - Environment-based
+    $allowed_origins = explode(',', $_ENV['API_ALLOWED_ORIGINS'] ?? getenv('API_ALLOWED_ORIGINS') ?: $_SERVER['HTTP_HOST'] ?? 'localhost');
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    
+    if (in_array($origin, $allowed_origins) || in_array('*', $allowed_origins)) {
+        header("Access-Control-Allow-Origin: $origin");
+    } else {
+        // Default to same origin in production
+        header("Access-Control-Allow-Origin: " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    }
+    header('Access-Control-Allow-Credentials: true');
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
     header('Access-Control-Max-Age: 86400'); // 24 hours
@@ -31,19 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 try {
     // Bootstrap the application
     $container = CSIMS\bootstrap();
-    
-    // Register additional services for API
-    $container->bind(\CSIMS\Services\ContributionService::class, function(\CSIMS\Container\Container $c) {
-        return new \CSIMS\Services\ContributionService(
-            $c->resolve(\CSIMS\Repositories\ContributionRepository::class),
-            $c->resolve(\CSIMS\Repositories\MemberRepository::class),
-            $c->resolve(\CSIMS\Services\SecurityService::class)
-        );
-    });
-    
-    $container->bind(\CSIMS\Repositories\ContributionRepository::class, function(\CSIMS\Container\Container $c) {
-        return new \CSIMS\Repositories\ContributionRepository($c->resolve(\mysqli::class));
-    });
     
     // Create and handle API routes
     $router = new \CSIMS\API\Router($container);
