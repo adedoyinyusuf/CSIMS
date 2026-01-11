@@ -52,6 +52,7 @@ class AuthController extends BaseController {
                 'last_name' => $last,
                 'admin_id' => method_exists($user, 'getId') ? $user->getId() : null,
                 'user_id' => method_exists($user, 'getId') ? $user->getId() : null,
+                'username' => method_exists($user, 'getUsername') ? $user->getUsername() : (method_exists($user, 'getEmail') ? $user->getEmail() : ''),
             ];
         }
         
@@ -62,6 +63,7 @@ class AuthController extends BaseController {
                 'last_name' => $this->session->get('last_name') ?? '',
                 'admin_id' => $this->session->get('admin_id'),
                 'user_id' => $this->session->get('admin_id'), // Alias for compatibility
+                'username' => $this->session->get('username') ?? '',
             ];
         }
         

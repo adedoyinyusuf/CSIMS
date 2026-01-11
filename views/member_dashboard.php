@@ -166,13 +166,11 @@ $businessConfig = [
 ];
 
 // Minimum savings months requirement and default interest rate via SystemConfigService only
-// Remove legacy settings table fallbacks; rely on defined defaults
 $minSavingsMonths = (int)$config->get('MIN_SAVINGS_MONTHS', 6);
 $defaultInterestRate = (float)$config->get('DEFAULT_INTEREST_RATE', 12.0);
 
 // Check membership duration
 $membershipMonths = 0;
-// Support multiple possible column names: date_joined, join_date, created_at
 $joinDateRaw = null;
 if (is_array($member)) {
     $joinDateRaw = $member['date_joined'] ?? $member['join_date'] ?? ($member['created_at'] ?? null);
@@ -187,7 +185,7 @@ if ($joinDateRaw) {
     }
 }
 
-// Get recent activity (schema-resilient for column name variants)
+// Get recent activity
 try {
     $recentActivity = [];
     if ($conn) {
@@ -255,15 +253,15 @@ try {
             }
         }
 
-        // Build UNION query pieces based on available tables
+        // Build UNION query
         $parts = [];
         $params = [];
         if ($hasSavingsTx) {
-            $parts[] = "(SELECT 'savings_deposit' as type, st.$stAmtCol AS amount, st.$stDateCol AS created_at, 'Savings deposit' as description\n             FROM savings_transactions st WHERE st.member_id = ? AND (st.$stTypeCol = 'Deposit' OR st.$stTypeCol = 'deposit') AND (st.$stStatusCol = 'Completed' OR st.$stStatusCol = 'completed')\n             ORDER BY st.$stDateCol DESC LIMIT 3)";
+            $parts[] = "(SELECT 'savings_deposit' as type, st.$stAmtCol AS amount, st.$stDateCol AS created_at, 'Savings deposit' as description FROM savings_transactions st WHERE st.member_id = ? AND (st.$stTypeCol = 'Deposit' OR st.$stTypeCol = 'deposit') AND (st.$stStatusCol = 'Completed' OR st.$stStatusCol = 'completed') ORDER BY st.$stDateCol DESC LIMIT 3)";
             $params[] = $member_id;
         }
         if ($hasRepayments) {
-            $parts[] = "(SELECT 'loan_payment' as type, lr.$lrAmtCol AS amount, lr.$lrDateCol AS created_at, 'Loan payment' as description\n             FROM loan_repayments lr WHERE lr.member_id = ? AND (lr.$lrStatusCol = 'Completed' OR lr.$lrStatusCol = 'completed')\n             ORDER BY lr.$lrDateCol DESC LIMIT 3)";
+            $parts[] = "(SELECT 'loan_payment' as type, lr.$lrAmtCol AS amount, lr.$lrDateCol AS created_at, 'Loan payment' as description FROM loan_repayments lr WHERE lr.member_id = ? AND (lr.$lrStatusCol = 'Completed' OR lr.$lrStatusCol = 'completed') ORDER BY lr.$lrDateCol DESC LIMIT 3)";
             $params[] = $member_id;
         }
 
@@ -286,403 +284,364 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Member Dashboard - CSIMS</title>
+    <title>Member Dashboard - <?php echo APP_NAME; ?></title>
+    
+    <!-- Bootstrap CSS (Required for Navbar) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="../assets/css/csims-colors.css" rel="stylesheet">
+    
+    <!-- Tailwind CSS (No Preflight to prevent Bootstrap conflict) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            corePlugins: {
+                preflight: false,
+            },
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e' },
+                        slate: { 850: '#1e293b' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        body {
-            background: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        .dashboard-card {
-            border-radius: 16px;
-            border: none;
-            box-shadow: 0 8px 30px var(--shadow-md);
-            transition: all 0.3s ease;
-        }
-        .dashboard-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px var(--shadow-lg);
-        }
-        .stat-card-success {
-            background: linear-gradient(135deg, var(--success) 0%, var(--success) 100%) !important;
-            color: white;
-        }
-        .stat-card-info {
-            /* Replaced CSS variables with concrete colors to avoid white fallback */
-            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
-            color: white;
-        }
-        .stat-card-warning {
-            /* Replaced CSS variables with concrete colors to avoid white fallback */
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-            color: white;
-        }
-        .stat-card-primary {
-            background: linear-gradient(135deg, var(--member-primary) 0%, var(--member-secondary) 100%) !important;
-            color: white;
-        }
-        /* Ensure the inner body doesn’t override stat card backgrounds */
-        .stat-card-success .card-body,
-        .stat-card-info .card-body,
-        .stat-card-warning .card-body,
-        .stat-card-primary .card-body {
-            background: transparent !important;
-            color: white;
-        }
-        .welcome-header {
-            background: linear-gradient(135deg, var(--admin-primary) 0%, var(--admin-secondary) 100%);
-            color: white;
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 30px;
-        }
-        .quick-action-btn {
-            border-radius: 12px;
-            padding: 15px 20px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            border: none;
-        }
-        .quick-action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        }
-        .sidebar {
-            background: #ffffff;
-            min-height: 100vh;
-            border-radius: 0 16px 16px 0;
-        }
-        .progress-custom {
-            height: 8px;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.2);
-        }
-        .progress-bar-custom {
-            background: rgba(255,255,255,0.9);
-            border-radius: 4px;
-        }
-        .eligibility-indicator {
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-        .eligible {
-            background: #dcfce7;
-            color: #166534;
-        }
-        .not-eligible {
-            background: #fef2f2;
-            color: #991b1b;
+        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02); }
+        .stat-icon-bg {
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%);
         }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 relative">
+
     <?php include __DIR__ . '/includes/member_header.php'; ?>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Main Content (offcanvas handles navigation) -->
-            <div class="col-12">
-                <div class="container-fluid py-4">
-                    
-                    <!-- Welcome Header -->
-                    <div class="welcome-header">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <h2 class="mb-1">Welcome back, <?php echo htmlspecialchars($member['first_name']); ?>!</h2>
-        <p class="mb-2 opacity-90">Member since <?php echo $joinDateRaw ? date('F Y', strtotime($joinDateRaw)) : 'Unknown'; ?> • <?php echo $membershipMonths; ?> months</p>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <span class="badge bg-light text-dark">Status: <?php echo ucfirst($member['status'] ?? 'Active'); ?></span>
-                                    <?php if ($membershipMonths >= $businessConfig['min_membership_months']): ?>
-                                        <span class="badge bg-success">Loan Eligible</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-warning">Probation Period</span>
-                                    <?php endif; ?>
-                                    <?php if ($hasOverdue): ?>
-                                        <span class="badge bg-danger">Has Overdue</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <div class="text-white">
-                                    <h4><i class="fas fa-star me-2"></i>Credit Score</h4>
-                                    <div class="display-6 fw-bold"><?php echo $creditScore['score']; ?></div>
-                                    <small><?php echo $creditScore['rating']; ?></small>
-                                </div>
-                            </div>
-                        </div>
+
+    <div class="relative min-h-screen pb-12">
+        <!-- Background Decoration -->
+        <div class="absolute top-0 left-0 w-full h-96 bg-gradient-to-br from-primary-900 via-primary-800 to-slate-900 -z-10"></div>
+        <div class="absolute top-0 left-0 w-full h-96 opacity-30 bg-[url('../assets/images/finance_hero_bg.png')] bg-cover bg-center -z-10 mix-blend-overlay"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- Welcome Header -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 text-white">
+                <div>
+                    <h1 class="text-3xl font-bold mb-1">Welcome back, <?php echo htmlspecialchars($member['first_name']); ?>!</h1>
+                    <p class="text-primary-100 opacity-90 text-sm">
+                        Member since <?php echo $joinDateRaw ? date('F Y', strtotime($joinDateRaw)) : 'Unknown'; ?> • 
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white backdrop-blur-sm ml-2">
+                            <?php echo $membershipMonths; ?> months
+                        </span>
+                    </p>
+                </div>
+                <div class="mt-4 md:mt-0 flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-xs uppercase tracking-wider text-primary-200 font-semibold">Credit Score</p>
+                        <p class="text-2xl font-bold"><?php echo $creditScore['score']; ?></p>
                     </div>
-
-                    <!-- Statistics Cards -->
-                    <div class="row mb-4">
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="dashboard-card card stat-card-success">
-                                <div class="card-body text-center p-4">
-                                    <i class="fas fa-piggy-bank fa-2x mb-3"></i>
-                                    <h3 class="fw-bold">₦<?php echo number_format($savingsData['total_savings'], 2); ?></h3>
-                                    <p class="mb-2">Total Savings</p>
-                                    <small class="opacity-75">
-                                        Mandatory: ₦<?php echo number_format($savingsData['mandatory_savings'], 2); ?><br>
-                                        Voluntary: ₦<?php echo number_format($savingsData['voluntary_savings'], 2); ?>
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="dashboard-card card stat-card-info">
-                                <div class="card-body text-center p-4">
-                                    <i class="fas fa-hand-holding-usd fa-2x mb-3"></i>
-                                    <h3 class="fw-bold">₦<?php echo number_format($effectiveLoanLimit, 2); ?></h3>
-                                    <p class="mb-2">Loan Limit</p>
-                                    <div class="progress progress-custom mb-2">
-                                        <div class="progress-bar progress-bar-custom" style="width: <?php echo min(100, ($loanData['active_loan_amount'] / max($effectiveLoanLimit, 1)) * 100); ?>%"></div>
-                                    </div>
-                                    <small class="opacity-75"><?php echo $config->getLoanToSavingsMultiplier(); ?>x your savings</small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="dashboard-card card stat-card-warning">
-                                <div class="card-body text-center p-4">
-                                    <i class="fas fa-money-bill-wave fa-2x mb-3"></i>
-                                    <h3 class="fw-bold"><?php echo $loanData['active_loans']; ?></h3>
-                                    <p class="mb-2">Active Loans</p>
-                                    <small class="opacity-75">
-                                        Outstanding: ₦<?php echo number_format(($loanData['outstanding'] ?? ($loanData['active_loan_amount'] - $loanData['total_paid'])), 2); ?><br>
-                                        Max allowed: <?php echo $businessConfig['max_active_loans']; ?>
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="dashboard-card card stat-card-primary">
-                                <div class="card-body text-center p-4">
-                                    <i class="fas fa-calendar-check fa-2x mb-3"></i>
-                                    <h3 class="fw-bold"><?php echo $savingsData['savings_months']; ?></h3>
-                                    <p class="mb-2">Savings Participation</p>
-                                    <small class="opacity-75">
-                                        Savings deposits in last 12 months<br>
-                                        Min required: <?php echo (int)$minSavingsMonths; ?> months
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Loan Eligibility -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="dashboard-card card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Loan Eligibility</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <ul class="list-unstyled mb-0">
-                                                <li class="mb-2">
-                                                    <i class="fas fa-user-check me-2 text-success"></i>
-                                                    Must be a member
-                                                </li>
-                                                <li class="mb-2">
-                                                    <?php $meetsMonths = $membershipMonths >= $businessConfig['min_membership_months']; ?>
-                                                    <i class="fas <?php echo $meetsMonths ? 'fa-check text-success' : 'fa-times text-danger'; ?> me-2"></i>
-                                                    At least <?php echo (int)$businessConfig['min_membership_months']; ?> months as member
-                                                    <small class="ms-2 opacity-75">Current: <?php echo (int)$membershipMonths; ?> months</small>
-                                                </li>
-                                                <li class="mb-2">
-                                                    <?php $meetsSavings = $savingsData['savings_months'] >= $minSavingsMonths; ?>
-                                <i class="fas <?php echo $meetsSavings ? 'fa-check text-success' : 'fa-times text-danger'; ?> me-2"></i>
-                                Regular monthly savings
-                                <small class="ms-2 opacity-75">Required: <?php echo (int)$minSavingsMonths; ?> of last 12 months, Current: <?php echo (int)$savingsData['savings_months']; ?></small>
-                                                </li>
-                                                <li class="mb-2">
-                                                    <i class="fas fa-percentage me-2 text-primary"></i>
-                                                    Interest: <?php echo number_format($defaultInterestRate, 2); ?>% per annum
-                                                </li>
-                                            </ul>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="alert alert-info mb-0">
-                                                <i class="fas fa-info-circle me-2"></i>
-                                                Loan offers require agreement to the interest rate and terms.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="dashboard-card card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <?php 
-                                            $canApplyForLoan = $membershipMonths >= $businessConfig['min_membership_months'] 
-                                                            && $loanData['active_loans'] < $businessConfig['max_active_loans'] 
-                                                            && !$hasOverdue 
-                                                            && ($savingsData['savings_months'] >= $minSavingsMonths);
-                                            ?>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="agreeInterest">
-                                                <label class="form-check-label" for="agreeInterest">
-                                                    I agree to interest rate and terms
-                                                </label>
-                                            </div>
-                                            <a id="applyLoanBtn" href="#" 
-                                               class="btn btn-secondary quick-action-btn w-100 disabled">
-                                                <i class="fas fa-plus-circle me-2"></i>
-                                                Apply for Loan
-                                                <small id="applyLoanHint" class="d-block mt-1">
-                                                    <?php echo $canApplyForLoan ? 'Please agree to interest terms' : 'Requirements not met'; ?>
-                                                </small>
-                                            </a>
-                                            <script>
-                                            document.addEventListener('DOMContentLoaded', function() {
-                                                var agree = document.getElementById('agreeInterest');
-                                                var btn = document.getElementById('applyLoanBtn');
-                                                var hint = document.getElementById('applyLoanHint');
-                                                var canApply = <?php echo $canApplyForLoan ? 'true' : 'false'; ?>;
-                                                function updateApplyState() {
-                                                    if (canApply && agree && agree.checked) {
-                                                        btn.classList.remove('disabled', 'btn-secondary');
-                                                        btn.classList.add('btn-success');
-                                                        btn.setAttribute('href', 'member_loan_application_business_rules.php');
-                                                        if (hint) { hint.classList.add('d-none'); }
-                                                    } else {
-                                                        btn.classList.add('disabled');
-                                                        btn.classList.remove('btn-success');
-                                                        btn.classList.add('btn-secondary');
-                                                        btn.setAttribute('href', '#');
-                                                        if (hint) {
-                                                            hint.classList.remove('d-none');
-                                                            hint.textContent = canApply ? 'Please agree to interest terms' : 'Requirements not met';
-                                                        }
-                                                    }
-                                                }
-                                                if (agree) { agree.addEventListener('change', updateApplyState); }
-                                                updateApplyState();
-                                            });
-                                            </script>
-                                        </div>
-                                        <div class="col-md-4 mb-3">
-                                            <a href="member_savings.php" class="btn btn-primary quick-action-btn w-100">
-                                                <i class="fas fa-piggy-bank me-2"></i>
-                                                Add Savings Deposit
-                                            </a>
-                                        </div>
-                                        <div class="col-md-4 mb-3">
-                                            <a href="member_loans.php" class="btn btn-outline-primary quick-action-btn w-100">
-                                                <i class="fas fa-eye me-2"></i>
-                                                View Loan Details
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <!-- Loan Eligibility Status -->
-                        <div class="col-lg-8 mb-4">
-                            <div class="dashboard-card card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Loan Eligibility Status</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <span>Membership Duration</span>
-                                                <span class="eligibility-indicator <?php echo $membershipMonths >= $businessConfig['min_membership_months'] ? 'eligible' : 'not-eligible'; ?>">
-                                                    <?php echo $membershipMonths; ?>/<?php echo $businessConfig['min_membership_months']; ?> months
-                                                </span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <span>Monthly Savings</span>
-                                                <span class="eligibility-indicator <?php echo $savingsData['mandatory_savings'] >= $businessConfig['min_mandatory_savings'] ? 'eligible' : 'not-eligible'; ?>">
-                                                    ₦<?php echo number_format($savingsData['mandatory_savings'], 2); ?>
-                                                </span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <span>Active Loans</span>
-                                                <span class="eligibility-indicator <?php echo $loanData['active_loans'] < $businessConfig['max_active_loans'] ? 'eligible' : 'not-eligible'; ?>">
-                                                    <?php echo $loanData['active_loans']; ?>/<?php echo $businessConfig['max_active_loans']; ?>
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <span>Payment History</span>
-                                                <span class="eligibility-indicator <?php echo !$hasOverdue ? 'eligible' : 'not-eligible'; ?>">
-                                                    <?php echo !$hasOverdue ? 'Up to date' : 'Overdue'; ?>
-                                                </span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <span>Member Status</span>
-                                                <span class="eligibility-indicator <?php echo ($member['status'] ?? '') === 'Active' ? 'eligible' : 'not-eligible'; ?>">
-                                                    <?php echo ucfirst($member['status'] ?? 'Unknown'); ?>
-                                                </span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <span>Overall Eligibility</span>
-                                                <span class="eligibility-indicator <?php echo $canApplyForLoan ? 'eligible' : 'not-eligible'; ?>">
-                                                    <?php echo $canApplyForLoan ? 'Eligible' : 'Not Eligible'; ?>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Activity -->
-                        <div class="col-lg-4 mb-4">
-                            <div class="dashboard-card card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
-                                </div>
-                                <div class="card-body">
-                                    <?php if (!empty($recentActivity)): ?>
-                                        <?php foreach ($recentActivity as $activity): ?>
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div class="me-3">
-                                                    <i class="fas <?php echo $activity['type'] === 'savings_deposit' ? 'fa-piggy-bank text-success' : 'fa-money-bill-wave text-info'; ?>"></i>
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <div class="fw-bold"><?php echo htmlspecialchars($activity['description']); ?></div>
-                                                    <small class="text-muted">₦<?php echo number_format($activity['amount'], 2); ?></small>
-                                                </div>
-                                                <div class="text-muted">
-                                                    <small><?php echo date('M j', strtotime($activity['created_at'])); ?></small>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <p class="text-muted text-center py-3">No recent activity</p>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="h-10 w-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
+                        <i class="fas fa-star text-yellow-400"></i>
                     </div>
                 </div>
             </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Savings -->
+                <div class="glass-card p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Savings</p>
+                            <h3 class="text-2xl font-bold text-slate-900">₦<?php echo number_format($savingsData['total_savings'], 2); ?></h3>
+                        </div>
+                        <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600">
+                            <i class="fas fa-piggy-bank text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
+                        <div class="flex justify-between mb-1">
+                            <span>Mandatory:</span>
+                            <span class="font-medium text-slate-700">₦<?php echo number_format($savingsData['mandatory_savings'], 2); ?></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Voluntary:</span>
+                            <span class="font-medium text-slate-700">₦<?php echo number_format($savingsData['voluntary_savings'], 2); ?></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loan Limit -->
+                <div class="glass-card p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Loan Limit</p>
+                            <h3 class="text-2xl font-bold text-slate-900">₦<?php echo number_format($effectiveLoanLimit, 2); ?></h3>
+                        </div>
+                        <div class="p-3 rounded-lg bg-blue-50 text-blue-600">
+                            <i class="fas fa-hand-holding-usd text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="w-full bg-slate-100 rounded-full h-2 mb-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: <?php echo min(100, ($loanData['active_loan_amount'] / max($effectiveLoanLimit, 1)) * 100); ?>%"></div>
+                        </div>
+                        <p class="text-xs text-slate-500"><?php echo $config->getLoanToSavingsMultiplier(); ?>x your savings multiplier</p>
+                    </div>
+                </div>
+
+                <!-- Active Loans -->
+                <div class="glass-card p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Active Loans</p>
+                            <h3 class="text-2xl font-bold text-slate-900"><?php echo $loanData['active_loans']; ?></h3>
+                        </div>
+                        <div class="p-3 rounded-lg bg-amber-50 text-amber-600">
+                            <i class="fas fa-money-bill-wave text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-1">Outstanding Balance</p>
+                        <p class="text-sm font-bold text-slate-800">₦<?php echo number_format(($loanData['outstanding'] ?? ($loanData['active_loan_amount'] - $loanData['total_paid'])), 2); ?></p>
+                    </div>
+                </div>
+
+                <!-- Participation -->
+                <div class="glass-card p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Participation</p>
+                            <h3 class="text-2xl font-bold text-slate-900"><?php echo $savingsData['savings_months']; ?> <span class="text-sm font-normal text-slate-500">months</span></h3>
+                        </div>
+                        <div class="p-3 rounded-lg bg-indigo-50 text-indigo-600">
+                            <i class="fas fa-calendar-check text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-xs text-slate-500">
+                        <span class="<?php echo $savingsData['savings_months'] >= $minSavingsMonths ? 'text-emerald-600' : 'text-amber-600'; ?> font-medium">
+                            <i class="fas <?php echo $savingsData['savings_months'] >= $minSavingsMonths ? 'fa-check' : 'fa-exclamation-circle'; ?> mr-1"></i>
+                            <?php echo $savingsData['savings_months'] >= $minSavingsMonths ? 'Meets requirements' : 'Below requirement'; ?>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Main Content Column -->
+                <div class="lg:col-span-2 space-y-8">
+                    
+                    <!-- Quick Actions -->
+                    <div class="glass-card p-6">
+                         <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                            <i class="fas fa-bolt text-amber-500 mr-2"></i> Quick Actions
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <?php 
+                            $canApplyForLoan = $membershipMonths >= $businessConfig['min_membership_months'] 
+                                            && $loanData['active_loans'] < $businessConfig['max_active_loans'] 
+                                            && !$hasOverdue 
+                                            && ($savingsData['savings_months'] >= $minSavingsMonths);
+                            ?>
+                            
+                            <!-- Apply for Loan -->
+                             <div class="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-colors">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="agreeInterest">
+                                    <label class="form-check-label text-sm text-slate-600 cursor-pointer" for="agreeInterest">
+                                        I agree to the <strong><?php echo number_format($defaultInterestRate, 1); ?>%</strong> interest rate
+                                    </label>
+                                </div>
+                                <a id="applyLoanBtn" href="#" class="block w-full py-2.5 px-4 bg-slate-200 text-slate-500 rounded-lg text-center font-semibold text-sm transition-all pointer-events-none opacity-60">
+                                    Apply for Loan
+                                </a>
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function() {
+                                        const agree = document.getElementById('agreeInterest');
+                                        const btn = document.getElementById('applyLoanBtn');
+                                        const canApply = <?php echo $canApplyForLoan ? 'true' : 'false'; ?>;
+                                        
+                                        if(agree) {
+                                            agree.addEventListener('change', function() {
+                                                if(this.checked && canApply) {
+                                                    btn.classList.remove('bg-slate-200', 'text-slate-500', 'pointer-events-none', 'opacity-60');
+                                                    btn.classList.add('bg-primary-600', 'text-white', 'hover:bg-primary-700', 'shadow-md');
+                                                    btn.href = 'member_loan_application_business_rules.php';
+                                                } else {
+                                                    btn.classList.add('bg-slate-200', 'text-slate-500', 'pointer-events-none', 'opacity-60');
+                                                    btn.classList.remove('bg-primary-600', 'text-white', 'hover:bg-primary-700', 'shadow-md');
+                                                    btn.href = '#';
+                                                }
+                                            });
+                                        }
+                                    });
+                                </script>
+                            </div>
+
+                            <!-- Savings Action -->
+                            <a href="member_savings.php" class="flex items-center p-4 border border-slate-100 rounded-xl hover:border-emerald-200 hover:bg-emerald-50/50 transition-all group">
+                                <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                                    <i class="fas fa-plus"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-slate-800 text-sm">Add Savings</h4>
+                                    <p class="text-xs text-slate-500">Deposit to balance</p>
+                                </div>
+                            </a>
+
+                            <!-- View Loans -->
+                            <a href="member_loans.php" class="flex items-center p-4 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/50 transition-all group">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                                    <i class="fas fa-file-invoice-dollar"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-slate-800 text-sm">View Loans</h4>
+                                    <p class="text-xs text-slate-500">Check status & history</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                     <div class="glass-card p-6">
+                        <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                            <i class="fas fa-history text-slate-400 mr-2"></i> Recent Activity
+                        </h3>
+                        <div class="space-y-4">
+                            <?php if (!empty($recentActivity)): ?>
+                                <?php foreach ($recentActivity as $activity): ?>
+                                    <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 rounded-full <?php echo $activity['type'] === 'savings_deposit' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'; ?> flex items-center justify-center mr-4">
+                                                <i class="fas <?php echo $activity['type'] === 'savings_deposit' ? 'fa-arrow-down' : 'fa-arrow-up'; ?>"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-slate-800"><?php echo htmlspecialchars($activity['description']); ?></p>
+                                                <p class="text-xs text-slate-500"><?php echo date('M j, Y • h:i A', strtotime($activity['created_at'])); ?></p>
+                                            </div>
+                                        </div>
+                                        <span class="font-bold <?php echo $activity['type'] === 'savings_deposit' ? 'text-emerald-600' : 'text-slate-700'; ?>">
+                                            <?php echo $activity['type'] === 'savings_deposit' ? '+' : '-'; ?>₦<?php echo number_format($activity['amount'], 2); ?>
+                                        </span>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="text-center py-8 text-slate-400">
+                                    <i class="fas fa-inbox text-3xl mb-2"></i>
+                                    <p class="text-sm">No recent activity found.</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Sidebar Content -->
+                <div class="space-y-6">
+                    <!-- Eligibility Status Card -->
+                     <div class="glass-card p-6">
+                        <h3 class="text-lg font-bold text-slate-900 mb-4">Eligibility Status</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-slate-600"><i class="fas fa-user-clock mr-2 text-slate-400"></i>Membership</span>
+                                <?php if ($membershipMonths >= $businessConfig['min_membership_months']): ?>
+                                    <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-semibold">Eligible</span>
+                                <?php else: ?>
+                                    <span class="text-amber-600 bg-amber-50 px-2 py-1 rounded text-xs font-semibold"><?php echo $membershipMonths; ?>/<?php echo $businessConfig['min_membership_months']; ?> mo</span>
+                                <?php endif; ?>
+                            </div>
+                             <div class="flex items-center justify-between text-sm">
+                                <span class="text-slate-600"><i class="fas fa-wallet mr-2 text-slate-400"></i>Savings Pattern</span>
+                                <?php if ($savingsData['savings_months'] >= $minSavingsMonths): ?>
+                                    <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-semibold">Good</span>
+                                <?php else: ?>
+                                    <span class="text-amber-600 bg-amber-50 px-2 py-1 rounded text-xs font-semibold">Irregular</span>
+                                <?php endif; ?>
+                            </div>
+                             <div class="flex items-center justify-between text-sm">
+                                <span class="text-slate-600"><i class="fas fa-file-invoice mr-2 text-slate-400"></i>Loans</span>
+                                <?php if ($loanData['active_loans'] < $businessConfig['max_active_loans']): ?>
+                                    <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-semibold">Available</span>
+                                <?php else: ?>
+                                    <span class="text-red-600 bg-red-50 px-2 py-1 rounded text-xs font-semibold">Max Limit</span>
+                                <?php endif; ?>
+                            </div>
+                             <div class="flex items-center justify-between text-sm">
+                                <span class="text-slate-600"><i class="fas fa-history mr-2 text-slate-400"></i>History</span>
+                                <?php if (!$hasOverdue): ?>
+                                    <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-semibold">Clean</span>
+                                <?php else: ?>
+                                    <span class="text-red-600 bg-red-50 px-2 py-1 rounded text-xs font-semibold">Overdue</span>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="pt-4 mt-2 border-t border-slate-100">
+                                <div class="flex items-center justify-between font-bold">
+                                    <span class="text-slate-800">Overall Status</span>
+                                    <?php if ($canApplyForLoan): ?>
+                                        <span class="text-emerald-600 flex items-center"><i class="fas fa-check-circle mr-1"></i> Eligible</span>
+                                    <?php else: ?>
+                                        <span class="text-slate-400 text-sm font-normal">Requirements not met</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Card -->
+                    <div class="bg-primary-600 rounded-2xl p-6 text-white relative overflow-hidden">
+                        <div class="relative z-10">
+                            <h4 class="font-bold mb-2">Need Assistance?</h4>
+                            <p class="text-primary-100 text-sm mb-4">Our support team is available to help you with your loan applications.</p>
+                            <a href="../index.php#contact" class="inline-block bg-white text-primary-600 text-xs font-bold px-4 py-2 rounded-lg hover:bg-primary-50 transition-colors">Contact Support</a>
+                        </div>
+                        <div class="absolute -bottom-6 -right-6 text-primary-500 opacity-50">
+                            <i class="fas fa-headset text-9xl"></i>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
     </div>
-
+    
+    <!-- Bootstrap JS (Required for Header/Offcanvas) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- AOS Animation Init (Optional if we add animations later) -->
+    <script>
+        // Simple entry animation
+        document.addEventListener('DOMContentLoaded', () => {
+             const items = document.querySelectorAll('.glass-card');
+             items.forEach((item, index) => {
+                 item.style.opacity = '0';
+                 item.style.transform = 'translateY(20px)';
+                 setTimeout(() => {
+                     item.style.transition = 'all 0.6s ease-out';
+                     item.style.opacity = '1';
+                     item.style.transform = 'translateY(0)';
+                 }, index * 100);
+             });
+        });
+    </script>
 </body>
 </html>

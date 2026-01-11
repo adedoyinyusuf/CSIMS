@@ -3,6 +3,7 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 
 // Initialize auth and userId for permission checks if not already set
+// Initialize auth and userId for permission checks if not already set
 if (!isset($auth) || !isset($userId)) {
     // Try to get from existing context or controller
     if (!isset($auth) && class_exists('AuthController')) {
@@ -10,6 +11,39 @@ if (!isset($auth) || !isset($userId)) {
     }
     if (!isset($userId)) {
         $userId = $_SESSION['admin_id'] ?? $_SESSION['user_id'] ?? 0;
+    }
+}
+
+// Helper for Robust Permission Checking (Hybrid Support)
+if (!function_exists('sidebar_has_permission')) {
+    function sidebar_has_permission($auth, $userId, $modernPerm, $legacyPerm = null) {
+        // 1. Super Admin Override
+        if (isset($_SESSION['role']) && ($_SESSION['role'] === 'Super Admin' || $_SESSION['user_type'] === 'super_admin')) return true;
+
+        // 2. Auth Object Check
+        if (isset($auth) && is_object($auth)) {
+            // Modern Service (2 args)
+            if (strpos(get_class($auth), 'AuthenticationService') !== false) {
+                 return $auth->hasPermission((int)$userId, $modernPerm);
+            }
+            // Legacy Controller (1 arg)
+            if (method_exists($auth, 'hasPermission')) {
+                // Try to check using legacy perm first (as Controller expects legacy keys usually)
+                if ($legacyPerm) {
+                     try { return $auth->hasPermission($legacyPerm); } catch (\Throwable $e) {}
+                }
+                // Try modern perm (might be mapped or ignored)
+                try { return $auth->hasPermission($modernPerm); } catch (\Throwable $e) {}
+            }
+        }
+        
+        // 3. Admin Role Fallback (Standard Admin Permissions)
+        if (isset($_SESSION['role']) && $_SESSION['role'] === 'Admin') {
+             $adminAllowed = ['view_financial_analytics', 'manage_members', 'manage_loans', 'view_dashboard', 'manage_users'];
+             if ($legacyPerm && in_array($legacyPerm, $adminAllowed)) return true;
+        }
+        
+        return false;
     }
 }
 ?>
@@ -124,7 +158,7 @@ if (!isset($auth) || !isset($userId)) {
         <div class="mb-6">
             <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 px-3 sidebar-section-title text-gray-400">Analytics & Security</h3>
             <div class="space-y-1">
-                <?php if (isset($auth) && $auth->hasPermission($userId, 'reports.generate')): ?>
+                <?php if (sidebar_has_permission($auth ?? null, $userId ?? 0, 'reports.generate', 'view_financial_analytics')): ?>
                 <a href="<?php echo BASE_URL; ?>/views/admin/financial_dashboard.php" class="flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 sidebar-link <?php echo ($current_page == 'financial_dashboard.php') ? 'bg-amber-50 text-amber-700 border-l-4 border-amber-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'; ?>">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'financial_dashboard.php') ? 'bg-white text-amber-600 shadow-sm' : 'bg-gray-100 text-gray-500'; ?>">
                         <i class="fas fa-chart-pie"></i>
@@ -132,41 +166,31 @@ if (!isset($auth) || !isset($userId)) {
                     <span class="font-medium sidebar-text">Financial Analytics</span>
                 </a>
                 <?php endif; ?>
-                
-                <?php if (isset($auth) && $auth->hasPermission($userId, 'system.admin')): ?>
-                <a href="<?php echo BASE_URL; ?>/views/admin/security_dashboard.php" class="flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 sidebar-link <?php echo ($current_page == 'security_dashboard.php') ? 'bg-red-50 text-red-700 border-l-4 border-red-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'; ?>">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'security_dashboard.php') ? 'bg-white text-red-600 shadow-sm' : 'bg-gray-100 text-gray-500'; ?>">
-                        <i class="fas fa-shield-alt"></i>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="mb-6">
+            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 px-3 sidebar-section-title text-gray-400">Settings</h3>
+            <div class="space-y-1">
+                <?php if (sidebar_has_permission($auth ?? null, $userId ?? 0, 'settings.manage', 'manage_settings')): ?>
+                <a href="<?php echo BASE_URL; ?>/views/admin/settings.php" class="flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 sidebar-link <?php echo ($current_page == 'settings.php') ? 'bg-slate-50 text-slate-700 border-l-4 border-slate-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'settings.php') ? 'bg-white text-slate-600 shadow-sm' : 'bg-gray-100 text-gray-500'; ?>">
+                        <i class="fas fa-sliders-h"></i>
                     </div>
-                    <span class="font-medium sidebar-text">Security Dashboard</span>
+                    <span class="font-medium sidebar-text">System Settings</span>
                 </a>
                 <?php endif; ?>
                 
-                <!-- Audit Logs Viewer -->
-                <a href="<?php echo BASE_URL; ?>/views/admin/member_activity_log.php" class="flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 sidebar-link <?php echo ($current_page == 'member_activity_log.php') ? 'bg-lime-50 text-lime-700 border-l-4 border-lime-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'; ?>">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'member_activity_log.php') ? 'bg-white text-lime-600 shadow-sm' : 'bg-gray-100 text-gray-500'; ?>">
-                        <i class="fas fa-clipboard-list"></i>
+                <a href="<?php echo BASE_URL; ?>/views/admin/two_factor_setup.php" class="flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 sidebar-link <?php echo ($current_page == 'two_factor_setup.php') ? 'bg-teal-50 text-teal-700 border-l-4 border-teal-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'; ?>">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo ($current_page == 'two_factor_setup.php') ? 'bg-white text-teal-600 shadow-sm' : 'bg-gray-100 text-gray-500'; ?>">
+                        <i class="fas fa-lock"></i>
                     </div>
-                    <span class="font-medium sidebar-text">Audit Logs</span>
+                    <span class="font-medium sidebar-text">2FA Setup</span>
                 </a>
             </div>
         </div>
 
-        <!-- Administration -->
-        <?php if (isset($auth) && $auth->hasPermission($userId, 'users.read')): ?>
-        <div class="mb-6">
-            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 px-3 sidebar-section-title text-gray-400">Administration</h3>
-            <div class="space-y-1">                
-                <!-- System Administration - Super Admin Only -->
-                <a href="<?php echo BASE_URL; ?>/views/admin/users.php" class="flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 sidebar-link <?php echo (in_array($current_page, ['users.php', 'add_user.php', 'edit_user.php'])) ? 'bg-slate-50 text-slate-700 border-l-4 border-slate-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'; ?>">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center sidebar-icon <?php echo (in_array($current_page, ['users.php', 'add_user.php', 'edit_user.php'])) ? 'bg-white text-slate-600 shadow-sm' : 'bg-gray-100 text-gray-500'; ?>">
-                        <i class="fas fa-user-shield"></i>
-                    </div>
-                    <span class="font-medium sidebar-text">Users</span>
-                </a>
-            </div>
-        </div>
-        <?php endif; ?>
     </div>
 </nav>
 

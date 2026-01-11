@@ -1,5 +1,10 @@
 <?php
 require_once '../../config/config.php';
+// Ensure AuthController is available for Sidebar permissions
+if (!class_exists('AuthController')) {
+    require_once '../../controllers/auth_controller.php';
+}
+
 $session = Session::getInstance();
 
 // Simple and robust authentication check aligned with Session
@@ -123,38 +128,51 @@ $pageTitle = "Admin Dashboard";
         theme: {
             extend: {
                 colors: {
-                    primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' },
-                }
+                    primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e' },
+                    slate: { 850: '#1e293b' }
+                },
+                fontFamily: {
+                    sans: ['Inter', 'system-ui', 'sans-serif'],
+                },
             }
         }
     }
     </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .gradient-blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-        .gradient-teal { background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); }
-        .gradient-orange { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
-        .gradient-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        body { font-family: 'Inter', sans-serif; }
+        /* Brands Aligned Gradients */
+        .gradient-blue { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); } /* Primary 600-700 */
+        .gradient-teal { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); } /* Primary 500-600 */
+        .gradient-orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } /* Amber */
+        .gradient-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } /* Emerald */
     </style>
 </head>
-<body class="bg-gray-50 font-sans text-gray-900">
+<body class="bg-gray-50 font-sans text-gray-900 relative">
+    
+    <!-- Hero Background Overlay -->
+    <div class="fixed top-0 left-0 w-full h-64 bg-slate-900 -z-10"></div>
+    <div class="fixed top-0 left-0 w-full h-64 opacity-20 bg-[url('../../assets/images/finance_hero_bg.png')] bg-cover bg-center -z-10 mix-blend-overlay"></div>
+    <div class="fixed top-64 left-0 w-full h-[calc(100vh-16rem)] bg-gray-50 -z-10"></div>
+
     <?php include '../../views/includes/header.php'; ?>
     
     <div class="flex h-screen overflow-hidden">
         <?php include '../../views/includes/sidebar.php'; ?>
         
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 md:ml-64 transition-all duration-300 p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent md:ml-64 transition-all duration-300 p-6">
             
             <!-- Page Header -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                    <p class="text-gray-500">Welcome back, <?php echo htmlspecialchars($current_user['first_name']); ?>! Here's what's happening today.</p>
+                    <h1 class="text-2xl font-bold text-white mb-1">Admin Dashboard</h1>
+                    <p class="text-blue-100 opacity-90">Welcome back, <?php echo htmlspecialchars($current_user['first_name']); ?>! Here's what's happening today.</p>
                 </div>
                 <div class="flex gap-3 mt-4 md:mt-0">
-                    <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+                    <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg font-medium text-white hover:bg-white/20 shadow-sm transition-colors">
                         <i class="fas fa-print mr-2"></i> Print
                     </button>
-                    <button class="inline-flex items-center px-4 py-2 bg-primary-600 border border-transparent rounded-lg font-medium text-white hover:bg-primary-700 shadow-sm transition-colors">
+                    <button class="inline-flex items-center px-4 py-2 bg-white text-primary-600 border border-transparent rounded-lg font-medium hover:bg-blue-50 shadow-sm transition-colors">
                         <i class="fas fa-calendar mr-2"></i> This Month <i class="fas fa-chevron-down ml-2 text-xs"></i>
                     </button>
                 </div>
@@ -163,14 +181,14 @@ $pageTitle = "Admin Dashboard";
             <!-- Stats Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Total Members -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-blue text-white group">
+                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-blue text-white group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Total Members</p>
                         <h3 class="text-4xl font-bold mt-2 mb-1"><?php echo number_format($stats['total_members']); ?></h3>
                         <p class="text-xs opacity-70 flex items-center">
                             <i class="fas fa-arrow-up mr-1"></i> +<?php echo $stats['new_members_this_month']; ?> this month
                         </p>
-                        <a href="members.php" class="inline-block mt-4 text-xs font-semibold hover:opacity-80 transition-opacity">View All <i class="fas fa-arrow-right ml-1"></i></a>
+                        <a href="members.php" class="inline-block mt-4 text-xs font-bold uppercase tracking-wider hover:opacity-100 opacity-80 transition-opacity">View All <i class="fas fa-arrow-right ml-1"></i></a>
                     </div>
                     <div class="absolute -bottom-4 -right-4 text-9xl text-white opacity-10 transform rotate-12 transition-transform group-hover:scale-110">
                         <i class="fas fa-users"></i>
@@ -178,14 +196,14 @@ $pageTitle = "Admin Dashboard";
                 </div>
 
                 <!-- Active Members -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-teal text-white group">
+                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-teal text-white group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Active Members</p>
                         <h3 class="text-4xl font-bold mt-2 mb-1"><?php echo number_format($stats['active_members']); ?></h3>
                         <p class="text-xs opacity-70 flex items-center">
                             <i class="fas fa-percentage mr-1"></i> <?php echo number_format(($stats['active_members'] / max($stats['total_members'], 1)) * 100, 1); ?>% engagement
                         </p>
-                        <a href="members.php?status=Active" class="inline-block mt-4 text-xs font-semibold hover:opacity-80 transition-opacity">View Active <i class="fas fa-arrow-right ml-1"></i></a>
+                        <a href="members.php?status=Active" class="inline-block mt-4 text-xs font-bold uppercase tracking-wider hover:opacity-100 opacity-80 transition-opacity">View Active <i class="fas fa-arrow-right ml-1"></i></a>
                     </div>
                     <div class="absolute -bottom-4 -right-4 text-9xl text-white opacity-10 transform rotate-12 transition-transform group-hover:scale-110">
                         <i class="fas fa-user-check"></i>
@@ -193,14 +211,14 @@ $pageTitle = "Admin Dashboard";
                 </div>
 
                 <!-- Active Loans -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-orange text-white group">
+                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-orange text-white group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Active Loans</p>
                         <h3 class="text-4xl font-bold mt-2 mb-1"><?php echo number_format($stats['active_loans']); ?></h3>
                         <p class="text-xs opacity-70 flex items-center">
                             <i class="fas fa-wallet mr-1"></i> ₦<?php echo number_format($stats['loan_outstanding']); ?> outstanding
                         </p>
-                        <a href="loans.php" class="inline-block mt-4 text-xs font-semibold hover:opacity-80 transition-opacity">Manage Loans <i class="fas fa-arrow-right ml-1"></i></a>
+                        <a href="loans.php" class="inline-block mt-4 text-xs font-bold uppercase tracking-wider hover:opacity-100 opacity-80 transition-opacity">Manage Loans <i class="fas fa-arrow-right ml-1"></i></a>
                     </div>
                     <div class="absolute -bottom-4 -right-4 text-9xl text-white opacity-10 transform rotate-12 transition-transform group-hover:scale-110">
                         <i class="fas fa-hand-holding-dollar"></i>
@@ -208,14 +226,14 @@ $pageTitle = "Admin Dashboard";
                 </div>
 
                 <!-- System Status -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-green text-white group">
+                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-green text-white group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">System Status</p>
                         <h3 class="text-4xl font-bold mt-2 mb-1">Online</h3>
                         <p class="text-xs opacity-70 flex items-center">
                             <i class="fas fa-check-circle mr-1"></i> All systems operational
                         </p>
-                        <a href="settings.php" class="inline-block mt-4 text-xs font-semibold hover:opacity-80 transition-opacity">Settings <i class="fas fa-arrow-right ml-1"></i></a>
+                        <a href="settings.php" class="inline-block mt-4 text-xs font-bold uppercase tracking-wider hover:opacity-100 opacity-80 transition-opacity">Settings <i class="fas fa-arrow-right ml-1"></i></a>
                     </div>
                     <div class="absolute -bottom-4 -right-4 text-9xl text-white opacity-10 transform rotate-12 transition-transform group-hover:scale-110">
                         <i class="fas fa-server"></i>
@@ -225,35 +243,35 @@ $pageTitle = "Admin Dashboard";
 
             <!-- Action Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <a href="members.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group">
-                    <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xl mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <a href="members.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group hover:-translate-y-1 transform duration-300">
+                    <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xl mb-4 group-hover:bg-primary-600 group-hover:text-white transition-colors">
                         <i class="fas fa-users"></i>
                     </div>
-                    <h3 class="font-semibold text-gray-900">Manage Members</h3>
+                    <h3 class="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Manage Members</h3>
                     <p class="text-sm text-gray-500 mt-1">Add, edit, and manage member accounts</p>
                 </a>
 
-                <a href="loans.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group">
+                <a href="loans.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group hover:-translate-y-1 transform duration-300">
                     <div class="w-12 h-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center text-xl mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
                         <i class="fas fa-hand-holding-usd"></i>
                     </div>
-                    <h3 class="font-semibold text-gray-900">Loan Management</h3>
+                    <h3 class="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">Loan Management</h3>
                     <p class="text-sm text-gray-500 mt-1">Process and track member loans</p>
                 </a>
 
-                 <a href="savings_accounts.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group">
+                 <a href="savings_accounts.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group hover:-translate-y-1 transform duration-300">
                     <div class="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center text-xl mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
                         <i class="fas fa-piggy-bank"></i>
                     </div>
-                    <h3 class="font-semibold text-gray-900">Total Savings</h3>
+                    <h3 class="font-semibold text-gray-900 group-hover:text-green-600 transition-colors">Total Savings</h3>
                     <p class="text-sm text-gray-500 mt-1">Track member savings and accounts</p>
                 </a>
 
-                 <a href="reports.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group">
+                 <a href="reports.php" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col items-center text-center group hover:-translate-y-1 transform duration-300">
                     <div class="w-12 h-12 bg-gray-50 text-gray-700 rounded-full flex items-center justify-center text-xl mb-4 group-hover:bg-gray-800 group-hover:text-white transition-colors">
                         <i class="fas fa-chart-bar"></i>
                     </div>
-                    <h3 class="font-semibold text-gray-900">Reports</h3>
+                    <h3 class="font-semibold text-gray-900 group-hover:text-gray-800 transition-colors">Reports</h3>
                     <p class="text-sm text-gray-500 mt-1">Generate financial and member reports</p>
                 </a>
             </div>
@@ -261,7 +279,7 @@ $pageTitle = "Admin Dashboard";
             <!-- Detail Row -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <!-- Repayment Card -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
                     <div>
                         <h3 class="font-semibold text-gray-900 flex items-center">
                             <i class="fas fa-money-bill-wave text-blue-500 mr-2"></i> Repayments This Month
@@ -291,7 +309,7 @@ $pageTitle = "Admin Dashboard";
                 </div>
 
                 <!-- System Metrics -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
                     <h3 class="font-semibold text-gray-900 mb-6 flex items-center">
                         <i class="fas fa-globe text-blue-500 mr-2"></i> System Metrics
                     </h3>
@@ -323,7 +341,7 @@ $pageTitle = "Admin Dashboard";
                                 <span class="font-medium text-gray-900">98.5%</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2">
-                                <div class="bg-indigo-600 h-2 rounded-full" style="width: 98.5%"></div>
+                                <div class="bg-primary-600 h-2 rounded-full" style="width: 98.5%"></div>
                             </div>
                         </div>
                     </div>
