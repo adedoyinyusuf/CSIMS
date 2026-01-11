@@ -27,14 +27,15 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . .
 
-# Set memory limit to unlimited for build to prevent OOM errors
+# Set memory limit to unlimited
 ENV COMPOSER_MEMORY_LIMIT=-1
 
-# Install PHP dependencies
-# --no-scripts: Skip post-install scripts to avoid runtime errors during build
-RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-scripts
+# Remove existing composer.lock to prevent platform mismatch issues
+# and install dependencies fresh for this Linux environment.
+RUN rm -f composer.lock \
+    && composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-scripts
 
-# Create required directories manually (replacing post-install-cmd)
+# Create required directories manually
 RUN mkdir -p logs temp && chmod -R 777 logs temp
 
 # Fix permissions
@@ -44,7 +45,7 @@ RUN chown -R www-data:www-data /var/www/html \
 # Configure Apache to listen on Render's PORT
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# Default PORT if not set
+# Default PORT
 ENV PORT=80
 
 EXPOSE ${PORT}
