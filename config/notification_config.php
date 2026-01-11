@@ -10,6 +10,7 @@
  */
 
 // Email Configuration
+if (!defined('EMAIL_ENABLED')) {
 define('EMAIL_ENABLED', true);
 define('EMAIL_SMTP_HOST', 'smtp.gmail.com'); // Change to your SMTP server
 define('EMAIL_SMTP_PORT', 587);
@@ -33,6 +34,7 @@ define('SMS_TEXTLOCAL_USERNAME', 'your-textlocal-username');
 define('SMS_TEXTLOCAL_HASH', 'your-textlocal-hash');
 define('SMS_TEXTLOCAL_SENDER', 'CSIMS');
 define('SMS_MAX_LENGTH', 160);
+}
 
 // Automated Notification Settings
 $notificationSettings = [

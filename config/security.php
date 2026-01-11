@@ -1,12 +1,7 @@
 <?php
 // Prevent re-declaration when included multiple times
-if (class_exists('SecurityHeaders')) { return; }
-/**
- * Enhanced Security Configuration for CSIMS
- * This file contains security hardening configurations
- */
-
 // Security Headers Configuration
+if (!class_exists('SecurityHeaders')) {
 class SecurityHeaders {
     public static function setSecurityHeaders() {
         // Prevent clickjacking
@@ -307,6 +302,7 @@ class SecurityLogger {
     public static function logCriticalSecurity($event, $details = []) {
         self::log('critical', "Critical Security Event: $event", $details);
     }
+}
 }
 
 // Initialize security on every request
