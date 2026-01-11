@@ -9,8 +9,11 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    libicu-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install mysqli pdo pdo_mysql zip gd
+    && docker-php-ext-install mysqli pdo pdo_mysql zip gd mbstring xml bcmath intl
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
@@ -24,16 +27,21 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . .
 
+# Set memory limit to unlimited for build to prevent OOM errors
+ENV COMPOSER_MEMORY_LIMIT=-1
+
 # Install PHP dependencies
-# Ignore platform reqs in case local php version differs slightly
-RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
+# --no-scripts: Skip post-install scripts to avoid runtime errors during build
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-scripts
+
+# Create required directories manually (replacing post-install-cmd)
+RUN mkdir -p logs temp && chmod -R 777 logs temp
 
 # Fix permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
 # Configure Apache to listen on Render's PORT
-# Render sets a PORT env var, we need Apache to listen on it
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
 # Default PORT if not set
