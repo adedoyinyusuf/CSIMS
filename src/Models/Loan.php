@@ -146,10 +146,10 @@ class Loan implements ModelInterface
         
         $rules = [
             'member_id' => 'required|int',
-            'amount' => 'required|numeric|min:100',
+            'amount' => 'required|numeric|min_value:100',
             'purpose' => 'required|min:5|max:500',
-            'term_months' => 'required|int|min:1|max:240', // Max 20 years
-            'interest_rate' => 'required|numeric|min:0|max:50', // Max 50% interest
+            'term_months' => 'required|int|min_value:1|max_value:240', // Max 20 years
+            'interest_rate' => 'required|numeric|min_value:0|max_value:50', // Max 50% interest
             'status' => 'required'
         ];
         

@@ -59,8 +59,7 @@ class LoanService
         }
         
         // Create loan instance
-        $loan = new Loan();
-        $loan->fromArray($data);
+        $loan = Loan::fromArray($data);
         
         // Validate loan data
         $validation = $loan->validate();
@@ -538,12 +537,12 @@ class LoanService
     {
         // Check minimum amount
         if ($loan->getAmount() < 100) {
-            throw new ValidationException('Minimum loan amount is $100');
+            throw new ValidationException('Minimum loan amount is ₦100');
         }
         
         // Check maximum amount (business rule)
-        if ($loan->getAmount() > 100000) {
-            throw new ValidationException('Maximum loan amount is $100,000');
+        if ($loan->getAmount() > 50000000) {
+            throw new ValidationException('Maximum loan amount is ₦50,000,000');
         }
         
         // Check minimum term
@@ -574,12 +573,12 @@ class LoanService
         // Calculate total outstanding for member
         $totalOutstanding = 0;
         foreach ($activeLoans as $activeLoan) {
-            $totalOutstanding += $activeLoan->getCurrentBalance();
+            $totalOutstanding += $activeLoan->calculateRemainingBalance();
         }
         
         // Check if total outstanding would exceed limit
-        if ($totalOutstanding + $loan->getAmount() > 50000) { // Business rule: max $50k outstanding per member
-            throw new ValidationException('Total outstanding loans cannot exceed $50,000 per member');
+        if ($totalOutstanding + $loan->getAmount() > 25000000) { // Business rule: max ₦25M outstanding per member
+            throw new ValidationException('Total outstanding loans cannot exceed ₦25,000,000 per member');
         }
     }
     

@@ -198,7 +198,14 @@ if (isset($sysConfig) && $sysConfig) {
     <title><?php echo $page_title; ?> - CSIMS</title>
     
     <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- Premium Design System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/premium-design-system.css">
+    <!-- CSIMS Color System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
+    <!-- Tailwind CSS -->
+    <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50">
     <?php include '../../views/includes/header.php'; ?>

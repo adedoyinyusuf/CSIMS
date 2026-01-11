@@ -188,10 +188,10 @@ $pageTitle = "Loan Details #" . $loan_id;
                                 <p class="text-primary-100 text-lg">View detailed loan information and manage loan status</p>
                             </div>
                             <div class="flex gap-3">
-                                <button type="button" class="bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-all duration-200 shadow-md hover:shadow-lg" onclick="window.print()">
+                                <button type="button" class="bg-white text-primary-600 px-6 py-3 rounded-xl font-semibold hover:bg-primary-50 transition-all duration-200 shadow-md hover:shadow-lg" onclick="window.print()">
                                     <i class="fas fa-print mr-2"></i>Print
                                 </button>
-                                <a href="<?php echo BASE_URL; ?>/views/admin/loans.php" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-all duration-200">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/loans.php" class="border-2 border-white text-white px-6 py-3 rounded-xl font-semibold hover:bg-white hover:text-primary-600 transition-all duration-200">
                                     <i class="fas fa-arrow-left mr-2"></i>Back to Loans
                                 </a>
                             </div>
@@ -285,19 +285,19 @@ $pageTitle = "Loan Details #" . $loan_id;
                         <p class="text-yellow-700 mb-4">This loan application is awaiting approval.</p>
                         <div class="border-t border-yellow-200 pt-4">
                             <div class="flex gap-3 flex-wrap">
-                                <button type="button" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center" onclick="openModal('approveModal')">
+                                <button type="button" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg flex items-center" onclick="openModal('approveModal')">
                                     <i class="fas fa-check-circle mr-2"></i>Approve
                                 </button>
-                                <button type="button" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center" onclick="openModal('rejectModal')">
+                                <button type="button" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg flex items-center" onclick="openModal('rejectModal')">
                                     <i class="fas fa-times-circle mr-2"></i>Reject
                                 </button>
-                                <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/view_loan.php?id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
                                     <i class="fas fa-eye mr-2"></i>View Details
                                 </a>
-                                <a href="<?php echo BASE_URL; ?>/views/admin/edit_loan.php?id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/edit_loan.php?id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
                                     <i class="fas fa-edit mr-2"></i>Edit Application
                                 </a>
-                                <button type="button" class="px-6 py-3 border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white font-semibold rounded-lg transition-all duration-200 flex items-center" onclick="openModal('deleteModal')">
+                                <button type="button" class="px-6 py-3 border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white font-semibold rounded-xl transition-all duration-200 flex items-center" onclick="openModal('deleteModal')">
                                     <i class="fas fa-trash mr-2"></i>Delete Application
                                 </button>
                             </div>
@@ -313,7 +313,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                         </p>
                         <div class="border-t border-blue-200 pt-4">
                             <div class="flex gap-3">
-                                <a href="<?php echo BASE_URL; ?>/views/admin/process_loan.php?id=<?php echo $loan_id; ?>&action=disburse" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
+                                <a href="<?php echo BASE_URL; ?>/views/admin/process_loan.php?id=<?php echo $loan_id; ?>&action=disburse" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
                                     <i class="fas fa-hand-holding-usd mr-2"></i>Mark as Disbursed
                                 </a>
                             </div>
@@ -329,7 +329,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                         </p>
                         <div class="border-t border-indigo-200 pt-4">
                             <div class="flex gap-3">
-                                <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
+                                <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center">
                                     <i class="fas fa-plus-circle mr-2"></i>Add Repayment
                                 </a>
                             </div>
@@ -347,7 +347,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                         <p class="text-red-700 mb-4">This loan application was rejected.</p>
                         <div class="border-t border-red-200 pt-4">
                             <div class="flex gap-3">
-                                <button type="button" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center" onclick="openModal('deleteModal')">
+                                <button type="button" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg flex items-center" onclick="openModal('deleteModal')">
                                     <i class="fas fa-trash mr-2"></i>Delete Application
                                 </button>
                             </div>
@@ -370,31 +370,31 @@ $pageTitle = "Loan Details #" . $loan_id;
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-6">
                                     <div class="loan-details-section">
-                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="bg-gray-50 p-4 rounded-xl">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-hashtag text-primary-600 mr-2"></i>Loan ID
                                             </label>
                                             <div class="text-lg font-bold text-primary-600">#<?php echo $loan_id; ?></div>
                                         </div>
-                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="bg-gray-50 p-4 rounded-xl">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-dollar-sign text-green-600 mr-2"></i>Amount
                                             </label>
                                             <div class="text-xl font-bold text-green-600">₦<?php echo number_format($loanAmount, 2); ?></div>
                                         </div>
-                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="bg-gray-50 p-4 rounded-xl">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-calendar-alt text-blue-600 mr-2"></i>Term
                                             </label>
                                             <div class="text-lg font-semibold text-gray-800"><?php echo $loan['term']; ?> months</div>
                                         </div>
-                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="bg-gray-50 p-4 rounded-xl">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-percentage text-yellow-600 mr-2"></i>Interest Rate
                                             </label>
                                             <div class="text-lg font-semibold text-gray-800"><?php echo $loan['interest_rate']; ?>%</div>
                                         </div>
-                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="bg-gray-50 p-4 rounded-xl">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-calendar text-gray-600 mr-2"></i>Application Date
                                             </label>
@@ -403,7 +403,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         
                                         <!-- Additional Member Information -->
                                         <?php if (!empty($loan['savings'])): ?>
-                                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
                                             <label class="block text-sm font-medium text-blue-700 mb-1">
                                                 <i class="fas fa-piggy-bank text-blue-600 mr-2"></i>Member's Savings
                                             </label>
@@ -412,7 +412,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($loan['month_deduction_started'])): ?>
-                                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                        <div class="bg-green-50 p-4 rounded-xl border border-green-200">
                                             <label class="block text-sm font-medium text-green-700 mb-1">
                                                 <i class="fas fa-calendar-plus text-green-600 mr-2"></i>Deduction Start Month
                                             </label>
@@ -421,7 +421,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($loan['month_deduction_end'])): ?>
-                                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                                        <div class="bg-red-50 p-4 rounded-xl border border-red-200">
                                             <label class="block text-sm font-medium text-red-700 mb-1">
                                                 <i class="fas fa-calendar-minus text-red-600 mr-2"></i>Deduction End Month
                                             </label>
@@ -431,13 +431,13 @@ $pageTitle = "Loan Details #" . $loan_id;
                                     </div>
                                     
                                     <!-- Additional Member-Submitted Information Section -->
-                                    <div class="bg-gray-50 p-4 rounded-lg mt-6">
+                                    <div class="bg-gray-50 p-4 rounded-xl mt-6">
                                         <h6 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                                             <i class="fas fa-user-edit text-purple-600 mr-2"></i>Member-Submitted Details
                                         </h6>
                                         
                                         <?php if (!empty($loan['other_payment_plans'])): ?>
-                                        <div class="bg-white p-4 rounded-lg mb-3 border border-gray-200">
+                                        <div class="bg-white p-4 rounded-xl mb-3 border border-gray-200">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-credit-card text-purple-600 mr-2"></i>Other Payment Plans
                                             </label>
@@ -446,7 +446,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($loan['remarks'])): ?>
-                                        <div class="bg-white p-4 rounded-lg border border-gray-200">
+                                        <div class="bg-white p-4 rounded-xl border border-gray-200">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-comment text-gray-600 mr-2"></i>Member's Remarks
                                             </label>
@@ -455,7 +455,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($loan['collateral'])): ?>
-                                        <div class="bg-white p-4 rounded-lg mt-3 border border-gray-200">
+                                        <div class="bg-white p-4 rounded-xl mt-3 border border-gray-200">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-shield-alt text-green-600 mr-2"></i>Collateral Offered
                                             </label>
@@ -464,7 +464,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($loan['guarantor'])): ?>
-                                        <div class="bg-white p-4 rounded-lg mt-3 border border-gray-200">
+                                        <div class="bg-white p-4 rounded-xl mt-3 border border-gray-200">
                                             <label class="block text-sm font-medium text-gray-600 mb-1">
                                                 <i class="fas fa-user-shield text-blue-600 mr-2"></i>Guarantor Information
                                             </label>
@@ -473,43 +473,129 @@ $pageTitle = "Loan Details #" . $loan_id;
                                         <?php endif; ?>
                                     </div>
                                     </div>
-                                </div>
-                                <div class="xl:col-span-1">
-                                    <div class="loan-details-section">
-                                        <div class="detail-item mb-4">
-                                            <label class="detail-label"><i class="bi bi-cash-coin text-success me-2"></i>Monthly Payment</label>
-                                            <div class="detail-value fw-bold text-success">=N=<?php echo number_format($loan['monthly_payment'] ?? 0, 2); ?></div>
-                                        </div>
-                                        <div class="detail-item mb-4">
-                                            <label class="detail-label"><i class="bi bi-calendar-check text-info me-2"></i>Due Date</label>
-                                            <div class="detail-value"><?php echo $formatDisplayDate($due_date ?? null) ?? 'Not set'; ?></div>
-                                        </div>
-                                        <div class="detail-item mb-4">
-                                            <label class="detail-label"><i class="bi bi-flag text-primary me-2"></i>Status</label>
-                                            <div class="detail-value">
-                                                <span class="badge bg-<?php 
-                                                    echo match($loan['status']) {
-                                                        'pending' => 'warning',
-                                                        'approved' => 'info',
-                                                        'rejected' => 'danger',
-                                                        'disbursed' => 'primary',
-                                                        'active' => 'primary',
-                                                        'defaulted' => 'danger',
-                                                        'paid' => 'success',
-                                                        default => 'secondary'
-                                                    };
-                                                ?> fs-6">
-                                                    <?php echo $loanStatuses[$loan['status']] ?? ucfirst($loan['status']); ?>
-                                                </span>
+                                <div class="space-y-6">
+                                    <!-- Monthly Payment Card -->
+                                    <div class="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl border-2 border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="p-3 bg-emerald-500 rounded-xl shadow-md">
+                                                    <i class="fas fa-money-bill-wave text-white text-2xl"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-medium text-emerald-700 uppercase tracking-wide">Monthly Payment</p>
+                                                    <p class="text-3xl font-bold text-emerald-900">₦<?php echo number_format($loan['monthly_payment'] ?? 0, 2); ?></p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <?php if (!empty($loan['purpose'])): ?>
-                                        <div class="detail-item mb-4">
-                                            <label class="detail-label"><i class="bi bi-card-text text-secondary me-2"></i>Purpose</label>
-                                            <div class="detail-value"><?php echo htmlspecialchars($loan['purpose']); ?></div>
-                                        </div>
-                                        <?php endif; ?>
                                     </div>
+
+                                    <!-- Due Date Card -->
+                                    <div class="bg-gradient-to-br from-sky-50 to-blue-50 p-6 rounded-xl border-2 border-sky-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="p-3 bg-sky-500 rounded-xl shadow-md">
+                                                    <i class="fas fa-calendar-check text-white text-2xl"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-medium text-sky-700 uppercase tracking-wide">Due Date</p>
+                                                    <p class="text-xl font-bold text-sky-900"><?php echo $formatDisplayDate($due_date ?? null) ?? 'Not set'; ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Status Card -->
+                                    <div class="bg-gradient-to-br from-<?php 
+                                        echo match($loan['status']) {
+                                            'Pending' => 'yellow',
+                                            'Approved' => 'blue',
+                                            'Rejected' => 'red',
+                                            'Disbursed' => 'indigo',
+                                            'Paid' => 'green',
+                                            default => 'gray'
+                                        };
+                                    ?>-50 to-<?php 
+                                        echo match($loan['status']) {
+                                            'Pending' => 'yellow',
+                                            'Approved' => 'blue',
+                                            'Rejected' => 'red',
+                                            'Disbursed' => 'indigo',
+                                            'Paid' => 'green',
+                                            default => 'gray'
+                                        };
+                                    ?>-50 p-6 rounded-xl border-2 border-<?php 
+                                        echo match($loan['status']) {
+                                            'Pending' => 'yellow',
+                                            'Approved' => 'blue',
+                                            'Rejected' => 'red',
+                                            'Disbursed' => 'indigo',
+                                            'Paid' => 'green',
+                                            default => 'gray'
+                                        };
+                                    ?>-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="p-3 bg-<?php 
+                                                    echo match($loan['status']) {
+                                                        'Pending' => 'yellow',
+                                                        'Approved' => 'blue',
+                                                        'Rejected' => 'red',
+                                                        'Disbursed' => 'indigo',
+                                                        'Paid' => 'green',
+                                                        default => 'gray'
+                                                    };
+                                                ?>-500 rounded-xl shadow-md">
+                                                    <i class="fas fa-<?php 
+                                                        echo match($loan['status']) {
+                                                            'Pending' => 'clock',
+                                                            'Approved' => 'check-circle',
+                                                            'Rejected' => 'times-circle',
+                                                            'Disbursed' => 'coins',
+                                                            'Paid' => 'check-double',
+                                                            default => 'flag'
+                                                        };
+                                                    ?> text-white text-2xl"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-medium text-<?php 
+                                                        echo match($loan['status']) {
+                                                            'Pending' => 'yellow',
+                                                            'Approved' => 'blue',
+                                                            'Rejected' => 'red',
+                                                            'Disbursed' => 'indigo',
+                                                            'Paid' => 'green',
+                                                            default => 'gray'
+                                                        };
+                                                    ?>-700 uppercase tracking-wide">Status</p>
+                                                    <p class="text-xl font-bold text-<?php 
+                                                        echo match($loan['status']) {
+                                                            'Pending' => 'yellow',
+                                                            'Approved' => 'blue',
+                                                            'Rejected' => 'red',
+                                                            'Disbursed' => 'indigo',
+                                                            'Paid' => 'green',
+                                                            default => 'gray'
+                                                        };
+                                                    ?>-900"><?php echo $loanStatuses[$loan['status']] ?? ucfirst($loan['status']); ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Purpose Card -->
+                                    <?php if (!empty($loan['purpose'])): ?>
+                                    <div class="bg-gradient-to-br from-purple-50 to-violet-50 p-6 rounded-xl border-2 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="p-3 bg-purple-500 rounded-xl shadow-md flex-shrink-0">
+                                                <i class="fas fa-lightbulb text-white text-2xl"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-purple-700 uppercase tracking-wide mb-2">Loan Purpose</p>
+                                                <p class="text-base text-purple-900 leading-relaxed"><?php echo htmlspecialchars($loan['purpose']); ?></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -583,7 +669,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                 Repayment History
                             </h5>
                             <?php if (in_array($loan['status'], ['disbursed', 'active'])): ?>
-                            <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm text-sm inline-flex items-center gap-2">
+                            <a href="<?php echo BASE_URL; ?>/admin/add_repayment.php?loan_id=<?php echo $loan_id; ?>" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-sm text-sm inline-flex items-center gap-2">
                                 <i class="bi bi-plus-circle"></i> Add Repayment
                             </a>
                             <?php endif; ?>
@@ -670,7 +756,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                                 </div>
                                 
                                 <div class="grid gap-2 mt-3">
-                                    <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 inline-flex items-center justify-center">
+                                    <a href="<?php echo BASE_URL; ?>/admin/view_member.php?id=<?php echo $member['member_id']; ?>" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 inline-flex items-center justify-center">
                                         View Full Profile
                                     </a>
                                 </div>
@@ -706,7 +792,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                 
                 <!-- Modal Body -->
                 <div class="p-6">
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-lg">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-xl">
                         <div class="flex">
                             <div class="flex-shrink-0">
                                 <i class="fas fa-info-circle text-blue-500 text-xl"></i>
@@ -729,7 +815,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                             Approval Notes (Optional)
                         </label>
                         <textarea 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors" 
                             id="approve_notes" 
                             name="notes" 
                             rows="3" 
@@ -744,12 +830,12 @@ $pageTitle = "Loan Details #" . $loan_id;
                 <!-- Modal Footer -->
                 <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                     <button type="button" 
-                            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                             onclick="closeModal('approveModal')">
                         Cancel
                     </button>
                     <button type="submit" 
-                            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center">
+                            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors flex items-center">
                         <i class="fas fa-check-circle mr-2"></i>Approve Loan
                     </button>
                 </div>
@@ -777,7 +863,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                 
                 <!-- Modal Body -->
                 <div class="p-6">
-                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded-lg">
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded-xl">
                         <div class="flex">
                             <div class="flex-shrink-0">
                                 <i class="fas fa-exclamation-triangle text-yellow-500 text-xl"></i>
@@ -796,7 +882,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                             Rejection Reason <span class="text-red-500">*</span>
                         </label>
                         <textarea 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors" 
                             id="reject_notes" 
                             name="notes" 
                             rows="4" 
@@ -815,12 +901,12 @@ $pageTitle = "Loan Details #" . $loan_id;
                 <!-- Modal Footer -->
                 <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                     <button type="button" 
-                            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                             onclick="closeModal('rejectModal')">
                         Cancel
                     </button>
                     <button type="submit" 
-                            class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center">
+                            class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors flex items-center">
                         <i class="fas fa-times-circle mr-2"></i>Reject Loan
                     </button>
                 </div>
@@ -847,7 +933,7 @@ $pageTitle = "Loan Details #" . $loan_id;
             
             <!-- Modal Body -->
             <div class="p-6">
-                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-xl">
                     <div class="flex">
                         <div class="flex-shrink-0">
                             <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
@@ -861,7 +947,7 @@ $pageTitle = "Loan Details #" . $loan_id;
                 
                 <p class="text-gray-700 mb-4">Are you sure you want to delete this loan application?</p>
                 
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl">
                     <div class="flex">
                         <div class="flex-shrink-0">
                             <i class="fas fa-info-circle text-blue-500 text-xl"></i>
@@ -876,12 +962,12 @@ $pageTitle = "Loan Details #" . $loan_id;
             <!-- Modal Footer -->
             <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                 <button type="button" 
-                        class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                         onclick="closeModal('deleteModal')">
                     Cancel
                 </button>
                 <a href="<?php echo BASE_URL; ?>/admin/delete_loan.php?id=<?php echo $loan_id; ?>" 
-                   class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center">
+                   class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors flex items-center">
                     <i class="fas fa-trash-alt mr-2"></i>Delete
                 </a>
             </div>
@@ -1950,3 +2036,4 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </body>
 </html>
+

@@ -6,8 +6,9 @@ require_once __DIR__ . '/../src/bootstrap.php';
 
 use CSIMS\Container\Container;
 use CSIMS\Repositories\MemberRepository;
+use CSIMS\Core\BaseController;
 
-class MemberController
+class MemberController extends BaseController
 {
     private Container $container;
     private MemberRepository $memberRepository;
@@ -15,9 +16,11 @@ class MemberController
 
     public function __construct()
     {
+        parent::__construct(); // Initialize BaseController services
+        
         $this->container = CSIMS\bootstrap();
         $this->memberRepository = $this->container->resolve(MemberRepository::class);
-        $this->connection = $this->container->resolve(mysqli::class);
+        $this->connection = $this->db; // Use shared connection from BaseController
     }
 
     /**
@@ -89,7 +92,7 @@ class MemberController
     public function getAllActiveMembers(): array
     {
         try {
-            $sql = "SELECT m.member_id, m.first_name, m.last_name, m.email, m.phone
+            $sql = "SELECT m.member_id, m.ippis_no, m.first_name, m.last_name, m.email, m.phone
                     FROM members m
                     WHERE m.status = 'Active'
                     ORDER BY m.first_name, m.last_name";
@@ -171,7 +174,7 @@ class MemberController
 
         if (!empty($search)) {
             $like = '%' . $conn->real_escape_string($search) . '%';
-            $where[] = "(m.first_name LIKE '$like' OR m.last_name LIKE '$like' OR m.email LIKE '$like' OR m.phone LIKE '$like')";
+            $where[] = "(m.first_name LIKE '$like' OR m.last_name LIKE '$like' OR m.email LIKE '$like' OR m.phone LIKE '$like' OR m.ippis_no LIKE '$like' OR m.member_id LIKE '$like')";
         }
         if (!empty($status)) {
             $statusEsc = $conn->real_escape_string($status);
@@ -198,7 +201,7 @@ class MemberController
         }
 
         // Fetch rows
-        $sql = "SELECT m.member_id AS member_id, m.first_name, m.last_name, m.gender, m.email, m.phone,
+        $sql = "SELECT m.member_id AS member_id, m.ippis_no, m.first_name, m.last_name, m.gender, m.email, m.phone,
                        mt.name AS member_type_label,
                        m.join_date, m.expiry_date, m.status, m.photo
                 FROM members m
@@ -320,7 +323,8 @@ class MemberController
             return $exists;
         } catch (\Throwable $e) {
             error_log('MemberController shim checkExistingIppis error: ' . $e->getMessage());
-            return false;
+            // Fail-safe: If check fails, assume it exists to prevent potential duplicates
+            return true;
         }
     }
 
@@ -394,14 +398,14 @@ class MemberController
                         ippis_no, username, password, first_name, last_name, dob, gender, address, phone, email, occupation,
                         membership_type_id, marital_status, bank_name, account_number, account_name,
                         next_of_kin_name, next_of_kin_relationship, next_of_kin_phone, next_of_kin_address,
-                        join_date, expiry_date, status
+                        join_date, expiry_date, savings_balance, status
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending'
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, 'Pending'
                     )";
             $stmt = $this->connection->prepare($sql);
             if (!$stmt) { return false; }
             $stmt->bind_param(
-                'sssssssssssisssssssssss',
+                'sssssssssssissssssssss',
                 $ippis_no,
                 $username,
                 $password_hash,
@@ -525,14 +529,14 @@ class MemberController
                     marital_status, department, position, grade_level, employee_rank, date_of_first_appointment, date_of_retirement,
                     bank_name, account_number, account_name, next_of_kin_name, next_of_kin_relationship, next_of_kin_phone, next_of_kin_address
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )';
             $stmt = $this->connection->prepare($sql);
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Failed to prepare statement'];
             }
             $stmt->bind_param(
-                'ssssssssssisssssdssssssssssssssss',
+                'ssssssssssisssssdsssssssssssssss',
                 $ippis_no,
                 $first_name,
                 $last_name,
@@ -578,6 +582,288 @@ class MemberController
         } catch (\Throwable $e) {
             error_log('MemberController shim addMember error: ' . $e->getMessage());
             return ['success' => false, 'message' => 'Error adding member'];
+        }
+    }
+
+    /**
+     * Admin update member (full access)
+     */
+    public function updateMember($memberId, $data)
+    {
+        try {
+            $updateFields = [];
+            $params = [];
+            $types = '';
+
+            // Allowed fields map to database columns
+            // Some incoming keys might need mapping
+            $dbMap = [
+                'ippis_no' => 'ippis_no',
+                'first_name' => 'first_name',
+                'middle_name' => 'middle_name',
+                'last_name' => 'last_name',
+                'dob' => 'dob',
+                'date_of_birth' => 'dob', // Map
+                'gender' => 'gender',
+                'address' => 'address',
+                'phone' => 'phone',
+                'email' => 'email',
+                'occupation' => 'occupation',
+                'photo' => 'photo',
+                'membership_type_id' => 'membership_type_id',
+                'membership_type' => 'membership_type_id', // Map
+                'join_date' => 'join_date',
+                'expiry_date' => 'expiry_date',
+                'status' => 'status',
+                'notes' => 'notes',
+                'monthly_contribution' => 'monthly_contribution',
+                'savings_balance' => 'savings_balance',
+                'marital_status' => 'marital_status',
+                'department' => 'department',
+                'position' => 'position',
+                'grade_level' => 'grade_level',
+                'employee_rank' => 'employee_rank',
+                'date_of_first_appointment' => 'date_of_first_appointment',
+                'date_of_retirement' => 'date_of_retirement',
+                'bank_name' => 'bank_name',
+                'account_number' => 'account_number',
+                'account_name' => 'account_name',
+                'next_of_kin_name' => 'next_of_kin_name',
+                'next_of_kin_relationship' => 'next_of_kin_relationship',
+                'next_of_kin_phone' => 'next_of_kin_phone',
+                'next_of_kin_address' => 'next_of_kin_address',
+                'highest_qualification' => 'highest_qualification',
+                'years_of_residence' => 'years_of_residence'
+            ];
+
+            foreach ($data as $key => $val) {
+                if (array_key_exists($key, $dbMap)) {
+                    $column = $dbMap[$key];
+                    $updateFields[] = "$column = ?";
+                    $params[] = $val;
+                    $types .= 's'; // Default to string
+                }
+            }
+
+            if (empty($updateFields)) {
+                 return false;
+            }
+
+            $params[] = (int)$memberId;
+            $types .= 'i';
+
+            $sql = "UPDATE members SET " . implode(', ', $updateFields) . " WHERE member_id = ?";
+            $stmt = $this->connection->prepare($sql);
+            if (!$stmt) return false;
+
+            $stmt->bind_param($types, ...$params);
+            $res = $stmt->execute();
+            $stmt->close();
+            return $res;
+        } catch (\Throwable $e) {
+            error_log('MemberController updateMember error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Update member profile information
+     * Used by member-facing profile pages
+     */
+    public function updateMemberProfile(int $memberId, array $data): array
+    {
+        try {
+            // Build dynamic UPDATE query based on provided fields
+            $updateFields = [];
+            $params = [];
+            $types = '';
+            
+            // List of allowed fields to update
+            $allowedFields = [
+                'first_name', 'middle_name', 'last_name', 'dob', 'gender', 
+                'address', 'phone', 'email', 'occupation',
+                'marital_status', 'highest_qualification', 'years_of_residence',
+                'employee_rank', 'grade_level', 'position', 'department',
+                'date_of_first_appointment', 'date_of_retirement',
+                'bank_name', 'account_number', 'account_name',
+                'next_of_kin_name', 'next_of_kin_relationship', 
+                'next_of_kin_phone', 'next_of_kin_address',
+                'monthly_contribution'
+            ];
+            
+            foreach ($data as $field => $value) {
+                if (in_array($field, $allowedFields)) {
+                    $updateFields[] = "$field = ?";
+                    $params[] = $value;
+                    $types .= 's'; // All as string for simplicity
+                }
+            }
+            
+            if (empty($updateFields)) {
+                return ['success' => false, 'message' => 'No valid fields to update'];
+            }
+            
+            // Add member_id to params
+            $params[] = $memberId;
+            $types .= 'i';
+            
+            $sql = "UPDATE members SET " . implode(', ', $updateFields) . " WHERE member_id = ?";
+            $stmt = $this->connection->prepare($sql);
+            
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Failed to prepare update statement'];
+            }
+            
+            // Bind parameters dynamically
+            $stmt->bind_param($types, ...$params);
+            
+            if ($stmt->execute()) {
+                $stmt->close();
+                return ['success' => true, 'message' => 'Profile updated successfully'];
+            } else {
+                $error = $stmt->error;
+                $stmt->close();
+                return ['success' => false, 'message' => 'Failed to update profile: ' . $error];
+            }
+            
+        } catch (\Throwable $e) {
+            error_log('MemberController updateMemberProfile error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Error updating profile: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Change member password
+     * Used by member-facing profile pages
+     */
+    public function changePassword(int $memberId, string $currentPassword, string $newPassword): array
+    {
+        try {
+            // Get current password hash
+            $stmt = $this->connection->prepare("SELECT password FROM members WHERE member_id = ?");
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Failed to verify current password'];
+            }
+            
+            $stmt->bind_param('i', $memberId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows === 0) {
+                $stmt->close();
+                return ['success' => false, 'message' => 'Member not found'];
+            }
+            
+            $member = $result->fetch_assoc();
+            $stmt->close();
+            
+            // Verify current password
+            if (!password_verify($currentPassword, $member['password'])) {
+                return ['success' => false, 'message' => 'Current password is incorrect'];
+            }
+            
+            // Hash new password
+            $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            
+            // Update password
+            $stmt = $this->connection->prepare("UPDATE members SET password = ? WHERE member_id = ?");
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Failed to update password'];
+            }
+            
+            $stmt->bind_param('si', $newPasswordHash, $memberId);
+            
+            if ($stmt->execute()) {
+                $stmt->close();
+                return ['success' => true, 'message' => 'Password changed successfully'];
+            } else {
+                $error = $stmt->error;
+                $stmt->close();
+                return ['success' => false, 'message' => 'Failed to change password: ' . $error];
+            }
+            
+        } catch (\Throwable $e) {
+            error_log('MemberController changePassword error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Error changing password: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Delete a member
+     * 
+     * @param int $memberId
+     * @return array
+     */
+    public function deleteMember($memberId): array
+    {
+        try {
+            $memberId = (int)$memberId;
+            
+            // Check if member exists
+            $member = $this->getMemberById($memberId);
+            if (empty($member)) {
+                return ['success' => false, 'message' => 'Member not found'];
+            }
+            
+            // Check for related records that would prevent deletion
+            
+            // Check for savings accounts
+            $stmt = $this->connection->prepare("SELECT COUNT(*) as count FROM savings_accounts WHERE member_id = ?");
+            $stmt->bind_param('i', $memberId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            $stmt->close();
+            
+            if ($row['count'] > 0) {
+                return [
+                    'success' => false, 
+                    'message' => 'Cannot delete member with existing savings accounts. Please close all accounts first.'
+                ];
+            }
+            
+            // Check for loans
+            $stmt = $this->connection->prepare("SELECT COUNT(*) as count FROM loans WHERE member_id = ?");
+            $stmt->bind_param('i', $memberId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            $stmt->close();
+            
+            if ($row['count'] > 0) {
+                return [
+                    'success' => false, 
+                    'message' => 'Cannot delete member with existing loans. Please settle all loans first.'
+                ];
+            }
+            
+            // If no dependencies, proceed with deletion
+            $stmt = $this->connection->prepare("DELETE FROM members WHERE member_id = ?");
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Failed to prepare delete statement'];
+            }
+            
+            $stmt->bind_param('i', $memberId);
+            
+            if ($stmt->execute()) {
+                $stmt->close();
+                
+                // Log the deletion
+                error_log("Member deleted: ID {$memberId}, Name: {$member['first_name']} {$member['last_name']}");
+                
+                return [
+                    'success' => true, 
+                    'message' => 'Member deleted successfully'
+                ];
+            } else {
+                $error = $stmt->error;
+                $stmt->close();
+                return ['success' => false, 'message' => 'Failed to delete member: ' . $error];
+            }
+            
+        } catch (\Throwable $e) {
+            error_log('MemberController deleteMember error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Error deleting member: ' . $e->getMessage()];
         }
     }
 }

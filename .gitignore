@@ -15,6 +15,8 @@ error.log
 access.log
 php_error.log
 security.log
+last_run.log
+cron/logs/
 
 # Uploads and User Data
 uploads/
@@ -67,6 +69,7 @@ check_*.php
 phpunit.xml
 .phpunit.result.cache
 tests/coverage/
+development/test_*.php
 
 # Temporary Files
 *.tmp
@@ -83,6 +86,10 @@ tmp/
 debug.txt
 errors.txt
 output.log
+debug_output.txt
+debug_output_v*.txt
+*/debug_output.txt
+*/debug_output_v*.txt
 
 # Local Development
 xampp/
@@ -150,4 +157,48 @@ storage/*
 
 # PHPUnit
 .phpunit.cache
+
+# Cookie files
 cookie_admin.txt
+cookie_admin.txt.old
+
+# Seeding and Migration Outputs
+*_output.txt
+*_output_v*.txt
+seeding_*.txt
+seed_*.txt
+csv_dump.txt
+
+# Schema Dumps
+*_schema.txt
+admin_schema.txt
+members_schema.txt
+savings_schema.txt
+trans_schema.txt
+
+# Investigation and Analysis Files
+investigation*.txt
+investigation*.log
+analysis_*.txt
+diagnostic_*.txt
+scripts/investigation.log
+scripts/analysis_report.txt
+scripts/deep_dive.txt
+scripts/verify_*.log
+scripts/reseed_*.log
+development/archive/*_comparison.txt
+development/archive/*_investigation_*.txt
+
+# Temporary Check Files
+temp_*.txt
+temp_*.php
+
+# Keep Important Documentation
+!docs/*.md
+!.agent/workflows/*.md
+!README.md
+# Additional test and temp files
+views/admin/test_output*.html
+views/member_register_backup.php
+views/member_register_new.php
+update_loan_dates.php

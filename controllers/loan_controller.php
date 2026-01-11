@@ -8,45 +8,27 @@ use CSIMS\Services\LoanService;
 use CSIMS\Services\AuditLogger;
 use CSIMS\Container\Container;
 use CSIMS\Repositories\LoanRepository;
+use CSIMS\Core\BaseController;
 
-class LoanController
+class LoanController extends BaseController
 {
     private Container $container;
     private LoanService $loanService;
     private AuditLogger $auditLogger;
     private mysqli $conn;
 
-    // Accept optional legacy $conn for compatibility; ignored as container manages DB
+    // Accept optional legacy $conn for compatibility; ignored as BaseController manages DB
     public function __construct($conn = null)
     {
+        parent::__construct(); // Initialize BaseController services (DB, Session, Security)
+        
         // Initialize modern container and resolve services
         $this->container = CSIMS\bootstrap();
         $this->loanService = $this->container->resolve(LoanService::class);
         $this->auditLogger = $this->container->resolve(AuditLogger::class);
-        // Initialize DB connection for shim methods
-        if ($conn instanceof mysqli) {
-            $this->conn = $conn;
-        } else {
-            $resolved = null;
-            try { $resolved = $this->container->resolve(mysqli::class); } catch (\Throwable $e) { /* noop */ }
-            // Get database credentials from config
-            require_once __DIR__ . '/../config/config.php';
-            require_once __DIR__ . '/../config/database.php';
-            
-            $host = ini_get('mysqli.default_host') ?: (defined('DB_HOST') ? DB_HOST : 'localhost');
-            $user = ini_get('mysqli.default_user') ?: (defined('DB_USER') ? DB_USER : '');
-            $pass = ini_get('mysqli.default_pw') ?: (defined('DB_PASS') ? DB_PASS : '');
-            $database = defined('DB_NAME') ? DB_NAME : '';
-            $port = (int)(ini_get('mysqli.default_port') ?: 3306);
-            
-            $this->conn = $resolved instanceof mysqli ? $resolved : new mysqli(
-                $host,
-                $user,
-                $pass,
-                $database,
-                $port
-            );
-        }
+        
+        // Map BaseController's DB connection to local property for backward compat
+        $this->conn = $this->db;
     }
 
     /**
@@ -452,8 +434,8 @@ class LoanController
         $stats['total_loans'] = $row['total_loans'];
         $stats['total_amount'] = $row['total_amount'];
 
-        // Loans by status
-        $statuses = ['Pending', 'Approved', 'Overdue', 'Paid'];
+        // Loans by status - Include all possible statuses from the database ENUM
+        $statuses = ['Pending', 'Approved', 'Rejected', 'Disbursed', 'Overdue', 'Paid'];
         foreach ($statuses as $status) {
             // Be resilient to accidental whitespace or case variations in stored status
             $sql = "SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as amount FROM loans WHERE UPPER(TRIM(status)) = UPPER(?)";
@@ -476,11 +458,16 @@ class LoanController
 
         // Duplicate counts with legacy-friendly keys used by views (already created above, but ensure compatibility)
         $stats['pending_count'] = is_array($stats['pending_loans'] ?? null) ? $stats['pending_loans']['count'] : (int)($stats['pending_loans'] ?? 0);
-        $stats['approved_count'] = is_array($stats['approved_loans'] ?? null) ? $stats['approved_loans']['count'] : (int)($stats['approved_loans'] ?? 0);
+        
+        // Approved count should include both Approved and Disbursed loans (Disbursed = Approved + Money Given Out)
+        $approvedOnly = is_array($stats['approved_loans'] ?? null) ? $stats['approved_loans']['count'] : 0;
+        $disbursedAlso = is_array($stats['disbursed_loans'] ?? null) ? $stats['disbursed_loans']['count'] : 0;
+        $stats['approved_count'] = (int)($approvedOnly + $disbursedAlso);
+        
         $stats['overdue_count'] = is_array($stats['overdue_loans'] ?? null) ? $stats['overdue_loans']['count'] : (int)($stats['overdue_loans'] ?? 0);
 
-        // Approved amount for display under Approved Loans card
-        $sql = "SELECT COALESCE(SUM(amount), 0) as approved_amount FROM loans WHERE UPPER(TRIM(status)) = 'APPROVED'";
+        // Approved amount should include both Approved and Disbursed loans
+        $sql = "SELECT COALESCE(SUM(amount), 0) as approved_amount FROM loans WHERE UPPER(TRIM(status)) IN ('APPROVED', 'DISBURSED')";
         $resAmt = $this->conn->query($sql);
         if ($resAmt) {
             $rowAmt = $resAmt->fetch_assoc();

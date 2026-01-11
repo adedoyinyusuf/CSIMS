@@ -53,10 +53,17 @@ spl_autoload_register(function ($className) {
  */
 function bootstrap(): Container
 {
+    static $bootstrapped = false;
+    
+    // Get container instance
+    $container = Container::getInstance();
+
+    if ($bootstrapped) {
+        return $container;
+    }
+    $bootstrapped = true;
+    
     try {
-        // Get container instance
-        $container = Container::getInstance();
-        
         // Register configuration
         $config = Config::getInstance();
         $container->instance(Config::class, $config);
@@ -180,7 +187,7 @@ function setupErrorHandling(): void
 {
     // Set error reporting level
     error_reporting(E_ALL);
-    ini_set('display_errors', 0); // Don't display errors to user
+    ini_set('display_errors', 1); // Enable error display for debugging
     ini_set('log_errors', 1);     // Log errors
     
     // Set custom error handler

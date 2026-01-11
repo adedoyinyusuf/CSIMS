@@ -216,7 +216,7 @@ $pageTitle = "Add Loan Application";
                                         <select id="member_id" name="member_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
                                             <option value="">Select Member</option>
                                             <?php foreach ($members as $member): ?>
-                                                <option value="<?php echo $member['member_id']; ?>" <?php echo (isset($_POST['member_id']) && $_POST['member_id'] == $member['member_id']) ? 'selected' : ''; ?>>
+                                                <option value="<?php echo $member['member_id']; ?>" <?php echo ((isset($_POST['member_id']) && $_POST['member_id'] == $member['member_id']) || (isset($_GET['member_id']) && $_GET['member_id'] == $member['member_id'])) ? 'selected' : ''; ?>>
                                                     <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name'] . ' (' . $member['member_id'] . ')'); ?>
                                                 </option>
                                             <?php endforeach; ?>

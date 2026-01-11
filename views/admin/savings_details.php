@@ -63,6 +63,8 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Savings Account Details - <?php echo APP_NAME; ?></title>
+    <!-- Premium Design System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/premium-design-system.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <link href="<?php echo BASE_URL; ?>/assets/css/tailwind.css" rel="stylesheet">
 </head>
@@ -194,7 +196,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                         </div>
                     <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-hover table-standard">
+                            <table class="table-premium" id="transactionsTable">
                                 <thead>
                                     <tr>
                                         <th>Date</th>

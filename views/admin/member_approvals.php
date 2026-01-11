@@ -25,6 +25,9 @@ $error = '';
 
 // Handle approval/rejection actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validate CSRF token
+    CSRFProtection::validateRequest();
+    
     $action = $_POST['action'];
     $member_id = (int)$_POST['member_id'];
     
@@ -156,18 +159,22 @@ $pendingMembers = $memberController->getPendingMembers();
                                                 <td><?php echo htmlspecialchars($member['membership_type'] ?? 'Standard'); ?></td>
                                                 <td><?php echo date('M d, Y', strtotime($member['registration_date'] ?? $member['join_date'] ?? 'now')); ?></td>
                                                 <td>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="member_id" value="<?php echo (int)$member['member_id']; ?>">
-                                                        <button type="submit" name="action" value="approve" class="btn btn-sm btn-success">
+                                                    <div class="btn-group" role="group">
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-success" 
+                                                                onclick="approveMember(<?php echo (int)$member['member_id']; ?>, '<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name'], ENT_QUOTES); ?>')">
                                                             <i class="fas fa-check"></i> Approve
                                                         </button>
-                                                    </form>
-                                                    <form method="POST" class="d-inline ms-2">
-                                                        <input type="hidden" name="member_id" value="<?php echo (int)$member['member_id']; ?>">
-                                                        <button type="submit" name="action" value="reject" class="btn btn-sm btn-danger">
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-danger" 
+                                                                onclick="rejectMember(<?php echo (int)$member['member_id']; ?>, '<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name'], ENT_QUOTES); ?>')">
                                                             <i class="fas fa-times"></i> Reject
                                                         </button>
-                                                    </form>
+                                                        <a href="view_member.php?id=<?php echo (int)$member['member_id']; ?>" 
+                                                           class="btn btn-sm btn-outline-primary">
+                                                            <i class="fas fa-eye"></i> View
+                                                        </a>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -188,5 +195,105 @@ $pendingMembers = $memberController->getPendingMembers();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="<?php echo BASE_URL; ?>/assets/js/script.js"></script>
+    
+    <script>
+        // Get CSRF token from page
+        const csrfToken = '<?php echo CSRFProtection::generateToken(); ?>';
+        
+        // Approve Member Function
+        function approveMember(memberId, memberName) {
+            if (confirm(`Are you sure you want to APPROVE ${memberName}?\n\nThis will activate their membership and grant them access to the system.`)) {
+                // Show loading state
+                const button = event.target.closest('button');
+                const originalHTML = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                // Submit form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '';
+                
+                // CSRF Token
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken;
+                
+                const memberIdInput = document.createElement('input');
+                memberIdInput.type = 'hidden';
+                memberIdInput.name = 'member_id';
+                memberIdInput.value = memberId;
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'approve';
+                
+                form.appendChild(csrfInput);
+                form.appendChild(memberIdInput);
+                form.appendChild(actionInput);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        
+        // Reject Member Function
+        function rejectMember(memberId, memberName) {
+            const reason = prompt(`Are you sure you want to REJECT ${memberName}?\n\nPlease enter a reason for rejection (optional):`);
+            
+            if (reason !== null) { // User clicked OK (even if reason is empty)
+                // Show loading state
+                const button = event.target.closest('button');
+                const originalHTML = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                // Submit form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '';
+                
+                // CSRF Token
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken;
+                
+                const memberIdInput = document.createElement('input');
+                memberIdInput.type = 'hidden';
+                memberIdInput.name = 'member_id';
+                memberIdInput.value = memberId;
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'reject';
+                
+                const reasonInput = document.createElement('input');
+                reasonInput.type = 'hidden';
+                reasonInput.name = 'rejection_reason';
+                reasonInput.value = reason || 'No reason provided';
+                
+                form.appendChild(csrfInput);
+                form.appendChild(memberIdInput);
+                form.appendChild(actionInput);
+                form.appendChild(reasonInput);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
+            });
+        });
+    </script>
 </body>
 </html>

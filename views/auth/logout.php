@@ -13,7 +13,7 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
 
-// Redirect to login page with cache-busting parameter
+// Redirect to unified login page with cache-busting parameter
 $session->setFlash('success', 'You have been successfully logged out.');
-header("Location: ../../index.php?t=" . time());
+header("Location: ../../login.php?t=" . time());
 exit();

@@ -4,10 +4,15 @@
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
-class AuthController {
+use CSIMS\Core\BaseController;
+
+class AuthController extends BaseController {
     private $authService;
 
     public function __construct() {
+        // Initialize BaseController (Sets up DB, Session, CSRF, Security Headers)
+        parent::__construct();
+        
         $container = \CSIMS\bootstrap();
         $this->authService = $container->resolve(\CSIMS\Services\AuthenticationService::class);
     }
@@ -20,21 +25,14 @@ class AuthController {
         }
         
         // Check for legacy admin session
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        if (isset($_SESSION['admin_id'])) {
+        if ($this->session->get('admin_id')) {
             return true;
         }
         
-        // Fallback to legacy Session class if present
-        if (!class_exists('Session')) {
-            require_once __DIR__ . '/../includes/session.php';
-        }
+        // BaseController already initializes Session, so we can check it
         if (class_exists('Session')) {
-            $session = \Session::getInstance();
-            if (method_exists($session, 'isLoggedIn')) {
-                return (bool)$session->isLoggedIn();
+            if (method_exists($this->session, 'isLoggedIn')) {
+                return (bool)$this->session->isLoggedIn();
             }
         }
         return false;
@@ -52,18 +50,18 @@ class AuthController {
             return [
                 'first_name' => $first,
                 'last_name' => $last,
+                'admin_id' => method_exists($user, 'getId') ? $user->getId() : null,
+                'user_id' => method_exists($user, 'getId') ? $user->getId() : null,
             ];
         }
         
         // Fallback to legacy admin session check
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        if (isset($_SESSION['admin_id'])) {
+        if ($this->session->get('admin_id')) {
             return [
-                'first_name' => $_SESSION['first_name'] ?? '',
-                'last_name' => $_SESSION['last_name'] ?? '',
+                'first_name' => $this->session->get('first_name') ?? '',
+                'last_name' => $this->session->get('last_name') ?? '',
+                'admin_id' => $this->session->get('admin_id'),
+                'user_id' => $this->session->get('admin_id'), // Alias for compatibility
             ];
         }
         
@@ -90,28 +88,18 @@ class AuthController {
                 'first_name' => $u['first_name'] ?? '',
                 'last_name' => $u['last_name'] ?? '',
             ];
-            if (!class_exists('Session')) {
-                require_once __DIR__ . '/../includes/session.php';
-            }
-            $session = \Session::getInstance();
-            $session->login($admin);
+            $this->session->login($admin);
         }
         return $result;
     }
 
     public function logout(): void {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
         $sessionId = $_SESSION['session_id'] ?? null;
         if ($sessionId) {
             $this->authService->logout($sessionId);
         } else {
-            // Fallback: clear PHP session when no modern session ID is present
-            session_unset();
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_destroy();
-            }
+            // Fallback: clear PHP session
+            $this->session->logout();
         }
         // Also clear legacy admin session keys for backwards compatibility
         unset($_SESSION['admin_id'], $_SESSION['username'], $_SESSION['role'], 
@@ -121,16 +109,16 @@ class AuthController {
 
     /**
      * Admin login using the admins table
+     * REFACTORED: Uses BaseController ($this->db) instead of global $conn
      */
     public function adminLogin(string $username, string $password): array {
-        global $conn;
-        
-        if (!$conn) {
-            require_once __DIR__ . '/../config/database.php';
+        // Use $this->db from BaseController (mysqli instance)
+        if (!$this->db) {
+             return ['success' => false, 'message' => 'Database connection failed'];
         }
         
         // Query the admins table
-        $stmt = $conn->prepare("SELECT * FROM admins WHERE username = ?");
+        $stmt = $this->db->prepare("SELECT * FROM admins WHERE username = ?");
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error'];
         }
@@ -149,11 +137,7 @@ class AuthController {
             return ['success' => false, 'message' => 'Invalid credentials'];
         }
         
-        // Start session and store admin data
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
+        // Start session and store admin data using Session wrapper
         $_SESSION['admin_id'] = $admin['admin_id'];
         $_SESSION['username'] = $admin['username'];
         $_SESSION['role'] = $admin['role'];
@@ -200,9 +184,6 @@ class AuthController {
         }
 
         // Legacy admin role check
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
         return isset($_SESSION['role']) && $_SESSION['role'] === 'Super Admin';
     }
 
@@ -254,10 +235,6 @@ class AuthController {
         }
 
         // Legacy permissions based on Admin role
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
         $role = $_SESSION['role'] ?? null;
         if ($role === 'Admin') {
             $adminPermissions = [
@@ -307,9 +284,6 @@ class AuthController {
         }
 
         // Legacy session role check
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
         $legacyRole = strtolower((string)($_SESSION['role'] ?? ''));
         if ($requested === $legacyRole) {
             return true;

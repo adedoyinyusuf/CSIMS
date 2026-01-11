@@ -11,11 +11,13 @@ if (!defined('ENVIRONMENT')) define('ENVIRONMENT', 'development'); // Change to 
 
 // URL Configuration
 // Detect if running from CSIMS directory or subdirectory
-$script_dir = dirname($_SERVER['SCRIPT_NAME']);
+$script_name = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
+$script_dir = $script_name ? dirname($script_name) : '';
 $base_path = ($script_dir === '/' || $script_dir === '\\') ? '' : $script_dir;
 // Normalize base path by removing known subdirectories (views, admin, api, src)
 $remove_dirs = ['/views', '/admin', '/api', '/src'];
 foreach ($remove_dirs as $dir) {
+    if (empty($base_path)) break;
     $pos = strpos($base_path, $dir);
     if ($pos !== false) {
         $base_path = substr($base_path, 0, $pos);
@@ -25,7 +27,8 @@ foreach ($remove_dirs as $dir) {
 if ($base_path === '/' || $base_path === '\\') {
     $base_path = '';
 }
-if (!defined('BASE_URL')) define('BASE_URL', 'http://' . $_SERVER['HTTP_HOST'] . $base_path);
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+if (!defined('BASE_URL')) define('BASE_URL', 'http://' . $host . $base_path);
 
 // Directory Configuration
 if (!defined('ROOT_DIR')) define('ROOT_DIR', dirname(__DIR__));
@@ -95,6 +98,11 @@ if (!defined('ALLOWED_IMAGE_TYPES')) define('ALLOWED_IMAGE_TYPES', ['image/jpeg'
 require_once ROOT_DIR . '/includes/db.php';
 require_once ROOT_DIR . '/includes/session.php';
 require_once ROOT_DIR . '/includes/utilities.php';
+
+// -> Core Architecture (Production Readiness)
+require_once ROOT_DIR . '/src/autoload.php';
+\CSIMS\Core\ErrorHandler::register();
+
 require_once ROOT_DIR . '/config/security.php';
 
 // Initialize session

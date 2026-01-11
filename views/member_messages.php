@@ -6,12 +6,6 @@ require_once '../config/database.php';
 require_once '../controllers/message_controller.php';
 require_once '../controllers/member_controller.php';
 
-// Remove manual session check; rely on member_auth_check.php
-// if (!isset($_SESSION['member_id']) || $_SESSION['user_type'] !== 'member') {
-//     header('Location: member_login.php');
-//     exit();
-// }
-
 $messageController = new MessageController();
 $memberController = new MemberController();
 
@@ -21,6 +15,7 @@ $member = $memberController->getMemberById($member_id);
 // Handle message actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+    // $errors and $success handling preserved
     $errors = [];
     $success = false;
     
@@ -80,303 +75,396 @@ $unread_count = $messageController->getUnreadCountForMember($member_id);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messages - NPC CTLStaff Loan Society</title>
-    <!-- Assets centralized via includes/member_header.php -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd',
+                            300: '#7dd3fc', 400: '#38bdf8', 500: '#0ea5e9',
+                            600: '#0284c7', 700: '#0369a1', 800: '#075985', 900: '#0c4a6e'
+                        },
+                        secondary: {
+                            50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0',
+                            300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b',
+                            600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        .sidebar {
-            min-height: 100vh;
-            background: #ffffff;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.06);
-        }
-        .sidebar .nav-link {
-            color: var(--text-secondary);
-            padding: 0.75rem 1rem;
-            margin: 0.25rem 0;
-            border-radius: 0.5rem;
-            transition: all 0.3s ease;
-        }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            color: var(--text-primary);
-            background-color: var(--primary-50);
-        }
-        /* Ensure any legacy white text is readable on white sidebar */
-        .sidebar .text-white, .sidebar .text-white-50 { color: var(--text-secondary) !important; }
-        .sidebar h4 { color: var(--text-primary); }
-        .sidebar .fw-bold { color: var(--text-primary); }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .message-card {
-            border-left: 4px solid var(--true-blue);
-            margin-bottom: 1rem;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        .message-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 25px rgba(0,0,0,0.15);
-        }
-        .message-card.sent {
-            border-left-color: var(--success);
-        }
-        .message-card.received {
-            border-left-color: var(--true-blue);
-        }
-        .message-card.unread {
-            background-color: var(--primary-50);
-            border-left-color: var(--warning);
-        }
-        .message-direction {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-        .direction-sent { background-color: #d4edda; color: #155724; }
-        .direction-received { background-color: #cce7ff; color: #004085; }
-        .compose-btn {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: var(--true-blue);
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
-        }
-        .compose-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 25px rgba(0,0,0,0.4);
-        }
+        body { font-family: 'Inter', sans-serif; }
+        /* Modal Transitions */
+        .modal { transition: opacity 0.25s ease; }
+        .modal-active { overflow-y: hidden; }
     </style>
 </head>
-<body>
-<?php include __DIR__ . '/includes/member_header.php'; ?>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Main Content (offcanvas handles navigation) -->
-            <div class="col-12">
-                <div class="p-4">
-                    <!-- Header -->
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-envelope me-2" style="color: var(--true-blue);"></i> Messages</h2>
-                        <div class="d-flex align-items-center">
-                            <form class="d-flex me-3" method="GET" action="">
-                                <input type="hidden" name="limit" value="<?php echo (int)$limit; ?>">
-                                <input type="text" class="form-control form-control-sm me-2" name="search" placeholder="Search subject or message" value="<?php echo htmlspecialchars($search); ?>">
-                                <select class="form-select form-select-sm me-2" name="filter">
-                                    <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All</option>
-                                    <option value="unread" <?php echo $filter === 'unread' ? 'selected' : ''; ?>>Unread</option>
-                                    <option value="read" <?php echo $filter === 'read' ? 'selected' : ''; ?>>Read</option>
-                                </select>
-                                <button class="btn btn-standard btn-sm btn-outline-primary" type="submit"><i class="fas fa-search me-1" style="color: var(--accent-color);"></i>Filter</button>
-                            </form>
-                            <span class="text-muted me-3">
-                                <i class="fas fa-info-circle me-1"></i>
-                                <?php echo count($messages); ?> message(s)
+<body class="bg-secondary-50 text-secondary-900">
+    <?php include __DIR__ . '/includes/member_header.php'; ?>
+    
+    <div class="flex min-h-screen">
+        <main class="flex-1 overflow-x-hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                
+                <!-- Page Header -->
+                <div class="md:flex md:items-center md:justify-between mb-8">
+                    <div>
+                        <h1 class="text-2xl font-bold text-secondary-900">Messages</h1>
+                        <p class="text-secondary-500 mt-1">Communications with the administration</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 flex items-center space-x-3">
+                         <!-- Stats Pill -->
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-secondary-600 shadow-sm border border-secondary-200">
+                            <i class="fas fa-inbox mr-2 text-primary-500"></i> 
+                            <?php echo $pagination['total_items']; ?> total
+                        </span>
+                        <?php if ($unread_count > 0): ?>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-50 text-amber-700 shadow-sm border border-amber-200">
+                                <i class="fas fa-envelope mr-2 text-amber-500"></i>
+                                <?php echo $unread_count; ?> unread
                             </span>
-                            <?php if ($unread_count > 0): ?>
-                                <span class="badge bg-warning text-dark">
-                                    <?php echo $unread_count; ?> unread
-                                </span>
-                            <?php endif; ?>
+                        <?php endif; ?>
+                        
+                        <!-- Compose Button -->
+                        <button onclick="openComposeModal()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                            <i class="fas fa-plus mr-2"></i> New Message
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <?php if (isset($success) && $success): ?>
+                    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r-md shadow-sm animate-fade-in-down">
+                        <div class="flex">
+                            <div class="flex-shrink-0"><i class="fas fa-check-circle text-green-500"></i></div>
+                            <div class="ml-3"><p class="text-sm font-medium text-green-800"><?php echo $successMessage; ?></p></div>
                         </div>
                     </div>
-                    
-                    <!-- Success/Error Messages -->
-                    <?php if (isset($success) && $success): ?>
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i><?php echo $successMessage; ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($errors)): ?>
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-circle me-2"></i>
-                            <?php foreach ($errors as $error): ?>
-                                <div><?php echo htmlspecialchars($error); ?></div>
-                            <?php endforeach; ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <!-- Messages List -->
-                    <?php if (empty($messages)): ?>
-                        <div class="card">
-                            <div class="card-body text-center py-5">
-                                <i class="fas fa-envelope-open fa-4x text-muted mb-3" style="color: var(--true-blue);"></i>
-                                <h5 class="text-muted">No messages</h5>
-                                <p class="text-muted">You don't have any messages yet. Click the compose button to send a message to the administration.</p>
+                <?php endif; ?>
+
+                <?php if (!empty($errors)): ?>
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-md shadow-sm">
+                        <div class="flex">
+                            <div class="flex-shrink-0"><i class="fas fa-exclamation-circle text-red-500"></i></div>
+                            <div class="ml-3">
+                                <?php foreach ($errors as $error): ?>
+                                    <p class="text-sm font-medium text-red-800"><?php echo htmlspecialchars($error); ?></p>
+                                <?php endforeach; ?>
                             </div>
                         </div>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Filter & Search Bar -->
+                <div class="bg-white rounded-xl shadow-sm border border-secondary-100 p-4 mb-6">
+                    <form method="GET" action="" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        <div class="md:col-span-5 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-secondary-400"></i>
+                            </div>
+                            <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" 
+                                   class="block w-full pl-10 pr-3 py-2 border-secondary-300 rounded-lg text-sm placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Search subject or content...">
+                        </div>
+                        <div class="md:col-span-3">
+                            <select name="filter" 
+                                    class="block w-full pl-3 pr-10 py-2 text-base border-secondary-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-lg">
+                                <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All Messages</option>
+                                <option value="unread" <?php echo $filter === 'unread' ? 'selected' : ''; ?>>Unread Only</option>
+                                <option value="read" <?php echo $filter === 'read' ? 'selected' : ''; ?>>Read Only</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                             <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2 border border-secondary-300 shadow-sm text-sm font-medium rounded-lg text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Messages List -->
+                <div class="bg-white rounded-xl shadow-sm border border-secondary-100 overflow-hidden">
+                    <?php if (empty($messages)): ?>
+                        <div class="text-center py-12 px-4">
+                            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary-100 mb-4">
+                                <i class="fas fa-envelope-open text-secondary-400 text-2xl"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-secondary-900">No messages found</h3>
+                            <p class="mt-1 text-sm text-secondary-500">
+                                <?php echo $search ? 'Try adjusting your search or filters.' : 'Get in touch with the administration using the button above.'; ?>
+                            </p>
+                        </div>
                     <?php else: ?>
-                        <?php foreach ($messages as $message): ?>
-                            <div class="card message-card <?php echo $message['message_direction']; ?> <?php echo ($message['message_direction'] === 'received' && !$message['is_read']) ? 'unread' : ''; ?>" 
-                                 onclick="viewMessage(<?php echo $message['message_id']; ?>)">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h6 class="card-title mb-0">
-                                            <i class="fas fa-<?php echo $message['message_direction'] === 'sent' ? 'paper-plane' : 'inbox'; ?> me-2"></i>
-                                            <?php echo htmlspecialchars($message['subject']); ?>
-                                            <?php if ($message['message_direction'] === 'received' && !$message['is_read']): ?>
-                                                <span class="badge bg-warning text-dark ms-2">New</span>
-                                            <?php endif; ?>
-                                        </h6>
-                                        <div class="d-flex align-items-center">
-                                            <span class="message-direction direction-<?php echo $message['message_direction']; ?> me-2">
-                                                <?php echo ucfirst($message['message_direction']); ?>
-                                            </span>
-                                            <small class="text-muted">
-                                                <?php echo date('M j, Y g:i A', strtotime($message['created_at'])); ?>
-                                            </small>
+                        <ul class="divide-y divide-secondary-100">
+                            <?php foreach ($messages as $message): ?>
+                                <?php 
+                                    $isUnread = ($message['message_direction'] === 'received' && !$message['is_read']);
+                                    $rowClass = $isUnread ? 'bg-primary-50/50' : 'hover:bg-secondary-50';
+                                    $iconClass = $message['message_direction'] === 'sent' ? 'bg-secondary-100 text-secondary-500' : 'bg-primary-100 text-primary-600';
+                                    $icon = $message['message_direction'] === 'sent' ? 'fa-paper-plane' : 'fa-inbox';
+                                ?>
+                                <li>
+                                    <div onclick="viewMessage(<?php echo $message['message_id']; ?>)" class="block cursor-pointer <?php echo $rowClass; ?> transition duration-150 ease-in-out">
+                                        <div class="px-4 py-4 sm:px-6">
+                                            <div class="flex items-start">
+                                                <!-- Icon/Avatar -->
+                                                <div class="flex-shrink-0">
+                                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full <?php echo $iconClass; ?>">
+                                                        <i class="fas <?php echo $icon; ?> text-sm"></i>
+                                                    </span>
+                                                </div>
+                                                
+                                                <!-- Content -->
+                                                <div class="ml-4 flex-1">
+                                                    <div class="flex items-center justify-between">
+                                                        <p class="text-sm font-semibold text-secondary-900 truncate">
+                                                            <?php echo htmlspecialchars($message['subject']); ?>
+                                                            <?php if ($isUnread): ?>
+                                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800">
+                                                                    New
+                                                                </span>
+                                                            <?php endif; ?>
+                                                        </p>
+                                                        <div class="ml-2 flex-shrink-0 flex">
+                                                            <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $message['message_direction'] === 'sent' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'; ?>">
+                                                                <?php echo ucfirst($message['message_direction']); ?>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-1 flex justify-between">
+                                                        <div class="sm:flex">
+                                                            <p class="flex items-center text-sm text-secondary-500">
+                                                                <?php if ($message['message_direction'] === 'sent'): ?>
+                                                                    <i class="fas fa-arrow-right text-xs mr-1.5 text-secondary-400"></i> To: <?php echo htmlspecialchars($message['recipient_name'] ?? 'Admin'); ?>
+                                                                <?php else: ?>
+                                                                    <i class="fas fa-user-circle text-xs mr-1.5 text-secondary-400"></i> From: <?php echo htmlspecialchars($message['sender_name'] ?? 'Admin'); ?>
+                                                                <?php endif; ?>
+                                                                <span class="mx-2 text-secondary-300">&bull;</span>
+                                                                <span class="truncate max-w-xs sm:max-w-md">
+                                                                    <?php echo htmlspecialchars(substr($message['message'], 0, 100)) . (strlen($message['message']) > 100 ? '...' : ''); ?>
+                                                                </span>
+                                                            </p>
+                                                        </div>
+                                                        <div class="mt-2 flex items-center text-xs text-secondary-500 sm:mt-0">
+                                                            <i class="fas fa-clock flex-shrink-0 mr-1.5 text-secondary-400"></i>
+                                                            <p>
+                                                                <?php echo date('M j, Y', strtotime($message['created_at'])); ?> 
+                                                                <span class="hidden sm:inline">at <?php echo date('g:i A', strtotime($message['created_at'])); ?></span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    
-                                    <p class="card-text text-truncate">
-                                        <?php echo htmlspecialchars(substr($message['message'], 0, 150)) . (strlen($message['message']) > 150 ? '...' : ''); ?>
-                                    </p>
-                                    
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted">
-                                            <i class="fas fa-user me-1"></i>
-                                            <?php if ($message['message_direction'] === 'sent'): ?>
-                                                To: <?php echo htmlspecialchars($message['recipient_name'] ?? 'Administration'); ?>
-                                            <?php else: ?>
-                                                From: <?php echo htmlspecialchars($message['sender_name'] ?? 'Administration'); ?>
-                                            <?php endif; ?>
-                                        </small>
-                                        <small class="text-muted">
-                                            <i class="fas fa-clock me-1"></i>
-                                            <?php echo date('g:i A', strtotime($message['created_at'])); ?>
-                                        </small>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                        
+                        <!-- Pagination -->
+                        <?php if ($pagination['total_pages'] > 1): ?>
+                            <div class="bg-white px-4 py-3 border-t border-secondary-200 flex items-center justify-between sm:px-6">
+                                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                    <div>
+                                        <p class="text-sm text-secondary-700">
+                                            Showing <span class="font-medium"><?php echo $pagination['offset'] + 1; ?></span> to <span class="font-medium"><?php echo min($pagination['offset'] + $pagination['items_per_page'], $pagination['total_items']); ?></span> of <span class="font-medium"><?php echo $pagination['total_items']; ?></span> results
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                            <?php
+                                            // Simple Pagination Logic for Tailwind
+                                            $qs = $_GET; 
+                                            unset($qs['page']);
+                                            $baseLink = '?' . http_build_query($qs) . '&page=';
+                                            
+                                            if ($pagination['current_page'] > 1) {
+                                                echo '<a href="' . $baseLink . ($pagination['current_page'] - 1) . '" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-secondary-300 bg-white text-sm font-medium text-secondary-500 hover:bg-secondary-50"><i class="fas fa-chevron-left"></i></a>';
+                                            }
+                                            
+                                            // Show limited page numbers
+                                            for ($i = 1; $i <= $pagination['total_pages']; $i++) {
+                                                if ($i == $pagination['current_page']) {
+                                                    echo '<span class="relative inline-flex items-center px-4 py-2 border border-primary-500 bg-primary-50 text-sm font-medium text-primary-600 z-10">' . $i . '</span>';
+                                                } else {
+                                                    echo '<a href="' . $baseLink . $i . '" class="relative inline-flex items-center px-4 py-2 border border-secondary-300 bg-white text-sm font-medium text-secondary-700 hover:bg-secondary-50">' . $i . '</a>';
+                                                }
+                                            }
+                                            
+                                            if ($pagination['current_page'] < $pagination['total_pages']) {
+                                                echo '<a href="' . $baseLink . ($pagination['current_page'] + 1) . '" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-secondary-300 bg-white text-sm font-medium text-secondary-500 hover:bg-secondary-50"><i class="fas fa-chevron-right"></i></a>';
+                                            }
+                                            ?>
+                                        </nav>
                                     </div>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
+
             </div>
-        </div>
+        </main>
     </div>
-    
-    <!-- Compose Button -->
-    <button class="compose-btn" data-bs-toggle="modal" data-bs-target="#composeModal">
-        <i class="fas fa-plus"></i>
-    </button>
-    
-    <!-- Compose Message Modal -->
-    <div class="modal fade" id="composeModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-edit me-2"></i>Compose Message
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+
+    <!-- Compose Modal (Tailwind) -->
+    <div id="composeModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 bg-secondary-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeComposeModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                 <form method="POST">
                     <input type="hidden" name="action" value="send_message">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="subject" class="form-label">Subject</label>
-                            <input type="text" class="form-control" id="subject" name="subject" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="message" class="form-label">Message</label>
-                            <textarea class="form-control" id="message" name="message" rows="8" required placeholder="Type your message here..."></textarea>
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Your message will be sent to the administration team. They will respond as soon as possible.
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-primary-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <i class="fas fa-pen text-primary-600"></i>
+                            </div>
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-secondary-900" id="modal-title">
+                                    New Message
+                                </h3>
+                                <div class="mt-4 space-y-4">
+                                    <div>
+                                        <label for="subject" class="block text-sm font-medium text-secondary-700">Subject</label>
+                                        <input type="text" name="subject" id="subject" class="mt-1 block w-full border-secondary-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                                    </div>
+                                    <div>
+                                        <label for="message" class="block text-sm font-medium text-secondary-700">Message</label>
+                                        <textarea id="message" name="message" rows="5" class="mt-1 block w-full border-secondary-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Write your message here..." required></textarea>
+                                    </div>
+                                    <div class="rounded-md bg-blue-50 p-3">
+                                        <div class="flex">
+                                            <div class="flex-shrink-0">
+                                                <i class="fas fa-info-circle text-blue-400"></i>
+                                            </div>
+                                            <div class="ml-3 flex-1 md:flex md:justify-between">
+                                                <p class="text-sm text-blue-700">Replies will appear in your inbox.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-standard btn-secondary" data-bs-dismiss="modal">
-                            <i class="fas fa-times me-1"></i>Cancel
+                    <div class="bg-secondary-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Send Message
                         </button>
-                        <button type="submit" class="btn btn-standard btn-outline">
-                            <i class="fas fa-paper-plane me-1"></i>Send Message
+                        <button type="button" onclick="closeComposeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-secondary-700 hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    
-    <!-- View Message Modal -->
-    <div class="modal fade" id="viewMessageModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="messageSubject"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>From:</strong> <span id="messageSender"></span>
+
+    <!-- View Message Modal (Tailwind) -->
+    <div id="viewMessageModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 bg-secondary-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeViewModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-semibold text-secondary-900 flex items-center justify-between">
+                                <span id="viewSubject">Subject</span>
+                                <span id="viewDate" class="text-xs font-normal text-secondary-500"></span>
+                            </h3>
+                            <div class="mt-2 text-sm text-secondary-500 mb-4 border-b border-secondary-100 pb-2">
+                                <span id="viewSender" class="font-medium text-secondary-700">Sender</span>
                             </div>
-                            <div class="col-md-6">
-                                <strong>Date:</strong> <span id="messageDate"></span>
+                            <div class="mt-4">
+                                <p id="viewContent" class="text-sm text-secondary-700 whitespace-pre-wrap leading-relaxed"></p>
                             </div>
                         </div>
                     </div>
-                    <hr>
-                    <div id="messageContent"></div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i>Close
+                <div class="bg-secondary-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" onclick="replyToMessage()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        <i class="fas fa-reply mr-2"></i> Reply
                     </button>
-                    <button type="button" class="btn btn-outline" onclick="replyToMessage()">
-                        <i class="fas fa-reply me-1"></i>Reply
+                    <button type="button" onclick="closeViewModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-secondary-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-secondary-700 hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Close
                     </button>
                 </div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Scripts -->
     <script>
+        // Data for JS access
+        const messages = <?php echo json_encode($messages); ?>;
         let currentMessageId = null;
-        
+
+        function openComposeModal() {
+            document.getElementById('composeModal').classList.remove('hidden');
+            document.body.classList.add('modal-active');
+        }
+
+        function closeComposeModal() {
+            document.getElementById('composeModal').classList.add('hidden');
+            document.body.classList.remove('modal-active');
+        }
+
         function viewMessage(messageId) {
-            // Find message data
-            const messages = <?php echo json_encode($messages); ?>;
             const message = messages.find(m => m.message_id == messageId);
-            
             if (message) {
                 currentMessageId = messageId;
                 
-                document.getElementById('messageSubject').textContent = message.subject;
-                document.getElementById('messageSender').textContent = 
-                    message.message_direction === 'sent' ? 
-                    (message.recipient_name || 'Administration') : 
-                    (message.sender_name || 'Administration');
-                document.getElementById('messageDate').textContent = 
-                    new Date(message.created_at).toLocaleString();
-                document.getElementById('messageContent').innerHTML = 
-                    message.message.replace(/\n/g, '<br>');
+                document.getElementById('viewSubject').textContent = message.subject;
+                document.getElementById('viewContent').textContent = message.message;
+                document.getElementById('viewDate').textContent = new Date(message.created_at).toLocaleString();
                 
-                // Show modal
-                new bootstrap.Modal(document.getElementById('viewMessageModal')).show();
-                
-                // Mark as read if it's a received unread message
+                const sender = message.message_direction === 'sent' 
+                    ? `To: ${message.recipient_name || 'Administration'}` 
+                    : `From: ${message.sender_name || 'Administration'}`;
+                document.getElementById('viewSender').textContent = sender;
+
+                document.getElementById('viewMessageModal').classList.remove('hidden');
+                document.body.classList.add('modal-active');
+
+                // Mark as read API call if needed and unread
                 if (message.message_direction === 'received' && !message.is_read) {
                     markAsRead(messageId);
                 }
             }
         }
         
+        function closeViewModal() {
+            document.getElementById('viewMessageModal').classList.add('hidden');
+            document.body.classList.remove('modal-active');
+        }
+
+        function replyToMessage() {
+            closeViewModal();
+            const message = messages.find(m => m.message_id == currentMessageId);
+            if (message) {
+                const subject = message.subject.startsWith('Re: ') ? message.subject : 'Re: ' + message.subject;
+                document.getElementById('subject').value = subject;
+                // Add reference to body
+                const ref = `\n\n--- On ${new Date(message.created_at).toLocaleString()}, ${message.sender_name || 'Admin'} wrote: ---\n${message.message.substring(0, 100)}...`;
+                document.getElementById('message').value = ref;
+                openComposeModal();
+            }
+        }
+
         function markAsRead(messageId) {
             const formData = new FormData();
             formData.append('action', 'mark_read');
@@ -386,64 +474,10 @@ $unread_count = $messageController->getUnreadCountForMember($member_id);
                 method: 'POST',
                 body: formData
             }).then(() => {
-                // Refresh page to update unread count
-                setTimeout(() => location.reload(), 1000);
+                // Optional: visual update or slight delay refresh
             });
         }
-        
-        function replyToMessage() {
-            // Close view modal and open compose modal with subject prefilled
-            bootstrap.Modal.getInstance(document.getElementById('viewMessageModal')).hide();
-            
-            const messages = <?php echo json_encode($messages); ?>;
-            const message = messages.find(m => m.message_id == currentMessageId);
-            
-            if (message) {
-                const subject = message.subject.startsWith('Re: ') ? 
-                    message.subject : 'Re: ' + message.subject;
-                
-                document.getElementById('subject').value = subject;
-                
-                setTimeout(() => {
-                    new bootstrap.Modal(document.getElementById('composeModal')).show();
-                }, 300);
-            }
-        }
     </script>
-<?php if (!empty($messages)): ?>
-    <nav aria-label="Message pages" class="px-4 pb-4">
-        <?php 
-            // Build base URL without page param
-            $query = $_GET;
-            unset($query['page']);
-            $qs = http_build_query($query);
-            // Use Utilities::paginationLinks if available, else render minimal controls
-            if (method_exists('Utilities', 'paginationLinks')) {
-                echo Utilities::paginationLinks($pagination, 'member_messages.php');
-            } else {
-                echo '<ul class="pagination">';
-                // Previous
-                if ($pagination['current_page'] > 1) {
-                    $prev = $pagination['current_page'] - 1;
-                    echo '<li class="page-item"><a class="page-link" href="member_messages.php?' . ($qs ? $qs . '&' : '') . 'page=' . $prev . '">&laquo; Previous</a></li>';
-                } else {
-                    echo '<li class="page-item disabled"><span class="page-link">&laquo; Previous</span></li>';
-                }
-                // Current
-                echo '<li class="page-item active"><span class="page-link">Page ' . (int)$pagination['current_page'] . ' of ' . (int)$pagination['total_pages'] . '</span></li>';
-                // Next
-                if ($pagination['current_page'] < $pagination['total_pages']) {
-                    $next = $pagination['current_page'] + 1;
-                    echo '<li class="page-item"><a class="page-link" href="member_messages.php?' . ($qs ? $qs . '&' : '') . 'page=' . $next . '">Next &raquo;</a></li>';
-                } else {
-                    echo '<li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>';
-                }
-                echo '</ul>';
-            }
-        ?>
-    </nav>
-<?php endif; ?>
-    <!-- Bootstrap JS for offcanvas -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

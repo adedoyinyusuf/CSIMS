@@ -259,6 +259,8 @@ $pageIcon = $pageConfig['icon'];
     <title><?php echo $pageTitle; ?> - <?php echo APP_NAME; ?></title>
     <!-- Font Awesome -->
     
+    <!-- Premium Design System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/premium-design-system.css">
     <!-- CSIMS Color System -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css">
     <!-- Tailwind CSS -->
@@ -340,65 +342,53 @@ $pageIcon = $pageConfig['icon'];
             <?php endif; ?>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="card card-admin stat-card-standard">
-                    <div class="card-body p-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--lapis-lazuli);">Total Accounts</p>
-                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($statistics['total_accounts'] ?? 0); ?></p>
-                                <p class="text-xs" style="color: var(--success);">Active savings plans</p>
-                            </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--lapis-lazuli) 0%, var(--true-blue) 100%);">
-                                <i class="fas fa-piggy-bank text-white"></i>
-                            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Accounts - Teal Gradient -->
+                <div class="stat-card-gradient gradient-teal">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Total Accounts</p>
+                        <h3 class="text-4xl font-bold text-white mb-2"><?php echo number_format($statistics['total_accounts'] ?? 0); ?></h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-check-circle mr-1"></i> Active savings plans
                         </div>
                     </div>
+                    <i class="fas fa-piggy-bank absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
                 
-                <div class="card card-admin stat-card-standard">
-                    <div class="card-body p-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--lapis-lazuli);">Total Balance</p>
-                                <p class="text-2xl font-bold" style="color: var(--text-primary);">₦<?php echo number_format($statistics['total_balance'] ?? 0, 2); ?></p>
-                                <p class="text-xs" style="color: var(--success);">All accounts combined</p>
-                            </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--success) 0%, var(--lapis-lazuli) 100%);">
-                                <i class="fas fa-coins text-white"></i>
-                            </div>
+                <!-- Total Balance - Green Gradient -->
+                <div class="stat-card-gradient gradient-green">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Total Balance</p>
+                        <h3 class="text-4xl font-bold text-white mb-2">₦<?php echo number_format($statistics['total_balance'] ?? 0, 2); ?></h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-wallet mr-1"></i> All accounts combined
                         </div>
                     </div>
+                    <i class="fas fa-coins absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
                 
-                <div class="card card-admin stat-card-standard">
-                    <div class="card-body p-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--lapis-lazuli);">Deposits This Month</p>
-                                <p class="text-2xl font-bold" style="color: var(--text-primary);">₦<?php echo number_format($statistics['total_interest'] ?? 0, 2); ?></p>
-                                <p class="text-xs" style="color: #214e34;">New deposits</p>
-                            </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--success) 0%, #214e34 100%);">
-                                <i class="fas fa-arrow-up text-white"></i>
-                            </div>
+                <!-- Deposits This Month - Purple Gradient -->
+                <div class="stat-card-gradient gradient-purple">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Deposits This Month</p>
+                        <h3 class="text-4xl font-bold text-white mb-2">₦<?php echo number_format($statistics['total_interest'] ?? 0, 2); ?></h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-arrow-up mr-1"></i> New deposits
                         </div>
                     </div>
+                    <i class="fas fa-arrow-up absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
                 
-                <div class="card card-admin stat-card-standard">
-                    <div class="card-body p-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="form-label text-xs mb-1" style="color: var(--lapis-lazuli);">Active Members</p>
-                                <p class="text-2xl font-bold" style="color: var(--text-primary);"><?php echo number_format($statistics['active_members'] ?? 0); ?></p>
-                                <p class="text-xs" style="color: var(--success);">With savings accounts</p>
-                            </div>
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, var(--success) 0%, #214e34 100%);">
-                                <i class="fas fa-user-check text-white"></i>
-                            </div>
+                <!-- Active Members - Blue Gradient -->
+                <div class="stat-card-gradient gradient-blue">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Active Members</p>
+                        <h3 class="text-4xl font-bold text-white mb-2"><?php echo number_format($statistics['active_members'] ?? 0); ?></h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-user-check mr-1"></i> With savings accounts
                         </div>
                     </div>
+                    <i class="fas fa-user-check absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
             </div>
 
@@ -416,7 +406,7 @@ $pageIcon = $pageConfig['icon'];
                 </div>
                 <div class="card-body">
                     <div class="overflow-x-auto">
-                        <table class="table table-admin">
+                        <table class="table-premium">
                             <thead>
                                 <tr>
                                     <th>Member</th>
@@ -558,7 +548,7 @@ $pageIcon = $pageConfig['icon'];
                         </div>
                     <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-hover table-standard" id="savingsTable">
+                            <table class="table-premium" id="savingsTable">
                                 <thead>
                                     <tr>
                                         <th>Member</th>
@@ -971,6 +961,83 @@ $pageIcon = $pageConfig['icon'];
                 setTimeout(() => alert.remove(), 300);
             });
         }, 5000);
+
+        // Real-time Search & Filter functionality for Savings Accounts
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('search');
+            const accountTypeFilter = document.getElementById('account_type');
+            const statusFilter = document.getElementById('status');
+            const tableBody = document.querySelector('#savingsTable tbody');
+            const tableRows = tableBody ? Array.from(tableBody.querySelectorAll('tr')) : [];
+
+            // Function to filter table rows
+            function filterSavingsTable() {
+                const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+                const selectedAccountType = accountTypeFilter ? accountTypeFilter.value.toLowerCase() : '';
+                const selectedStatus = statusFilter ? statusFilter.value.toLowerCase() : '';
+
+                let visibleCount = 0;
+
+                tableRows.forEach(row => {
+                    // Skip the "no results" row if it exists
+                    if (row.cells.length < 2) {
+                        return;
+                    }
+
+                    // Get cell contents for searching (adjust indices based on your table structure)
+                    const memberName = row.cells[0]?.textContent.toLowerCase() || '';
+                    const accountType = row.cells[1]?.textContent.toLowerCase() || '';
+                    const balance = row.cells[2]?.textContent.toLowerCase() || '';
+                    const status = row.cells[4]?.textContent.toLowerCase().trim() || '';
+
+                    // Check if row matches search term (search member name and balance)
+                    const matchesSearch = searchTerm === '' || 
+                        memberName.includes(searchTerm) || 
+                        balance.includes(searchTerm);
+
+                    // Check if row matches account type filter
+                    const matchesAccountType = selectedAccountType === '' || accountType.includes(selectedAccountType);
+
+                    // Check if row matches status filter
+                    const matchesStatus = selectedStatus === '' || status === selectedStatus;
+
+                    // Show/hide row based on all filters
+                    if (matchesSearch && matchesAccountType && matchesStatus) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // Log result count (optional)
+                console.log(`Showing ${visibleCount} savings accounts`);
+            }
+
+            // Add event listeners for real-time filtering
+            if (searchInput) {
+                searchInput.addEventListener('input', filterSavingsTable);
+                searchInput.addEventListener('keyup', filterSavingsTable);
+            }
+
+            if (accountTypeFilter) {
+                accountTypeFilter.addEventListener('change', filterSavingsTable);
+            }
+
+            if (statusFilter) {
+                statusFilter.addEventListener('change', filterSavingsTable);
+            }
+
+            // Prevent form submission and use client-side filters instead
+            const filterForm = searchInput?.closest('form');
+            if (filterForm) {
+                filterForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    filterSavingsTable();
+                    return false;
+                });
+            }
+        });
     </script>
 </body>
 </html>

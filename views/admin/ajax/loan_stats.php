@@ -26,6 +26,9 @@ try {
             'pending_count' => (int)($stats['pending_count'] ?? ($stats['pending_loans']['count'] ?? 0)),
             'approved_count' => (int)($stats['approved_count'] ?? ($stats['approved_loans']['count'] ?? 0)),
             'approved_amount' => (float)($stats['approved_amount'] ?? 0),
+            'disbursed_count' => (int)($stats['disbursed_count'] ?? ($stats['disbursed_loans']['count'] ?? 0)),
+            'disbursed_amount' => (float)(is_array($stats['disbursed_loans'] ?? null) ? ($stats['disbursed_loans']['amount'] ?? 0) : 0),
+            'rejected_count' => (int)($stats['rejected_count'] ?? ($stats['rejected_loans']['count'] ?? 0)),
             'overdue_count' => (int)($stats['overdue_count'] ?? ($stats['overdue_loans']['count'] ?? 0)),
         ]
     ];

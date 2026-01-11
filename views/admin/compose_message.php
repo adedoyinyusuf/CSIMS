@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get all members for recipient selection
-$members = $memberController->getAllMembers();
+$members = $memberController->getAllActiveMembers();
 $admins = $messageController->getAdmins();
 ?>
 
@@ -198,7 +198,7 @@ $admins = $messageController->getAdmins();
                 members.forEach(member => {
                     const option = document.createElement('option');
                     option.value = member.member_id;
-                    option.textContent = `${member.first_name} ${member.last_name} (${member.member_number})`;
+                    option.textContent = `${member.first_name} ${member.last_name} (${member.ippis_no})`;
                     recipientId.appendChild(option);
                 });
             } else if (selectedType === 'Admin') {

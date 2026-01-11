@@ -33,7 +33,7 @@ class LoanRepository implements RepositoryInterface
      */
     public function find(mixed $id): ?ModelInterface
     {
-        $query = QueryBuilder::table($this->table)
+        $query = QueryBuilder::table($this->table . ' l')
             ->select([
                 'l.*',
                 'm.first_name as member_first_name',
@@ -77,7 +77,7 @@ class LoanRepository implements RepositoryInterface
      */
     public function findAll(array $filters = [], array $orderBy = [], ?int $limit = null, ?int $offset = null): array
     {
-        $query = QueryBuilder::table($this->table)
+        $query = QueryBuilder::table($this->table . ' l')
             ->select([
                 'l.*',
                 'm.first_name as member_first_name',
@@ -179,6 +179,9 @@ class LoanRepository implements RepositoryInterface
         unset($data['member_first_name']);
         unset($data['member_last_name']);
         unset($data['member_email']);
+        unset($data['term_months']); // Alias in model, not in DB
+        unset($data['total_repaid']);
+        unset($data['remaining_balance']);
         
         // Remove null values
         $data = array_filter($data, fn($value) => $value !== null);
@@ -242,6 +245,9 @@ class LoanRepository implements RepositoryInterface
         unset($data['member_first_name']);
         unset($data['member_last_name']);
         unset($data['member_email']);
+        unset($data['term_months']); // Alias in model, not in DB
+        unset($data['total_repaid']);
+        unset($data['remaining_balance']);
         
         // Remove null values
         $data = array_filter($data, fn($value) => $value !== null);
@@ -386,7 +392,7 @@ class LoanRepository implements RepositoryInterface
      */
     public function findOverdue(): array
     {
-        $query = QueryBuilder::table($this->table)
+        $query = QueryBuilder::table($this->table . ' l')
             ->select([
                 'l.*',
                 'm.first_name as member_first_name',

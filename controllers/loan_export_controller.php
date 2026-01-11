@@ -179,3 +179,4 @@ if ($format === 'csv' || $format === '') {
 header("Location: " . BASE_URL . "/views/admin/loans.php");
 exit();
 
+

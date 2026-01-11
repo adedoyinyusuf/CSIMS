@@ -115,14 +115,95 @@ try {
         $filters['account_status'] = $_GET['status'];
     }
     
+    // Get search parameter
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    
     // Pagination
     $page = (int)($_GET['page'] ?? 1);
     $limit = (int)($_GET['limit'] ?? 20);
     $offset = ($page - 1) * $limit;
     
-    // Get accounts
-    $accounts = $savingsRepository->findAll($filters, ['opening_date' => 'DESC'], $limit, $offset);
-    $totalAccounts = $savingsRepository->count($filters);
+    // Get accounts with search functionality
+    if (!empty($search)) {
+        // Build custom search query
+        $searchParam = '%' . $search . '%';
+        $sql = "SELECT sa.* FROM savings_accounts sa 
+                LEFT JOIN members m ON sa.member_id = m." . $mIdCol . "
+                WHERE (sa.account_name LIKE ? 
+                       OR sa.account_number LIKE ? 
+                       OR CONCAT(m.first_name, ' ', m.last_name) LIKE ?)";
+        
+        // Add filters
+        $params = [$searchParam, $searchParam, $searchParam];
+        $types = 'sss';
+        
+        if (!empty($filters['member_id'])) {
+            $sql .= " AND sa.member_id = ?";
+            $params[] = $filters['member_id'];
+            $types .= 'i';
+        }
+        if (!empty($filters['account_type'])) {
+            $sql .= " AND sa.account_type = ?";
+            $params[] = $filters['account_type'];
+            $types .= 's';
+        }
+        if (!empty($filters['account_status'])) {
+            $sql .= " AND sa.account_status = ?";
+            $params[] = $filters['account_status'];
+            $types .= 's';
+        }
+        
+        // Count total (without pagination)
+        $countSql = "SELECT COUNT(*) as total FROM savings_accounts sa 
+                     LEFT JOIN members m ON sa.member_id = m." . $mIdCol . "
+                     WHERE (sa.account_name LIKE ? 
+                            OR sa.account_number LIKE ? 
+                            OR CONCAT(m.first_name, ' ', m.last_name) LIKE ?)";
+        $countParams = [$searchParam, $searchParam, $searchParam];
+        $countTypes = 'sss';
+        
+        if (!empty($filters['member_id'])) {
+            $countSql .= " AND sa.member_id = ?";
+            $countParams[] = $filters['member_id'];
+            $countTypes .= 'i';
+        }
+        if (!empty($filters['account_type'])) {
+            $countSql .= " AND sa.account_type = ?";
+            $countParams[] = $filters['account_type'];
+            $countTypes .= 's';
+        }
+        if (!empty($filters['account_status'])) {
+            $countSql .= " AND sa.account_status = ?";
+            $countParams[] = $filters['account_status'];
+            $countTypes .= 's';
+        }
+        
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->bind_param($countTypes, ...$countParams);
+        $countStmt->execute();
+        $countResult = $countStmt->get_result();
+        $totalAccounts = $countResult->fetch_assoc()['total'] ?? 0;
+        
+        // Add ordering and pagination
+        $sql .= " ORDER BY sa.opening_date DESC LIMIT ? OFFSET ?";
+        $params[] = $limit;
+        $params[] = $offset;
+        $types .= 'ii';
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $accounts = [];
+        while ($row = $result->fetch_assoc()) {
+            $accounts[] = \CSIMS\Models\SavingsAccount::fromArray($row);
+        }
+    } else {
+        // Use repository method for non-search queries
+        $accounts = $savingsRepository->findAll($filters, ['opening_date' => 'DESC'], $limit, $offset);
+        $totalAccounts = $savingsRepository->count($filters);
+    }
     
     // Get statistics
     $stats = $savingsRepository->getAccountStatistics();
@@ -161,9 +242,16 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Savings Accounts - <?php echo APP_NAME; ?></title>
     
+    <!-- Premium Design System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/premium-design-system.css?v=2.3">
+    <!-- CSIMS Color System -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/csims-colors.css?v=2.3">
+    <!-- Font Awesome -->
+    <script src="https://kit.fontawesome.com/a26d77676f.js" crossorigin="anonymous"></script>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-admin">
     <!-- Include Header/Navbar -->
     <?php include __DIR__ . '/../../views/includes/header.php'; ?>
     
@@ -205,84 +293,84 @@ try {
             <?php endif; ?>
             
             <!-- Statistics Cards -->
-            <div id="savingsStatsGrid" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full" style="background-color: #3b28cc; color: #ffffff;">
-                            <i class="fas fa-piggy-bank text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium" style="color: #3b28cc;">Total Accounts</p>
-                            <p class="text-2xl font-semibold text-gray-900"><?php echo $totalAccounts; ?></p>
+            <div id="savingsStatsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Accounts - Teal Gradient -->
+                <div class="stat-card-gradient gradient-teal">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Total Accounts</p>
+                        <h3 class="text-4xl font-bold text-white mb-2"><?php echo $totalAccounts; ?></h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-check-circle mr-1"></i> Active savings plans
                         </div>
                     </div>
+                    <i class="fas fa-piggy-bank absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
                 
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full" style="background-color: #214e34; color: #ffffff;">
-                            <i class="fas fa-chart-line text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium" style="color: #214e34;">Active Accounts</p>
-                            <p class="text-2xl font-semibold text-gray-900">
-                                <?php 
-                                $activeCount = 0;
-                                foreach ($stats as $stat) {
-                                    if ($stat['account_status'] === 'Active') {
-                                        $activeCount += $stat['count'];
-                                    }
+                <!-- Active Accounts - Green Gradient -->
+                <div class="stat-card-gradient gradient-green">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Active Accounts</p>
+                        <h3 class="text-4xl font-bold text-white mb-2">
+                            <?php 
+                            $activeCount = 0;
+                            foreach ($stats as $stat) {
+                                if ($stat['account_status'] === 'Active') {
+                                    $activeCount += $stat['count'];
                                 }
-                                echo $activeCount;
-                                ?>
-                            </p>
+                            }
+                            echo $activeCount;
+                            ?>
+                        </h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-chart-line mr-1"></i> Currently operating
                         </div>
                     </div>
+                    <i class="fas fa-chart-line absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
                 
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full" style="background-color: #07beb8; color: #ffffff;">
-                            <i class="fas fa-coins text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium" style="color: #07beb8;">Total Balance</p>
-                            <p class="text-2xl font-semibold text-gray-900">
-                                ₦<?php 
-                                $totalBalance = 0;
-                                foreach ($stats as $stat) {
-                                    $totalBalance += $stat['total_balance'] ?? 0;
-                                }
-                                echo number_format($totalBalance, 2);
-                                ?>
-                            </p>
+                <!-- Total Balance - Blue Gradient -->
+                <div class="stat-card-gradient gradient-blue">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Total Balance</p>
+                        <h3 class="text-4xl font-bold text-white mb-2">
+                            ₦<?php 
+                            $totalBalance = 0;
+                            foreach ($stats as $stat) {
+                                $totalBalance += $stat['total_balance'] ?? 0;
+                            }
+                            echo number_format($totalBalance, 2);
+                            ?>
+                        </h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-wallet mr-1"></i> All accounts combined
                         </div>
                     </div>
+                    <i class="fas fa-coins absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
                 
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full" style="background-color: #cb0b0a; color: #ffffff;">
-                            <i class="fas fa-calculator text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium" style="color: #cb0b0a;">Avg Balance</p>
-                            <p class="text-2xl font-semibold text-gray-900">
-                                ₦<?php 
-                                $avgBalance = 0;
-                                $totalCount = 0;
-                                foreach ($stats as $stat) {
-                                    $avgBalance += ($stat['avg_balance'] ?? 0) * ($stat['count'] ?? 0);
-                                    $totalCount += $stat['count'] ?? 0;
-                                }
-                                if ($totalCount > 0) {
-                                    $avgBalance = $avgBalance / $totalCount;
-                                }
-                                echo number_format($avgBalance, 2);
-                                ?>
-                            </p>
+                <!-- Average Balance - Purple Gradient -->
+                <div class="stat-card-gradient gradient-purple">
+                    <div class="relative z-10">
+                        <p class="text-white text-sm font-medium opacity-90 mb-1">Avg Balance</p>
+                        <h3 class="text-4xl font-bold text-white mb-2">
+                            ₦<?php 
+                            $avgBalance = 0;
+                            $totalCount = 0;
+                            foreach ($stats as $stat) {
+                                $avgBalance += ($stat['avg_balance'] ?? 0) * ($stat['count'] ?? 0);
+                                $totalCount += $stat['count'] ?? 0;
+                            }
+                            if ($totalCount > 0) {
+                                $avgBalance = $avgBalance / $totalCount;
+                            }
+                            echo number_format($avgBalance, 2);
+                            ?>
+                        </h3>
+                        <div class="flex items-center text-white text-xs opacity-90">
+                            <i class="fas fa-calculator mr-1"></i> Per account
                         </div>
                     </div>
+                    <i class="fas fa-calculator absolute bottom-4 right-4 text-white opacity-10" style="font-size: 5rem;"></i>
                 </div>
             </div>
             
@@ -308,8 +396,8 @@ try {
                     </div>
                 <?php else: ?>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+                    <table class="table-premium">
+                        <thead>
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
@@ -359,38 +447,73 @@ try {
             <?php endif; ?>
             </div>
             
-            <!-- Filters -->
-            <div class="bg-white rounded-lg shadow mb-6 p-6">
-                <form method="GET" class="flex flex-wrap gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
-                        <select name="account_type" class="border border-gray-300 rounded-md px-3 py-2">
-                            <option value="">All Types</option>
-                            <option value="Regular" <?php echo ($_GET['account_type'] ?? '') === 'Regular' ? 'selected' : ''; ?>>Regular</option>
-                            <option value="Target" <?php echo ($_GET['account_type'] ?? '') === 'Target' ? 'selected' : ''; ?>>Target</option>
-                            <option value="Fixed" <?php echo ($_GET['account_type'] ?? '') === 'Fixed' ? 'selected' : ''; ?>>Fixed Deposit</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                        <select name="status" class="border border-gray-300 rounded-md px-3 py-2">
-                            <option value="">All Status</option>
-                            <option value="Active" <?php echo ($_GET['status'] ?? '') === 'Active' ? 'selected' : ''; ?>>Active</option>
-                            <option value="Inactive" <?php echo ($_GET['status'] ?? '') === 'Inactive' ? 'selected' : ''; ?>>Inactive</option>
-                            <option value="Closed" <?php echo ($_GET['status'] ?? '') === 'Closed' ? 'selected' : ''; ?>>Closed</option>
-                        </select>
-                    </div>
-                    
-                    <div class="flex items-end">
-                        <button type="submit" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
-                            <i class="fas fa-filter mr-2"></i>Filter
-                        </button>
-                        <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php" class="ml-2 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md">
-                            <i class="fas fa-times mr-2"></i>Clear
-                        </a>
-                    </div>
-                </form>
+            <!-- Enhanced Premium Filter and Search Section -->
+            <div class="card card-admin animate-fade-in mb-6">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-filter mr-2" style="color: #3b28cc;"></i>
+                        Filter & Search Savings Accounts
+                    </h3>
+                </div>
+                <div class="card-body p-6">
+                    <form action="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php" method="GET" class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        <!-- Search Input -->
+                        <div class="lg:col-span-2">
+                            <label for="search" class="form-label">Search Accounts</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search icon-muted"></i>
+                                </div>
+                                <input type="text" class="form-control pl-10" id="search" name="search" 
+                                       placeholder="Member name, account number, balance..." 
+                                       value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>">
+                            </div>
+                        </div>
+                        
+                        <!-- Account Type Filter -->
+                        <div>
+                            <label for="account_type" class="form-label">Account Type</label>
+                            <select name="account_type" id="account_type" class="form-control">
+                                <option value="">All Types</option>
+                                <option value="Regular" <?php echo ($_GET['account_type'] ?? '') === 'Regular' ? 'selected' : ''; ?>>Regular</option>
+                                <option value="Target" <?php echo ($_GET['account_type'] ?? '') === 'Target' ? 'selected' : ''; ?>>Target</option>
+                                <option value="Fixed" <?php echo ($_GET['account_type'] ?? '') === 'Fixed' ? 'selected' : ''; ?>>Fixed Deposit</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Status Filter -->
+                        <div>
+                            <label for="status" class="form-label">Status</label>
+                            <select name="status" id="status" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="Active" <?php echo ($_GET['status'] ?? '') === 'Active' ? 'selected' : ''; ?>>Active</option>
+                                <option value="Inactive" <?php echo ($_GET['status'] ?? '') === 'Inactive' ? 'selected' : ''; ?>>Inactive</option>
+                                <option value="Closed" <?php echo ($_GET['status'] ?? '') === 'Closed' ? 'selected' : ''; ?>>Closed</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Per Page -->
+                        <div>
+                            <label for="per_page" class="form-label">Show</label>
+                            <select class="form-control" id="per_page" name="per_page">
+                                <option value="15">15 per page</option>
+                                <option value="25">25 per page</option>
+                                <option value="50">50 per page</option>
+                                <option value="100">100 per page</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex items-end space-x-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search mr-2"></i> Search
+                            </button>
+                            <a href="<?php echo BASE_URL; ?>/views/admin/savings_accounts.php" class="btn btn-outline">
+                                <i class="fas fa-times mr-2"></i> Clear
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
             
             <!-- Accounts Table -->
@@ -410,8 +533,8 @@ try {
                     </div>
                 <?php else: ?>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <table class="table-premium" id="savingsAccountsTable">
+                            <thead>
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
@@ -585,6 +708,7 @@ try {
         function closeRejectModal() {
             document.getElementById('rejectModal').classList.add('hidden');
         }
+
 
         // Close modal when clicking outside
         document.getElementById('rejectModal').addEventListener('click', function(e) {

@@ -1,16 +1,19 @@
 <?php
-session_start();
-require_once '../config/auth_check.php';
-require_once '../includes/config/database.php';
+require_once '../../config/config.php';
+require_once '../../controllers/auth_controller.php';
 
-// Check if user is super admin
-if ($_SESSION['role'] !== 'Super Admin') {
-    header('Location: dashboard.php');
-    exit;
+// Ensure we use the unified Session instance
+$session = Session::getInstance();
+
+// Check if user is logged in
+$auth = new AuthController();
+if (!$auth->isLoggedIn()) {
+    $_SESSION['error'] = 'Please login to access this page';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit();
 }
 
-$database = new PdoDatabase();
-$db = $database->getConnection();
+$db = Database::getInstance()->getConnection();
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,12 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $role = $_POST['role'];
                 $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
                 
-                try {
-                    $stmt = $db->prepare("INSERT INTO admins (username, email, first_name, last_name, password, role) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([$username, $email, $first_name, $last_name, $password, $role]);
-                    $_SESSION['success_message'] = 'Admin user created successfully!';
-                } catch (PDOException $e) {
-                    $_SESSION['error_message'] = 'Error creating admin: ' . $e->getMessage();
+                $stmt = $db->prepare("INSERT INTO admins (username, email, first_name, last_name, password, role) VALUES (?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssssss", $username, $email, $first_name, $last_name, $password, $role);
+                    if ($stmt->execute()) {
+                        $_SESSION['success_message'] = 'Admin user created successfully!';
+                    } else {
+                        $_SESSION['error_message'] = 'Error creating admin: ' . $stmt->error;
+                    }
+                    $stmt->close();
+                } else {
+                    $_SESSION['error_message'] = 'Error preparing statement: ' . $db->error;
                 }
                 break;
                 
@@ -42,12 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $role = $_POST['role'];
                 $status = $_POST['status'];
                 
-                try {
-                    $stmt = $db->prepare("UPDATE admins SET username = ?, email = ?, first_name = ?, last_name = ?, role = ?, status = ? WHERE admin_id = ?");
-                    $stmt->execute([$username, $email, $first_name, $last_name, $role, $status, $admin_id]);
-                    $_SESSION['success_message'] = 'Admin user updated successfully!';
-                } catch (PDOException $e) {
-                    $_SESSION['error_message'] = 'Error updating admin: ' . $e->getMessage();
+                $stmt = $db->prepare("UPDATE admins SET username = ?, email = ?, first_name = ?, last_name = ?, role = ?, status = ? WHERE admin_id = ?");
+                if ($stmt) {
+                    $stmt->bind_param("ssssssi", $username, $email, $first_name, $last_name, $role, $status, $admin_id);
+                    if ($stmt->execute()) {
+                        $_SESSION['success_message'] = 'Admin user updated successfully!';
+                    } else {
+                        $_SESSION['error_message'] = 'Error updating admin: ' . $stmt->error;
+                    }
+                    $stmt->close();
+                } else {
+                    $_SESSION['error_message'] = 'Error preparing statement: ' . $db->error;
                 }
                 break;
                 
@@ -60,12 +73,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
                 
-                try {
-                    $stmt = $db->prepare("DELETE FROM admins WHERE admin_id = ?");
-                    $stmt->execute([$admin_id]);
-                    $_SESSION['success_message'] = 'Admin user deleted successfully!';
-                } catch (PDOException $e) {
-                    $_SESSION['error_message'] = 'Error deleting admin: ' . $e->getMessage();
+                $stmt = $db->prepare("DELETE FROM admins WHERE admin_id = ?");
+                if ($stmt) {
+                    $stmt->bind_param("i", $admin_id);
+                    if ($stmt->execute()) {
+                        $_SESSION['success_message'] = 'Admin user deleted successfully!';
+                    } else {
+                        $_SESSION['error_message'] = 'Error deleting admin: ' . $stmt->error;
+                    }
+                    $stmt->close();
+                } else {
+                    $_SESSION['error_message'] = 'Error preparing statement: ' . $db->error;
                 }
                 break;
                 
@@ -136,9 +154,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get all admin users
-$stmt = $db->prepare("SELECT admin_id as id, username, CONCAT(first_name, ' ', last_name) as full_name, first_name, last_name, email, role, status, created_at FROM admins ORDER BY created_at DESC");
-$stmt->execute();
-$admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$query = "SELECT admin_id as id, username, CONCAT(first_name, ' ', last_name) as full_name, first_name, last_name, email, role, status, created_at FROM admins ORDER BY created_at DESC";
+$result = $db->query($query);
+$admins = [];
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $admins[] = $row;
+    }
+    $result->free();
+}
 
 // Get system statistics
 $stats = [];
@@ -146,23 +170,25 @@ $stats = [];
 // Count tables and records
 $tables = ['members', 'savings_transactions', 'loans', 'notifications', 'admins'];
 foreach ($tables as $table) {
-    try {
-        $stmt = $db->prepare("SELECT COUNT(*) as count FROM `$table`");
-        $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $stats[$table] = $result['count'];
-    } catch (PDOException $e) {
+    $query = "SELECT COUNT(*) as count FROM `$table`";
+    $result = $db->query($query);
+    if ($result) {
+        $row = $result->fetch_assoc();
+        $stats[$table] = $row['count'] ?? 0;
+        $result->free();
+    } else {
         $stats[$table] = 0;
     }
 }
 
 // Get database size
-try {
-    $stmt = $db->prepare("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) AS 'db_size' FROM information_schema.tables WHERE table_schema = DATABASE()");
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    $stats['db_size'] = $result['db_size'] ?? 0;
-} catch (PDOException $e) {
+$query = "SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) AS 'db_size' FROM information_schema.tables WHERE table_schema = DATABASE()";
+$result = $db->query($query);
+if ($result) {
+    $row = $result->fetch_assoc();
+    $stats['db_size'] = $row['db_size'] ?? 0;
+    $result->free();
+} else {
     $stats['db_size'] = 0;
 }
 
@@ -177,7 +203,7 @@ if (file_exists('../../backups/')) {
 }
 
 $page_title = 'System Administration';
-require_once '../includes/header.php';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <!-- Main Content -->
@@ -199,7 +225,17 @@ require_once '../includes/header.php';
             </div>
         </div>
 
-        <?php require_once '../includes/flash_messages.php'; ?>
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+                <?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                <?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?>
+            </div>
+        <?php endif; ?>
 
         <!-- System Overview -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="administrationOverviewGrid">
@@ -500,7 +536,7 @@ require_once '../includes/header.php';
     </div>
 </div>
 
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
 
 <script>
 // Modal functions
