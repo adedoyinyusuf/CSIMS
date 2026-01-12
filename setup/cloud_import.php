@@ -19,13 +19,11 @@ echo "<h1>CSIMS Cloud Import</h1>";
 echo "<p>Connecting to database...</p>";
 
 try {
-    // Re-establish connection to ensure clean state
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)(defined('DB_PORT') ? DB_PORT : 3306));
-    if ($conn->connect_error) {
-        throw new Exception("Connection failed: " . $conn->connect_error);
+    // Use connection from config/database.php
+    if (!isset($conn) || $conn->connect_error) {
+        throw new Exception("Global database connection failed.");
     }
-    echo "<p>Connected to " . DB_HOST . " (" . DB_NAME . ")</p>";
-    $conn->set_charset("utf8mb4");
+    echo "<p>Connected to " . DB_HOST . " (" . DB_NAME . ") via SSL</p>";
 
     $sqlFile = __DIR__ . '/../docs/csims_production.sql';
     if (!file_exists($sqlFile)) {

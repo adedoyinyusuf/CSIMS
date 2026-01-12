@@ -65,22 +65,27 @@ if (!defined('DB_NAME')) define('DB_NAME', $_ENV['DB_DATABASE'] ?? getenv('DB_DA
 
 // Establish connection
 if (!isset($conn) || !($conn instanceof mysqli)) {
-    // Add Port to connection
-    $conn = @new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)DB_PORT);
+    // Initialize MySQLi
+    $conn = mysqli_init();
+    if (!$conn) {
+        die("mysqli_init failed");
+    }
+
+    // Force SSL (Use system default CA bundle)
+    $conn->ssl_set(NULL, NULL, NULL, NULL, NULL);
     
-    if ($conn->connect_error) {
+    // Connect with SSL flag
+    // Suppress warnings with @, check error manually
+    if (!@$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)DB_PORT, NULL, MYSQLI_CLIENT_SSL)) {
         error_log("CSIMS Database: Connection failed for " . DB_USER . "@" . DB_HOST . ":" . DB_PORT . " - " . $conn->connect_error);
-        die("Database connection failed. Please check your configuration.");
+        
+        // Detailed SSL error debugging if needed
+        $ssl_error = "SSL Error: " . ($conn->connect_error ?? 'Unknown error');
+        die("Database connection failed (TiDB requires SSL). Details: " . $ssl_error);
     }
     
     // Set charset
     $conn->set_charset('utf8mb4');
-}
-
-// Select database
-if (!$conn->select_db(DB_NAME)) {
-    error_log("CSIMS Database: Cannot select database '" . DB_NAME . "': " . $conn->error);
-    die("Database access error. Please verify your configuration.");
 }
 
 // Success
