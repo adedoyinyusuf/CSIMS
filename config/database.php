@@ -60,13 +60,16 @@ if (!empty($missing_vars)) {
 if (!defined('DB_HOST')) define('DB_HOST', $_ENV['DB_HOST'] ?? getenv('DB_HOST'));
 if (!defined('DB_USER')) define('DB_USER', $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME'));
 if (!defined('DB_PASS')) define('DB_PASS', $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD'));
+if (!defined('DB_PORT')) define('DB_PORT', $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?? 3306);
 if (!defined('DB_NAME')) define('DB_NAME', $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE'));
 
 // Establish connection
 if (!isset($conn) || !($conn instanceof mysqli)) {
-    $conn = @new mysqli(DB_HOST, DB_USER, DB_PASS);
+    // Add Port to connection
+    $conn = @new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)DB_PORT);
+    
     if ($conn->connect_error) {
-        error_log("CSIMS Database: Connection failed for " . DB_USER . "@" . DB_HOST . ": " . $conn->connect_error);
+        error_log("CSIMS Database: Connection failed for " . DB_USER . "@" . DB_HOST . ":" . DB_PORT . " - " . $conn->connect_error);
         die("Database connection failed. Please check your configuration.");
     }
     
