@@ -119,13 +119,13 @@ class AuthController extends BaseController {
              return ['success' => false, 'message' => 'Database connection failed'];
         }
         
-        // Query the admins table
-        $stmt = $this->db->prepare("SELECT * FROM admins WHERE username = ?");
+        // Query the admins table (Allow Login by Username OR Email)
+        $stmt = $this->db->prepare("SELECT * FROM admins WHERE username = ? OR email = ?");
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error'];
         }
         
-        $stmt->bind_param('s', $username);
+        $stmt->bind_param('ss', $username, $username);
         $stmt->execute();
         $result = $stmt->get_result();
         $admin = $result->fetch_assoc();
