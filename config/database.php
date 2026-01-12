@@ -71,17 +71,26 @@ if (!isset($conn) || !($conn instanceof mysqli)) {
         die("mysqli_init failed");
     }
 
-    // Force SSL (Use system default CA bundle)
-    $conn->ssl_set(NULL, NULL, NULL, NULL, NULL);
+    // Determine if we should use SSL
+    // Use SSL for remote connections (TiDB), skip for localhost (XAMPP default)
+    $use_ssl = (DB_HOST !== 'localhost' && DB_HOST !== '127.0.0.1');
+    $flags = 0;
+
+    if ($use_ssl) {
+        // Force SSL (Use system default CA bundle)
+        $conn->ssl_set(NULL, NULL, NULL, NULL, NULL);
+        $flags = MYSQLI_CLIENT_SSL;
+    }
     
-    // Connect with SSL flag
+    // Connect
     // Suppress warnings with @, check error manually
-    if (!@$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)DB_PORT, NULL, MYSQLI_CLIENT_SSL)) {
+    if (!@$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)DB_PORT, NULL, $flags)) {
         error_log("CSIMS Database: Connection failed for " . DB_USER . "@" . DB_HOST . ":" . DB_PORT . " - " . $conn->connect_error);
         
         // Detailed SSL error debugging if needed
-        $ssl_error = "SSL Error: " . ($conn->connect_error ?? 'Unknown error');
-        die("Database connection failed (TiDB requires SSL). Details: " . $ssl_error);
+        $ssl_error = "Connection Error: " . ($conn->connect_error ?? 'Unknown error');
+        if ($use_ssl) $ssl_error .= " (SSL Enabled)";
+        die("Database connection failed. " . $ssl_error);
     }
     
     // Set charset
