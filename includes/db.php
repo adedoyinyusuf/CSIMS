@@ -26,14 +26,28 @@ class Database {
     
     // Connect to the database
     private function connect() {
-        $this->conn = new mysqli($this->host, $this->user, $this->pass, $this->dbname);
+        $this->conn = mysqli_init();
+        if (!$this->conn) {
+            die("mysqli_init failed");
+        }
+
+        // Use SSL for remote connections (TiDB), skip for localhost
+        $use_ssl = ($this->host !== 'localhost' && $this->host !== '127.0.0.1');
+        $port = defined('DB_PORT') ? (int)DB_PORT : 3306;
+        $flags = 0;
+
+        if ($use_ssl) {
+            $this->conn->ssl_set(NULL, NULL, NULL, NULL, NULL);
+            $flags = MYSQLI_CLIENT_SSL;
+        }
         
-        if ($this->conn->connect_error) {
+        // Connect
+        if (!@$this->conn->real_connect($this->host, $this->user, $this->pass, $this->dbname, $port, NULL, $flags)) {
             die("Connection failed: " . $this->conn->connect_error);
         }
         
         // Set character set
-        $this->conn->set_charset("utf8");
+        $this->conn->set_charset("utf8mb4");
     }
     
     // Get database connection
