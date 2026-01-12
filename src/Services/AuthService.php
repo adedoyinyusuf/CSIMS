@@ -274,6 +274,11 @@ class AuthService
             $member = $this->memberRepository->findByEmail($credential);
         }
         
+        // If still not found, try member_id
+        if (!$member) {
+            $member = $this->memberRepository->find($credential);
+        }
+        
         return $member;
     }
     
