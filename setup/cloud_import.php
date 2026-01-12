@@ -1,77 +1,143 @@
 <?php
-// setup/cloud_import.php
-// Runs the SQL import on the server (Render)
-
-// Simple security check (remove this file after use!)
-$secret = $_GET['key'] ?? '';
-if ($secret !== 'csims_deploy_2026') {
-    die("Access Denied. Please provide the correct key.");
-}
+// setup/cloud_import.php (Repurposed as User Debugger)
+// Tool to find user and reset password if needed
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 require_once __DIR__ . '/../config/database.php';
 
-// Turn off buffering
-ob_implicit_flush(true);
-while (ob_get_level()) ob_end_clean();
+// Allow key via GET or POST (for reset flow)
+$key = $_REQUEST['key'] ?? '';
+if ($key !== 'csims_deploy_2026') die("Access Denied");
 
-echo "<html><body style='font-family:monospace; background:#1e1e1e; color:#0f0; padding:20px;'>";
-echo "<h1>CSIMS Cloud Import</h1>";
-echo "<p>Connecting to database...</p>";
-
-try {
-    // Use connection from config/database.php
-    if (!isset($conn) || $conn->connect_error) {
-        throw new Exception("Global database connection failed.");
-    }
-    echo "<p>Connected to " . DB_HOST . " (" . DB_NAME . ") via SSL</p>";
-
-    $sqlFile = __DIR__ . '/../docs/csims_production.sql';
-    if (!file_exists($sqlFile)) {
-        throw new Exception("SQL file not found at $sqlFile");
-    }
-
-    echo "<p>Reading SQL file...</p>";
-    $sqlContent = file_get_contents($sqlFile);
+// Helper to handle resets
+$msg = "";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $newPass = 'Password@123'; // Strong default password
+    $hash = password_hash($newPass, PASSWORD_DEFAULT);
     
-    // Split statements safely
-    $lines = explode("\n", $sqlContent);
-    $statements = [];
-    $buffer = "";
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === "" || strpos($line, "--") === 0) continue;
-        $buffer .= $line . " ";
-        if (substr($line, -1) === ';') {
-            $statements[] = $buffer;
-            $buffer = "";
+    // Check connection from global scope (ensure it's alive)
+    if (isset($conn) && $conn instanceof mysqli) {
+        if (!empty($_POST['reset_admin_id'])) {
+            $id = (int)$_POST['reset_admin_id'];
+            $stmt = $conn->prepare("UPDATE admins SET password = ? WHERE admin_id = ?");
+            if ($stmt) {
+                $stmt->bind_param('si', $hash, $id);
+                if ($stmt->execute()) $msg = "Admin ID $id password reset to '$newPass'. Try logging in now.";
+                else $msg = "Error resetting admin: " . $stmt->error;
+            } else $msg = "Prepare failed: " . $conn->error;
         }
-    }
-
-    echo "<p>Found " . count($statements) . " queries. Executing...</p>";
-    echo "<div style='height:300px; overflow:auto; border:1px solid #444; padding:10px;'>";
-
-    $success = 0;
-    $errors = 0;
-    foreach ($statements as $i => $sql) {
-        if (trim($sql) == "") continue;
-        if ($conn->query($sql) === TRUE) {
-            $success++;
-            if ($success % 50 == 0) echo ". ";
-        } else {
-             if ($conn->errno == 1062 || $conn->errno == 1050) {
-                 // duplicate/exists - ignore
-             } else {
-                 echo "<br><span style='color:red'>Error: " . $conn->error . "</span>";
-                 $errors++;
-             }
+        
+        if (!empty($_POST['reset_member_id'])) {
+            $id = $_POST['reset_member_id'];
+            // Try updating key 'id' first (PK)
+            $stmt = $conn->prepare("UPDATE members SET password = ? WHERE id = ?");
+            if ($stmt) {
+                 $stmt->bind_param('ss', $hash, $id);
+                 if ($stmt->execute()) {
+                     $msg = "Member ID '$id' password reset to '$newPass'. Try logging in now.";
+                 } else {
+                     // Try 'member_id' column if 'id' update failed (though prepare usually succeeds even if 0 rows)
+                     $msg = "Update executed but might have affected 0 rows. Error: " . $stmt->error;
+                 }
+            } else {
+                 // Maybe 'id' column doesn't exist? Try member_id column
+                 $stmt = $conn->prepare("UPDATE members SET password = ? WHERE member_id = ?");
+                 if ($stmt) {
+                     $stmt->bind_param('ss', $hash, $id);
+                     if ($stmt->execute()) $msg = "Member (via member_id) '$id' reset to '$newPass'.";
+                     else $msg = "Error resetting member: " . $stmt->error;
+                 } else $msg = "Prepare failed (Check columns): " . $conn->error;
+            }
         }
+    } else {
+        $msg = "DB Connection missing during reset.";
     }
-    echo "</div>";
-    echo "<h2>Import Complete.</h2>";
-    echo "<p>Success: $success<br>Errors: $errors</p>";
-
-} catch (Exception $e) {
-    echo "<h2 style='color:red'>Fatal Error: " . $e->getMessage() . "</h2>";
 }
-echo "</body></html>";
+
+$q = $_REQUEST['u'] ?? '';
 ?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CSIMS User Debugger</title>
+</head>
+<body style='font-family:sans-serif; background:#f4f4f4; padding:20px;'>
+    <div style="background:white; padding:20px; border-radius:5px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+        <h2>User Debugger & Password Resetter</h2>
+        <?php if($msg): ?>
+            <div style="background:#d4edda; color:#155724; padding:15px; margin-bottom:20px; border:1px solid #c3e6cb; border-radius:4px;">
+                <?php echo htmlspecialchars($msg); ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="GET">
+            <input type="hidden" name="key" value="<?php echo htmlspecialchars($key); ?>">
+            Search Username/Email/ID: <input type="text" name="u" value="<?php echo htmlspecialchars($q); ?>" placeholder="e.g. adedoyin595">
+            <button style="padding:5px 10px; cursor:pointer;">Search</button>
+            <a href="../login.php" style="margin-left:20px;">Go to Login Page</a>
+        </form>
+    </div>
+
+    <?php
+    if ($q && isset($conn)) {
+        echo "<h3>Search Results for: <code>" . htmlspecialchars($q) . "</code></h3>";
+        $clean_q = $conn->real_escape_string($q);
+        
+        // ADMINS SEARCH
+        echo "<h4>Admins Table</h4>";
+        // Check if admins table exists first? No, connection is reliable.
+        $sql = "SELECT * FROM admins WHERE username LIKE '%$clean_q%' OR email LIKE '%$clean_q%'";
+        $res = $conn->query($sql);
+        if ($res && $res->num_rows > 0) {
+            while ($row = $res->fetch_assoc()) {
+                echo "<div style='background:white; border-left:4px solid #007bff; padding:10px; margin-bottom:10px;'>";
+                echo "<pre>" . htmlspecialchars(print_r($row, true)) . "</pre>";
+                $passLen = strlen($row['password'] ?? '');
+                echo "<div><strong>Password Hash Length:</strong> $passLen " . 
+                     ($passLen == 32 ? "(MD5 - Legacy)" : ($passLen >= 60 ? "(Bcrypt/Argon looks good)" : "(INVALID/TRUNCATED)")) . 
+                     "</div>";
+                echo "<form method='POST' style='margin-top:10px;' onsubmit='return confirm(\"Reset password?\");'>
+                        <input type='hidden' name='key' value='" . htmlspecialchars($key) . "'>
+                        <input type='hidden' name='u' value='" . htmlspecialchars($q) . "'>
+                        <input type='hidden' name='reset_admin_id' value='{$row['admin_id']}'>
+                        <button style='background:#dc3545; color:white; border:none; padding:8px 15px; cursor:pointer;'>Reset Password to 'Password@123'</button>
+                      </form>";
+                echo "</div>";
+            }
+        } else {
+            echo "<p>No matches in Admins table.</p>";
+        }
+
+        // MEMBERS SEARCH
+        echo "<h4>Members Table</h4>";
+        $sql = "SELECT * FROM members WHERE member_id LIKE '%$clean_q%' OR email LIKE '%$clean_q%' OR first_name LIKE '%$clean_q%'";
+        $res = $conn->query($sql);
+        if ($res && $res->num_rows > 0) {
+            while ($row = $res->fetch_assoc()) {
+                echo "<div style='background:white; border-left:4px solid #28a745; padding:10px; margin-bottom:10px;'>";
+                echo "<pre>" . htmlspecialchars(print_r($row, true)) . "</pre>";
+                $passLen = strlen($row['password'] ?? '');
+                echo "<div><strong>Password Hash Length:</strong> $passLen " . 
+                     ($passLen == 32 ? "(MD5 - Legacy)" : ($passLen >= 60 ? "(Bcrypt/Argon looks good)" : "(INVALID/TRUNCATED)")) . 
+                     "</div>";
+                
+                // prefer 'id' column if present, else member_id
+                $idToUse = $row['id'] ?? $row['member_id'] ?? '';
+                
+                echo "<form method='POST' style='margin-top:10px;' onsubmit='return confirm(\"Reset password?\");'>
+                        <input type='hidden' name='key' value='" . htmlspecialchars($key) . "'>
+                        <input type='hidden' name='u' value='" . htmlspecialchars($q) . "'>
+                        <input type='hidden' name='reset_member_id' value='" . htmlspecialchars($idToUse) . "'>
+                        <button style='background:#dc3545; color:white; border:none; padding:8px 15px; cursor:pointer;'>Reset Password to 'Password@123'</button>
+                      </form>";
+                echo "</div>";
+            }
+        } else {
+            echo "<p>No matches in Members table.</p>";
+        }
+    }
+    ?>
+</body>
+</html>
