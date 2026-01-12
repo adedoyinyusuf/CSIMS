@@ -302,6 +302,10 @@ class SecurityLogger {
     public static function logCriticalSecurity($event, $details = []) {
         self::log('critical', "Critical Security Event: $event", $details);
     }
+
+    public static function logFailedLogin($username, $context = []) {
+        self::log('warning', "Failed login attempt for user: $username", $context);
+    }
 }
 }
 
