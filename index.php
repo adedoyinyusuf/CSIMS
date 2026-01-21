@@ -15,7 +15,7 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e' },
+                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#10b981', 600: '#059669', 700: '#047857', 900: '#064e3b' },
                         slate: { 850: '#1e293b' }
                     },
                     fontFamily: {
@@ -70,7 +70,7 @@
             left: 0;
             width: 0%;
             height: 2px;
-            background-color: #0ea5e9; /* primary-500 */
+            background-color: #10b981; /* primary-500 */
             transition: width 0.3s ease;
         }
         .nav-link:hover::after {
@@ -80,7 +80,7 @@
         .counter-value { visibility: visible; }
         
         /* Custom selection color */
-        ::selection { background: #0ea5e9; color: white; }
+        ::selection { background: #10b981; color: white; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased overflow-x-hidden">
@@ -122,7 +122,7 @@
     <section id="home" class="relative h-screen flex items-center overflow-hidden">
         <!-- Background Image with Overlay -->
         <div class="absolute inset-0 z-0">
-            <div class="absolute inset-0 bg-slate-900/80 bg-gradient-to-r from-slate-900/95 to-slate-900/30 z-10"></div>
+            <div class="absolute inset-0 bg-green-950/80 bg-gradient-to-r from-green-950/95 to-green-900/30 z-10"></div>
             <img src="assets/images/finance_hero_bg.png" alt="Hero Background" class="w-full h-full object-cover transform scale-105 animate-[pulse_10s_ease-in-out_infinite_alternate]" style="animation-duration: 20s;">
         </div>
 

@@ -31,6 +31,10 @@ class Database {
             die("mysqli_init failed");
         }
 
+        // Set connection timeout to 5 seconds
+        $this->conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+
+
         // Use SSL for remote connections (TiDB), skip for localhost
         $use_ssl = ($this->host !== 'localhost' && $this->host !== '127.0.0.1');
         $port = defined('DB_PORT') ? (int)DB_PORT : 3306;

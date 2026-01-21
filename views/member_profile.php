@@ -460,8 +460,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="text" name="highest_qualification" class="form-input" value="<?php echo htmlspecialchars($member['highest_qualification']??''); ?>">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Years of Residence</label>
-                        <input type="number" name="years_of_residence" class="form-input" value="<?php echo htmlspecialchars($member['years_of_residence']??''); ?>">
+                        <label class="form-label">State of Residence/Posting</label>
+                        <select name="years_of_residence" class="form-select">
+                            <option value="">Select State</option>
+                            <?php 
+                            $states = [
+                                'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno', 
+                                'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT - Abuja', 'Gombe', 
+                                'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 
+                                'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 
+                                'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+                            ];
+                            foreach($states as $state) {
+                                $selected = ($member['years_of_residence'] ?? '') === $state ? 'selected' : '';
+                                echo "<option value=\"$state\" $selected>$state</option>";
+                            }
+                            ?>
+                        </select>
                     </div>
                 </div>
             </div>

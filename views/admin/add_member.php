@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = Utilities::sanitizeInput($_POST['phone']);
     $address = Utilities::sanitizeInput($_POST['address']);
     $city = Utilities::sanitizeInput($_POST['city']);
-    $state = Utilities::sanitizeInput($_POST['state']);
+    $years_of_residence = Utilities::sanitizeInput($_POST['years_of_residence']);
     $postal_code = Utilities::sanitizeInput($_POST['postal_code']);
     $country = Utilities::sanitizeInput($_POST['country']);
     $occupation = Utilities::sanitizeInput($_POST['occupation']);
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'phone' => $phone,
             'address' => $address,
             'city' => $city,
-            'state' => $state,
+            'years_of_residence' => $years_of_residence,
             'postal_code' => $postal_code,
             'country' => $country,
             'occupation' => $occupation,
@@ -279,8 +279,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                     
                                     <div>
-                                        <label for="state" class="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
-                                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="state" name="state">
+                                        <label for="years_of_residence" class="block text-sm font-medium text-gray-700 mb-2">State of Residence/Posting</label>
+                                        <select id="years_of_residence" name="years_of_residence" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="">Select State</option>
+                                            <?php 
+                                            $states = [
+                                                'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno', 
+                                                'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT - Abuja', 'Gombe', 
+                                                'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 
+                                                'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 
+                                                'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+                                            ];
+                                            foreach($states as $st) {
+                                                echo "<option value=\"$st\">$st</option>";
+                                            }
+                                            ?>
+                                        </select>
                                     </div>
                                     
                                     <div>

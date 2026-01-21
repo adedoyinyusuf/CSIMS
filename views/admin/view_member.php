@@ -399,6 +399,10 @@ function getMembershipDuration($joinDate) {
                                         <label class="text-xs font-semibold text-secondary-400 uppercase tracking-wider">Address</label>
                                         <p class="text-base font-medium text-secondary-900"><?php echo htmlspecialchars($member['address'] ?? 'N/A'); ?></p>
                                     </div>
+                                    <div class="space-y-1">
+                                        <label class="text-xs font-semibold text-secondary-400 uppercase tracking-wider">State of Residence/Posting</label>
+                                        <p class="text-base font-medium text-secondary-900"><?php echo htmlspecialchars($member['years_of_residence'] ?? 'N/A'); ?></p>
+                                    </div>
                                 </div>
                             </div>
                         </section>

@@ -300,7 +300,7 @@ try {
             theme: {
                 extend: {
                     colors: {
-                        primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e' },
+                        primary: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 300: '#6ee7b7', 400: '#34d399', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b', 950: '#022c22' },
                         slate: { 850: '#1e293b' }
                     },
                     fontFamily: {
@@ -337,7 +337,7 @@ try {
 
     <div class="relative min-h-screen pb-12">
         <!-- Background Decoration -->
-        <div class="absolute top-0 left-0 w-full h-96 bg-gradient-to-br from-primary-900 via-primary-800 to-slate-900 -z-10"></div>
+        <div class="absolute top-0 left-0 w-full h-96 bg-gradient-to-br from-primary-900 via-primary-800 to-green-950 -z-10"></div>
         <div class="absolute top-0 left-0 w-full h-96 opacity-30 bg-[url('../assets/images/finance_hero_bg.png')] bg-cover bg-center -z-10 mix-blend-overlay"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

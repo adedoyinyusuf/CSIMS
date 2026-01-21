@@ -478,6 +478,7 @@ class MemberController extends BaseController
             $next_of_kin_relationship = trim($data['next_of_kin_relationship'] ?? '');
             $next_of_kin_phone = trim($data['next_of_kin_phone'] ?? '');
             $next_of_kin_address = trim($data['next_of_kin_address'] ?? '');
+            $years_of_residence = trim($data['years_of_residence'] ?? '');
 
             if ($ippis_no === '' || !preg_match('/^[0-9]{6}$/', $ippis_no)) {
                 return ['success' => false, 'message' => 'Invalid IPPIS Number'];
@@ -527,16 +528,16 @@ class MemberController extends BaseController
             $sql = 'INSERT INTO members (ippis_no, first_name, last_name, dob, gender, address, phone, email, occupation, photo,
                     membership_type_id, member_type, member_type_id, join_date, expiry_date, status, notes, monthly_contribution,
                     marital_status, department, position, grade_level, employee_rank, date_of_first_appointment, date_of_retirement,
-                    bank_name, account_number, account_name, next_of_kin_name, next_of_kin_relationship, next_of_kin_phone, next_of_kin_address
+                    bank_name, account_number, account_name, next_of_kin_name, next_of_kin_relationship, next_of_kin_phone, next_of_kin_address, years_of_residence
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )';
             $stmt = $this->connection->prepare($sql);
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Failed to prepare statement'];
             }
             $stmt->bind_param(
-                'ssssssssssisssssdsssssssssssssss',
+                'ssssssssssisssssdssssssssssssssss',
                 $ippis_no,
                 $first_name,
                 $last_name,
@@ -568,7 +569,8 @@ class MemberController extends BaseController
                 $next_of_kin_name,
                 $next_of_kin_relationship,
                 $next_of_kin_phone,
-                $next_of_kin_address
+                $next_of_kin_address,
+                $years_of_residence
             );
             $ok = $stmt->execute();
             if ($ok) {

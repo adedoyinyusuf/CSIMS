@@ -128,7 +128,7 @@ $pageTitle = "Admin Dashboard";
         theme: {
             extend: {
                 colors: {
-                    primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e' },
+                    primary: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 300: '#6ee7b7', 400: '#34d399', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b', 950: '#022c22' },
                     slate: { 850: '#1e293b' }
                 },
                 fontFamily: {
@@ -142,16 +142,16 @@ $pageTitle = "Admin Dashboard";
     <style>
         body { font-family: 'Inter', sans-serif; }
         /* Brands Aligned Gradients */
-        .gradient-blue { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); } /* Primary 600-700 */
-        .gradient-teal { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); } /* Primary 500-600 */
+        .gradient-blue { background: linear-gradient(135deg, #059669 0%, #047857 100%); } /* Primary 600-700 (Emerald) */
+        .gradient-teal { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } /* Primary 500-600 (Emerald Light) */
         .gradient-orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } /* Amber */
-        .gradient-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } /* Emerald */
+        .gradient-green { background: linear-gradient(135deg, #059669 0%, #047857 100%); } /* Emerald (Same as primary now) */
     </style>
 </head>
 <body class="bg-gray-50 font-sans text-gray-900 relative">
     
     <!-- Hero Background Overlay -->
-    <div class="fixed top-0 left-0 w-full h-64 bg-slate-900 -z-10"></div>
+    <div class="fixed top-0 left-0 w-full h-64 bg-green-950 -z-10"></div>
     <div class="fixed top-0 left-0 w-full h-64 opacity-20 bg-[url('../../assets/images/finance_hero_bg.png')] bg-cover bg-center -z-10 mix-blend-overlay"></div>
     <div class="fixed top-64 left-0 w-full h-[calc(100vh-16rem)] bg-gray-50 -z-10"></div>
 

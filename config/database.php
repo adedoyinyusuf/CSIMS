@@ -71,6 +71,10 @@ if (!isset($conn) || !($conn instanceof mysqli)) {
         die("mysqli_init failed");
     }
 
+    // Set connection timeout to 5 seconds to prevent "rolling" forever
+    $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+
+
     // Determine if we should use SSL
     // Use SSL for remote connections (TiDB), skip for localhost (XAMPP default)
     $use_ssl = (DB_HOST !== 'localhost' && DB_HOST !== '127.0.0.1');

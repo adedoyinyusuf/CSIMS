@@ -210,10 +210,10 @@ if (isset($sysConfig) && $sysConfig) {
 <body class="bg-gray-50">
     <?php include '../../views/includes/header.php'; ?>
     
-    <div class="flex">
+    <div class="flex h-screen overflow-hidden">
         <?php include '../../views/includes/sidebar.php'; ?>
         
-        <main class="flex-1 md:ml-64 mt-16 p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto md:ml-64 bg-gray-50 p-6 h-full">
             <div class="mb-6">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">System Settings</h1>
                 <p class="text-gray-600">Configure system-wide settings and preferences</p>

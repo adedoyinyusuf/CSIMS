@@ -171,12 +171,12 @@ function getDateRangeFromPreset($preset) {
     <!-- Include Header/Navbar -->
     <?php include '../../views/includes/header.php'; ?>
     
-    <div class="flex">
+    <div class="flex h-screen overflow-hidden">
         <!-- Include Sidebar -->
         <?php include '../../views/includes/sidebar.php'; ?>
         
         <!-- Main Content -->
-        <main class="flex-1 md:ml-64 mt-16 p-6" id="mainContent">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto md:ml-64 bg-gray-50 p-6" id="mainContent">
             <!-- Page Header -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div class="animate-slide-in">

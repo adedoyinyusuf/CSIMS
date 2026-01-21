@@ -1,7 +1,11 @@
 <?php
 require_once '../../config/config.php';
 require_once '../../controllers/auth_controller.php';
-require_once '../../controllers/financial_analytics_controller.php';
+// require_once '../../controllers/financial_analytics_controller.php'; // Removed legacy file
+
+// Ensure bootstrap is loaded for DI
+require_once '../../src/bootstrap.php';
+use CSIMS\Controllers\FinancialAnalyticsController;
 
 // Initialize session and auth
 $session = Session::getInstance();
@@ -13,8 +17,14 @@ if (!$authController->isLoggedIn()) {
     exit();
 }
 
-// Initialize financial analytics controller
-$financialController = new FinancialAnalyticsController();
+// Initialize financial analytics controller via DI Container
+try {
+    $container = \CSIMS\bootstrap();
+    $financialController = $container->resolve(FinancialAnalyticsController::class);
+} catch (Exception $e) {
+    error_log("Failed to resolve FinancialAnalyticsController: " . $e->getMessage());
+    die("System Error: Unable to load financial analytics. Please contact support.");
+}
 
 // Get period from request
 $period = $_GET['period'] ?? 'month';
@@ -25,13 +35,16 @@ if (!in_array($period, $valid_periods)) {
 
 // Handle export requests
 if (isset($_GET['export'])) {
-    $dashboard_data = $financialController->getFinancialDashboard($period);
-    $financialController->exportAnalytics($dashboard_data, $_GET['export']);
+    // $dashboard_data = $financialController->getFinancialDashboard($period); // Legacy
+    // $financialController->exportAnalytics($dashboard_data, $_GET['export']); // Legacy
+    $financialController->exportDashboard($_GET); // New API handles data fetching internally
     exit;
 }
 
 // Get dashboard data
-$dashboard_data = $financialController->getFinancialDashboard($period);
+// Get dashboard data
+$result = $financialController->getDashboard(['period' => $period]);
+$dashboard_data = $result['data'];
 
 $page_title = 'Financial Analytics Dashboard';
 ?>
@@ -55,10 +68,10 @@ $page_title = 'Financial Analytics Dashboard';
     require_once '../includes/header.php'; 
     ?>
 
-    <div class="flex">
+    <div class="flex h-screen overflow-hidden">
         <?php require_once '../includes/sidebar.php'; ?>
         
-        <main class="flex-1 main-content mt-16 p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 md:ml-64 transition-all duration-300 p-6">
             <div class="mb-6">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div class="mb-4 sm:mb-0">

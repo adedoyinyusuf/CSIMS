@@ -154,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             theme: {
                 extend: {
                     colors: {
-                        primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e' },
+                        primary: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 300: '#6ee7b7', 400: '#34d399', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b', 950: '#022c22' },
                         slate: { 850: '#1e293b' }
                     },
                     fontFamily: {
@@ -196,18 +196,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
         }
         .input-group:focus-within label {
-            color: #0284c7;
+            color: #059669;
         }
         .input-group:focus-within i {
-            color: #0284c7;
+            color: #059669;
         }
     </style>
 </head>
-<body class="min-h-screen relative overflow-hidden flex items-center justify-center bg-slate-900">
+<body class="min-h-screen relative overflow-hidden flex items-center justify-center bg-green-950">
     
     <!-- Unified Background (Matches Home) -->
     <div class="absolute inset-0 z-0">
-        <div class="absolute inset-0 bg-slate-900/80 bg-gradient-to-br from-slate-900/95 via-slate-900/80 to-primary-900/40 z-10"></div>
+        <div class="absolute inset-0 bg-green-950/80 bg-gradient-to-br from-green-950/95 via-green-950/80 to-primary-900/40 z-10"></div>
         <img src="assets/images/finance_hero_bg.png" alt="Background" class="w-full h-full object-cover opacity-60">
     </div>
 
