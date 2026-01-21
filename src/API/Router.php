@@ -6,6 +6,7 @@ use CSIMS\Container\Container;
 use CSIMS\Services\AuthService;
 use CSIMS\Services\LoanService;
 use CSIMS\Services\AuthenticationService;
+use CSIMS\Controllers\FinancialAnalyticsController;
 
 use CSIMS\Services\SecurityService;
 use CSIMS\Exceptions\ValidationException;
@@ -74,6 +75,10 @@ class Router
         $this->get('/api/system/health', [$this, 'healthCheck']);
         $this->get('/api/system/settings', [$this, 'getSystemSettings']);
         $this->put('/api/system/settings', [$this, 'updateSystemSettings']);
+
+        // Financial Analytics routes
+        $this->get('/api/financial/dashboard', [FinancialAnalyticsController::class, 'getDashboard']);
+        $this->get('/api/financial/export', [FinancialAnalyticsController::class, 'exportDashboard']);
     }
     
     /**
@@ -179,6 +184,12 @@ class Router
             
             // Execute handler, only pass request data if handler expects it
             $handler = $route['handler'];
+
+            // Resolve controller from container if handler is [ClassName, Method] and ClassName is a string
+            if (is_array($handler) && isset($handler[0]) && is_string($handler[0]) && class_exists($handler[0])) {
+                $handler[0] = $this->container->resolve($handler[0]);
+            }
+
             $args = $matches;
 
             try {

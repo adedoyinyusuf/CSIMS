@@ -1,20 +1,24 @@
 <?php
-require_once __DIR__ . '/../includes/db.php';
+
+namespace CSIMS\Controllers;
+
+use mysqli;
 
 class FinancialAnalyticsController
 {
     private mysqli $conn;
 
-    public function __construct()
+    public function __construct(mysqli $conn)
     {
-        $this->conn = Database::getInstance()->getConnection();
+        $this->conn = $conn;
     }
 
     /**
      * Build dashboard data for the given period (week|month|quarter|year)
      */
-    public function getFinancialDashboard(string $period = 'month'): array
+    public function getDashboard(array $requestData): array
     {
+        $period = $requestData['period'] ?? 'month';
         $range = $this->resolvePeriodRange($period);
 
         // Totals
@@ -58,8 +62,6 @@ class FinancialAnalyticsController
         $totalInterestEarned = (float)($this->scalar("SELECT COALESCE(SUM(amount),0) FROM savings_transactions WHERE transaction_type='Interest' AND created_at <= ?", [$range['end']], 's') ?? 0.0);
 
         // Member Financial Health (Top 10)
-        // Use a safe query that doesn't rely on complex joins if possible, or build robustly.
-        // We'll fetch members and loop to be safe with unknown exact schema relations, or simple joins.
         $memberHealth = [];
         $members = $this->queryAll("SELECT m.member_id, m.first_name, m.last_name FROM members m LIMIT 10");
         foreach ($members as $m) {
@@ -86,7 +88,7 @@ class FinancialAnalyticsController
 
         // Trends (Last 6 periods)
         $trends = [];
-        $trendStart = date('Y-m-d', strtotime('-5 months')); // Simplified
+        // $trendStart = date('Y-m-d', strtotime('-5 months'));
         for ($i = 5; $i >= 0; $i--) {
              $p = date('M', strtotime("-$i months"));
              $trends[] = ['period' => $p, 'category' => 'Savings', 'amount' => rand(100000, 500000)]; // Placeholder
@@ -113,41 +115,51 @@ class FinancialAnalyticsController
         ];
 
         return [
-            'overview' => [
-                'total_assets' => $totalAssets,
-                'outstanding_loans' => $outstandingLoans,
-                'financial_health_score' => $financialHealthScore,
-                'loan_to_asset_ratio' => $loanToAssetRatio,
-                'liquidity_ratio' => $totalAssets * 0.15, // estimated
-            ],
-            'cash_flow' => [
-                'income' => $income,
-                'outflow' => $outflow,
-                'net_cash_flow' => $netCashFlow,
-                'cash_flow_ratio' => $cashFlowRatio,
-                'inflows' => $inflows,
-                'outflows' => $outflows,
-            ],
-            'loan_performance' => [
-                'collection_rate' => $collectionRate,
-                'default_rate' => $defaultRate,
-                'active_loan_amount' => $activeLoanAmount,
-                'paid_loan_amount' => $paidLoanAmount,
-            ],
-            'savings_performance' => [
-                'avg_interest_rate' => $avgInterestRate,
-                'growth_rate' => $growthRate,
-                'total_savings' => $totalSavings,
-                'total_interest_earned' => $totalInterestEarned,
-            ],
-            'member_financial_health' => $memberHealth,
-            'trends' => $trends,
-            'forecasts' => $forecasts
+            'success' => true,
+            'data' => [
+                'overview' => [
+                    'total_assets' => $totalAssets,
+                    'outstanding_loans' => $outstandingLoans,
+                    'financial_health_score' => $financialHealthScore,
+                    'loan_to_asset_ratio' => $loanToAssetRatio,
+                    'liquidity_ratio' => $totalAssets * 0.15, // estimated
+                ],
+                'cash_flow' => [
+                    'income' => $income,
+                    'outflow' => $outflow,
+                    'net_cash_flow' => $netCashFlow,
+                    'cash_flow_ratio' => $cashFlowRatio,
+                    'inflows' => $inflows,
+                    'outflows' => $outflows,
+                ],
+                'loan_performance' => [
+                    'collection_rate' => $collectionRate,
+                    'default_rate' => $defaultRate,
+                    'active_loan_amount' => $activeLoanAmount,
+                    'paid_loan_amount' => $paidLoanAmount,
+                ],
+                'savings_performance' => [
+                    'avg_interest_rate' => $avgInterestRate,
+                    'growth_rate' => $growthRate,
+                    'total_savings' => $totalSavings,
+                    'total_interest_earned' => $totalInterestEarned,
+                ],
+                'member_financial_health' => $memberHealth,
+                'trends' => $trends,
+                'forecasts' => $forecasts
+            ]
         ];
     }
 
-    public function exportAnalytics(array $data, string $type): void
+    public function exportDashboard(array $requestData): void
     {
+        $type = $requestData['type'] ?? 'overview';
+        $period = $requestData['period'] ?? 'month';
+        
+        // Get data structure (extract 'data' key from result)
+        $result = $this->getDashboard(['period' => $period]);
+        $data = $result['data'];
+
         switch ($type) {
             case 'overview':
                 header('Content-Type: text/csv');
@@ -176,6 +188,7 @@ class FinancialAnalyticsController
                 header('Content-Type: application/json');
                 echo json_encode($data);
         }
+        exit;
     }
 
     private function resolvePeriodRange(string $period): array
@@ -233,4 +246,3 @@ class FinancialAnalyticsController
         return $data;
     }
 }
-?>

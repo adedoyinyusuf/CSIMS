@@ -24,6 +24,7 @@ use CSIMS\Repositories\LoanRepository;
 use CSIMS\Repositories\MemberRepository;
 use CSIMS\Repositories\UserRepository;
 use CSIMS\Controllers\AuthenticationController;
+use CSIMS\Controllers\FinancialAnalyticsController;
 use CSIMS\Database\QueryBuilder;
 use CSIMS\Cache\CacheInterface;
 use CSIMS\Cache\FileCache;
@@ -157,6 +158,12 @@ function bootstrap(): Container
             return new AuthenticationController(
                 $c->resolve(AuthenticationService::class),
                 $c->resolve(SecurityService::class)
+            );
+        });
+
+        $container->bind(FinancialAnalyticsController::class, function(Container $c) {
+            return new FinancialAnalyticsController(
+                $c->resolve(mysqli::class)
             );
         });
         

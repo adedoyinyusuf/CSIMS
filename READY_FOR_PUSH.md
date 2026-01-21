@@ -32,6 +32,9 @@ Your CSIMS workspace is **100% clean and ready** for git push with:
 11. **`assets/css/tailwind.css`** - Updated
 12. **`config/config.php`** - Updated
 13. **`controllers/SavingsController.php`** - Fixed
+14. **`src/Controllers/FinancialAnalyticsController.php`** (NEW) - API Endpoint
+15. **`src/API/Router.php`** - Added export routes
+16. **`src/bootstrap.php`** - Registered controller
 
 #### Documentation (NEW)
 14. **`docs/UNIFIED_LOGIN_IMPLEMENTATION.md`** - Full implementation guide
@@ -207,6 +210,10 @@ M views/member_login.php             - Redirect to login.php
 M views/admin/administration.php     - MySQLi conversion
 M views/admin/security_dashboard.php - Tailwind redesign
 M views/includes/header.php          - Dropdown fixes
+M src/API/Router.php                 - Added export routes
+M src/bootstrap.php                  - Registered controller
+D controllers/financial_analytics_controller.php - Migrated to src/Controllers
+
 ```
 
 ### New Files (6)
@@ -217,6 +224,8 @@ A docs/GIT_PUSH_GUIDE.md                      - Git guide
 A docs/UNIFIED_LOGIN_IMPLEMENTATION.md        - Implementation docs
 A docs/WORKSPACE_STATUS.md                    - Status report
 A .agent/workflows/unified-login-redesign.md  - Workflow docs
+A src/Controllers/FinancialAnalyticsController.php - Financial Analytics API
+
 ```
 
 ### Ignored Files (Won't be committed)
