@@ -210,11 +210,11 @@ $pageTitle = "Admin Dashboard";
                     </div>
                 </div>
 
-                <!-- Active Loans -->
+                <!-- Total Loans -->
                 <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-orange text-white group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                     <div class="relative z-10">
-                        <p class="text-sm font-medium opacity-80">Active Loans</p>
-                        <h3 class="text-4xl font-bold mt-2 mb-1"><?php echo number_format($stats['active_loans']); ?></h3>
+                        <p class="text-sm font-medium opacity-80">Total Loans</p>
+                        <h3 class="text-4xl font-bold mt-2 mb-1"><?php echo number_format($stats['total_loans']); ?></h3>
                         <p class="text-xs opacity-70 flex items-center">
                             <i class="fas fa-wallet mr-1"></i> ₦<?php echo number_format($stats['loan_outstanding']); ?> outstanding
                         </p>
