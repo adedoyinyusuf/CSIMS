@@ -245,15 +245,18 @@ include_once __DIR__ . '/../includes/header.php';
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-2 text-center">
-                            <?php if (!empty($member['photo'])): ?>
+                            <?php 
+                            $photoPath = realpath(__DIR__ . '/../../uploads/members/' . ($member['photo'] ?? ''));
+                            if (!empty($member['photo']) && $photoPath && file_exists($photoPath)): 
+                            ?>
                                 <img src="<?php echo '../../uploads/members/' . $member['photo']; ?>" 
                                      alt="<?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>" 
-                                     class="img-fluid rounded-circle mb-2" style="width: 80px; height: 80px; object-fit: cover;">
+                                     class="img-fluid rounded-circle mb-2 shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
                             <?php else: ?>
-                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto mb-2" 
+                                <div class="rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-2 shadow-lg" 
                                      style="width: 80px; height: 80px;">
-                                    <span class="text-white fs-3">
-                                        <?php echo strtoupper(substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1)); ?>
+                                    <span class="text-white text-2xl font-bold">
+                                        <?php echo strtoupper(substr($member['first_name'] ?? 'U', 0, 1) . substr($member['last_name'] ?? 'U', 0, 1)); ?>
                                     </span>
                                 </div>
                             <?php endif; ?>
@@ -308,21 +311,43 @@ include_once __DIR__ . '/../includes/header.php';
                 <div class="card-body">
                     <form action="" method="POST" id="processLoanForm" class="needs-validation" novalidate>
                         <?php if ($canBeApproved || $canBeRejected): ?>
-                            <!-- Action Buttons for Pending Loans -->
-                            <div class="row mb-4">
-                                <div class="col-12">
-                                    <div class="btn-group action-group" role="group" aria-label="Loan Actions">
-                                        <?php if ($canBeApproved): ?>
-                                            <input type="radio" class="btn-check" name="action" id="action-approve" value="approve" autocomplete="off" required>
-                                            <label class="btn btn-outline-success" for="action-approve"><i class="fas fa-check-circle me-2"></i>Approve</label>
-                                        <?php endif; ?>
-                                        
-                                        <?php if ($canBeRejected): ?>
-                                            <input type="radio" class="btn-check" name="action" id="action-reject" value="reject" autocomplete="off" required>
-                                            <label class="btn btn-outline-danger" for="action-reject"><i class="fas fa-times-circle me-2"></i>Reject</label>
-                                        <?php endif; ?>
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Select Action</label>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <?php if ($canBeApproved): ?>
+                                    <div class="relative">
+                                        <input type="radio" name="action" id="action-approve" value="approve" class="peer sr-only" required>
+                                        <label for="action-approve" class="flex flex-col items-center justify-center p-6 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-700 transition-all duration-200 h-full user-select-none">
+                                            <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-3 text-xl">
+                                                <i class="fas fa-check"></i>
+                                            </div>
+                                            <span class="font-bold text-lg">Approve Application</span>
+                                            <span class="text-xs text-gray-500 mt-1 text-center">Grant the loan request</span>
+                                        </label>
+                                        <div class="absolute top-4 right-4 text-green-600 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                            <i class="fas fa-check-circle text-xl"></i>
+                                        </div>
                                     </div>
-                                    <div class="invalid-feedback d-block" id="action-feedback" style="display: none;">Please select an action</div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($canBeRejected): ?>
+                                    <div class="relative">
+                                        <input type="radio" name="action" id="action-reject" value="reject" class="peer sr-only" required>
+                                        <label for="action-reject" class="flex flex-col items-center justify-center p-6 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-red-700 transition-all duration-200 h-full user-select-none">
+                                            <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-3 text-xl">
+                                                <i class="fas fa-times"></i>
+                                            </div>
+                                            <span class="font-bold text-lg">Reject Application</span>
+                                            <span class="text-xs text-gray-500 mt-1 text-center">Deny with a reason</span>
+                                        </label>
+                                        <div class="absolute top-4 right-4 text-red-600 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                            <i class="fas fa-check-circle text-xl"></i>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="invalid-feedback text-red-600 text-sm mt-2" id="action-feedback" style="display: none;">
+                                    <i class="fas fa-exclamation-circle mr-1"></i> Please select whether to approve or reject this loan.
                                 </div>
                             </div>
                         <?php endif; ?>
@@ -419,12 +444,15 @@ include_once __DIR__ . '/../includes/header.php';
         
         actionRadios.forEach(radio => {
             radio.addEventListener('change', function() {
+                // Reset base classes
+                submitBtn.className = 'btn px-6 py-2.5 rounded-xl font-bold text-white shadow-lg transition-all transform hover:-translate-y-1';
+                
                 if (this.value === 'approve') {
-                    submitBtn.textContent = 'Approve Loan';
-                    submitBtn.className = 'btn btn-success';
+                    submitBtn.textContent = 'Confirm Approval';
+                    submitBtn.classList.add('bg-gradient-to-r', 'from-green-500', 'to-green-600', 'hover:from-green-600', 'hover:to-green-700', 'shadow-green-500/30');
                 } else if (this.value === 'reject') {
-                    submitBtn.textContent = 'Reject Loan';
-                    submitBtn.className = 'btn btn-danger';
+                    submitBtn.textContent = 'Confirm Rejection';
+                    submitBtn.classList.add('bg-gradient-to-r', 'from-red-500', 'to-red-600', 'hover:from-red-600', 'hover:to-red-700', 'shadow-red-500/30');
                 }
             });
         });

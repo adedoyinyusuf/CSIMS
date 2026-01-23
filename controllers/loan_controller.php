@@ -288,43 +288,24 @@ class LoanController extends BaseController
         $params = [];
         $types = '';
 
-        // Base query - check if loans table exists
-        if (!$this->hasTable('loans')) {
-            return ['loans' => [], 'total' => 0, 'pages' => 0];
-        }
-
         // Build WHERE conditions
         if (!empty($search)) {
-            $search_conditions = [];
-            if ($this->hasColumn('loans', 'purpose')) {
-                $search_conditions[] = "l.purpose LIKE ?";
-                $params[] = "%$search%";
-                $types .= 's';
-            }
-            if ($this->hasTable('members') && $this->hasColumn('members', 'first_name')) {
-                $search_conditions[] = "CONCAT(m.first_name, ' ', m.last_name) LIKE ?";
-                $params[] = "%$search%";
-                $types .= 's';
-            }
-            if (!empty($search_conditions)) {
-                $where_conditions[] = '(' . implode(' OR ', $search_conditions) . ')';
-            }
+            $term = "%$search%";
+            $where_conditions[] = "(l.purpose LIKE ? OR CONCAT(m.first_name, ' ', m.last_name) LIKE ?)";
+            $params[] = $term;
+            $params[] = $term;
+            $types .= 'ss';
         }
 
         // Status filter
         if (!empty($filters['status'])) {
-            // Be resilient to accidental whitespace or case variations in stored status
             $where_conditions[] = "UPPER(TRIM(l.status)) = UPPER(?)";
             $params[] = $filters['status'];
             $types .= 's';
         }
 
-        // Loan type filter (if loan_type column exists)
-        if (!empty($filters['loan_type']) && $this->hasColumn('loans', 'loan_type')) {
-            $where_conditions[] = "l.loan_type = ?";
-            $params[] = $filters['loan_type'];
-            $types .= 's';
-        }
+        // Loan type filter (IGNORE for now as column missing)
+        // if (!empty($filters['loan_type'])) ...
 
         // Amount range filters
         if (!empty($filters['min_amount'])) {
@@ -340,58 +321,39 @@ class LoanController extends BaseController
 
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-        // Validate sort column
-        $valid_sort_columns = ['loan_id', 'amount', 'application_date', 'status'];
-        if ($this->hasColumn('loans', 'term_months')) $valid_sort_columns[] = 'term_months';
-        if ($this->hasColumn('loans', 'interest_rate')) $valid_sort_columns[] = 'interest_rate';
-        
-        if (!in_array($sort_by, $valid_sort_columns)) {
-            $sort_by = 'application_date';
-        }
+        // Validate sort
+        $valid_sort = ['loan_id', 'amount', 'application_date', 'status', 'term_months', 'interest_rate'];
+        $sort_by = in_array($sort_by, $valid_sort) ? $sort_by : 'application_date';
         $sort_order = strtoupper($sort_order) === 'ASC' ? 'ASC' : 'DESC';
 
-        // Build JOIN clause
-        $join_clause = '';
-        $select_member = '';
-        $select_loan_type = '';
-        
-        if ($this->hasTable('members')) {
-            $join_clause = "LEFT JOIN members m ON l.member_id = m.member_id";
-            if ($this->hasColumn('members', 'first_name')) {
-                $select_member = ", m.first_name, m.last_name, CONCAT(m.first_name, ' ', m.last_name) as member_name";
-            }
-        }
-        
-        // Join loan_types table if it exists
-        if ($this->hasTable('loan_types')) {
-            if ($this->hasColumn('loans', 'loan_type_id')) {
-                $join_clause .= " LEFT JOIN loan_types lt ON l.loan_type_id = lt.id";
-                $select_loan_type = ", lt.name as loan_type_name";
-            } elseif ($this->hasColumn('loans', 'loan_type')) {
-                // If loan_type is a string column, try to match it with loan_types.name
-                $join_clause .= " LEFT JOIN loan_types lt ON l.loan_type = lt.name";
-                $select_loan_type = ", lt.name as loan_type_name";
-            }
-        }
+        // Explicit Joins
+        $join_clause = "LEFT JOIN members m ON l.member_id = m.member_id";
+        $select_fields = "l.*, m.first_name, m.last_name, CONCAT(m.first_name, ' ', m.last_name) as member_name";
 
-        // Count query
+        // Count
         $count_sql = "SELECT COUNT(*) as total FROM loans l $join_clause $where_clause";
         $count_stmt = $this->conn->prepare($count_sql);
         if (!empty($params)) {
-            $count_stmt->bind_param($types, ...$params);
+             $count_stmt->bind_param($types, ...$params);
         }
-        $count_stmt->execute();
+        if (!$count_stmt->execute()) {
+             error_log("getAllLoans Count Error: " . $count_stmt->error);
+             return ['loans' => [], 'total' => 0, 'pages' => 0];
+        }
         $total = $count_stmt->get_result()->fetch_assoc()['total'];
 
-        // Main query
-        $sql = "SELECT l.* $select_member $select_loan_type FROM loans l $join_clause $where_clause ORDER BY l.$sort_by $sort_order LIMIT ? OFFSET ?";
+        // Main Query
+        $sql = "SELECT $select_fields FROM loans l $join_clause $where_clause ORDER BY l.$sort_by $sort_order LIMIT ? OFFSET ?";
         $params[] = $limit;
         $params[] = $offset;
         $types .= 'ii';
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param($types, ...$params);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+             error_log("getAllLoans Main Error: " . $stmt->error);
+             return ['loans' => [], 'total' => 0, 'pages' => 0];
+        }
         $result = $stmt->get_result();
 
         $loans = [];

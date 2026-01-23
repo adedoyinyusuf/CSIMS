@@ -43,6 +43,8 @@ if (!file_exists(UPLOADS_DIR)) {
 
 // Session Configuration
 if (!defined('SESSION_TIMEOUT')) define('SESSION_TIMEOUT', 1800);
+ini_set('session.cookie_httponly', 1);
+ini_set('session.use_only_cookies', 1);
 
 // Error Reporting (Disable in production)
 if (defined('ENVIRONMENT') && ENVIRONMENT === 'production') {

@@ -217,7 +217,7 @@ try {
             <!-- Stats Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Total Loans -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-blue text-white">
+                <div onclick="filterByStatus('')" class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-blue text-white cursor-pointer transition-transform hover:scale-105 active:scale-95">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Total Loans</p>
                         <h3 class="text-3xl font-bold mt-1"><?php echo number_format($loanStats['total_loans'] ?? 0); ?></h3>
@@ -229,7 +229,7 @@ try {
                 </div>
 
                 <!-- Pending -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-orange text-white">
+                <div onclick="filterByStatus('Pending')" class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-orange text-white cursor-pointer transition-transform hover:scale-105 active:scale-95">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Pending Review</p>
                         <h3 class="text-3xl font-bold mt-1"><?php echo number_format($loanStats['pending_count'] ?? 0); ?></h3>
@@ -239,7 +239,7 @@ try {
                 </div>
 
                 <!-- Active/Disbursed -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-green text-white">
+                <div onclick="filterByStatus('Active')" class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-green text-white cursor-pointer transition-transform hover:scale-105 active:scale-95">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Active Loans</p>
                         <h3 class="text-3xl font-bold mt-1"><?php echo number_format($loanStats['active_count'] ?? $loanStats['approved_count'] ?? 0); ?></h3>
@@ -249,7 +249,7 @@ try {
                 </div>
 
                 <!-- Overdue -->
-                <div class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-red text-white">
+                <div onclick="filterByStatus('Overdue')" class="rounded-xl shadow-lg p-6 relative overflow-hidden gradient-red text-white cursor-pointer transition-transform hover:scale-105 active:scale-95">
                     <div class="relative z-10">
                         <p class="text-sm font-medium opacity-80">Default Risk</p>
                         <h3 class="text-3xl font-bold mt-1"><?php echo number_format($loanStats['overdue_count'] ?? 0); ?></h3>
@@ -487,6 +487,18 @@ try {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => fetchResults(1), 300);
         });
+
+        function filterByStatus(status) {
+            // Set the dropdown value
+            const statusSelect = document.getElementById('status');
+            statusSelect.value = status;
+            
+            // Trigger fetch
+            fetchResults(1);
+            
+            // Scroll to filters
+            document.getElementById('loanFilterForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
 
         ['status', 'loan_type', 'sort_by'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => fetchResults(1));
