@@ -131,12 +131,12 @@ class AuthController extends BaseController {
         $admin = $result->fetch_assoc();
         
         if (!$admin) {
-            return ['success' => false, 'message' => 'Invalid credentials'];
+            return ['success' => false, 'message' => 'Debug: User not found in database (TiDB)'];
         }
         
         // Verify password
         if (!password_verify($password, $admin['password'])) {
-            return ['success' => false, 'message' => 'Invalid credentials'];
+            return ['success' => false, 'message' => 'Debug: User found, but password verification failed'];
         }
         
         // Start session and store admin data using Session wrapper

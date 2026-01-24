@@ -47,6 +47,23 @@ $loanConfig = [
     'default_interest_rate' => (float)$config->get('DEFAULT_INTEREST_RATE', 12.0),
 ];
 
+// Calculate dynamic loan limit based on savings
+$memberSavings = (float)($member['savings_balance'] ?? 0);
+$savingsMultiplier = (float)$loanConfig['loan_to_savings_multiplier'];
+$maxLoanBySavings = $memberSavings * $savingsMultiplier;
+$globalMaxLoan = (float)$loanConfig['max_loan_amount'];
+
+// Effective limit is the lesser of the two (unless savings are 0, then maybe a base limit applies? usually 0)
+// If savings are 0, max loan is 0.
+$effectiveMaxLoan = min($maxLoanBySavings, $globalMaxLoan);
+
+// Pass to JS
+$jsConfig = [
+    'effectiveMaxLoan' => $effectiveMaxLoan,
+    'savingsBalance' => $memberSavings,
+    'multiplier' => $savingsMultiplier
+];
+
 // Fetch active loan types
 $loanTypes = $loanController->getLoanTypes();
 
@@ -60,7 +77,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $loanTypeId = (int)($_POST['loan_type_id'] ?? 1);
         $requestedAmount = (float)($_POST['amount'] ?? 0);
         
-        $eligibilityErrors = $businessRules->validateLoanEligibility($member_id, $requestedAmount, $loanTypeId);
+        // Manual check for savings limit first
+        $eligibilityErrors = [];
+        if ($requestedAmount > $effectiveMaxLoan) {
+            $eligibilityErrors[] = "Amount exceeds your eligibility limit of ₦" . number_format($effectiveMaxLoan, 2) . " (3x Savings).";
+        }
+        
+        $businessRulesErrors = $businessRules->validateLoanEligibility($member_id, $requestedAmount, $loanTypeId);
+        $eligibilityErrors = array_merge($eligibilityErrors, $businessRulesErrors);
         
         if (empty($eligibilityErrors)) {
             echo json_encode(['success' => true]);
@@ -271,12 +295,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <span class="text-slate-500 sm:text-sm">₦</span>
                                         </div>
                                         <input type="number" name="amount" id="amount" 
-                                               min="1000" max="<?php echo $loanConfig['max_loan_amount']; ?>" step="1000" required
+                                               min="1000" max="<?php echo $effectiveMaxLoan; ?>" step="1000" required
                                                value="<?php echo htmlspecialchars($_POST['amount'] ?? ''); ?>"
                                                class="focus:ring-primary-500 focus:border-primary-500 block w-full pl-8 pr-12 sm:text-sm border-slate-300 rounded-xl py-3" 
                                                placeholder="0.00">
                                     </div>
-                                    <p class="mt-1 text-xs text-slate-500">Max allowed: ₦<?php echo number_format($loanConfig['max_loan_amount']); ?></p>
+                                    <p class="mt-1 text-xs text-slate-500">
+                                        Max allowed: <span class="font-semibold <?php echo $effectiveMaxLoan > 0 ? 'text-primary-600' : 'text-red-500'; ?>">₦<?php echo number_format($effectiveMaxLoan); ?></span>
+                                        (<?php echo $loanConfig['loan_to_savings_multiplier']; ?>x Savings: ₦<?php echo number_format($memberSavings); ?>)
+                                    </p>
                                 </div>
                             </div>
 

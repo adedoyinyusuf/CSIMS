@@ -80,9 +80,14 @@ class EnhancedLoanController
         $stats = $this->base->getLoanStatistics();
 
         // Provide legacy-friendly keys used by the view
-        $stats['pending_count'] = (int)($stats['pending_loans'] ?? 0);
-        $stats['approved_count'] = (int)($stats['approved_loans'] ?? 0);
-        $stats['overdue_count'] = (int)($stats['overdue_loans'] ?? 0);
+        $stats['pending_count'] = (int)($stats['pending_loans']['count'] ?? 0);
+        $stats['approved_count'] = (int)($stats['approved_loans']['count'] ?? 0);
+        $stats['overdue_count'] = (int)($stats['overdue_loans']['count'] ?? 0);
+        
+        // Explicitly calculate active_count (Disbursed + Running + Active) to avoid UI fallback to approved_count
+        $stats['active_count'] = (int)($stats['disbursed_loans']['count'] ?? 0) 
+                               + (int)($stats['active_loans']['count'] ?? 0) 
+                               + (int)($stats['running_loans']['count'] ?? 0);
 
         // Ensure approved_amount key exists for amount display
         if (!array_key_exists('approved_amount', $stats)) {

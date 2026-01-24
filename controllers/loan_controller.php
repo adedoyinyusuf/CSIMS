@@ -66,6 +66,8 @@ class LoanController extends BaseController
         return max(3.0, min(15.0, $final_rate));
     }
 
+
+
     /**
      * Legacy-compatible API that creates a loan application.
      * Delegates to modern LoanService::createLoan and returns the new loan ID.
@@ -397,7 +399,7 @@ class LoanController extends BaseController
         $stats['total_amount'] = $row['total_amount'];
 
         // Loans by status - Include all possible statuses from the database ENUM
-        $statuses = ['Pending', 'Approved', 'Rejected', 'Disbursed', 'Overdue', 'Paid'];
+        $statuses = ['Pending', 'Approved', 'Rejected', 'Disbursed', 'Overdue', 'Paid', 'Running'];
         foreach ($statuses as $status) {
             // Be resilient to accidental whitespace or case variations in stored status
             $sql = "SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as amount FROM loans WHERE UPPER(TRIM(status)) = UPPER(?)";
@@ -472,22 +474,38 @@ class LoanController extends BaseController
     public function getLoanTypes()
     {
         if (!$this->hasTable('loan_types')) {
-            return [
-                ['id' => 1, 'name' => 'Personal Loan'],
-                ['id' => 2, 'name' => 'Business Loan'],
-                ['id' => 3, 'name' => 'Emergency Loan'],
-                ['id' => 4, 'name' => 'Education Loan']
-            ];
+            return $this->getDefaultLoanTypes();
         }
 
         $sql = "SELECT * FROM loan_types ORDER BY name";
         $result = $this->conn->query($sql);
+        
         $types = [];
-        while ($row = $result->fetch_assoc()) {
-            $types[] = $row;
+        if ($result && $result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $types[] = $row;
+            }
         }
+        
+        // Fallback: If table exists but is empty, return defaults
+        if (empty($types)) {
+            return $this->getDefaultLoanTypes();
+        }
+        
         return $types;
     }
+
+    private function getDefaultLoanTypes()
+    {
+        return [
+            ['id' => 1, 'name' => 'Personal Loan', 'interest_rate' => 12.0],
+            ['id' => 2, 'name' => 'Business Loan', 'interest_rate' => 15.0],
+            ['id' => 3, 'name' => 'Emergency Loan', 'interest_rate' => 10.0],
+            ['id' => 4, 'name' => 'Housing Loan', 'interest_rate' => 9.0],
+            ['id' => 5, 'name' => 'Car Loan', 'interest_rate' => 11.0]
+        ];
+    }
+
 
     // ========================================
     // Admin: Get loan statuses
