@@ -34,8 +34,20 @@ $required_vars = ['DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE'];
 $missing_vars = [];
 
 foreach ($required_vars as $var) {
-    // Check if variable is SET (not just if it's empty - empty password is valid for XAMPP)
-    if (!isset($_ENV[$var]) && getenv($var) === false) {
+    // Check if variable is SET (standard or Railway alternative)
+    $has_standard = (isset($_ENV[$var]) || getenv($var) !== false);
+    
+    // Map standard vars to Railway equivalents for validation
+    $railway_map = [
+        'DB_HOST' => 'MYSQLHOST',
+        'DB_USERNAME' => 'MYSQLUSER',
+        'DB_PASSWORD' => 'MYSQLPASSWORD',
+        'DB_DATABASE' => 'MYSQLDATABASE'
+    ];
+    $alt = $railway_map[$var] ?? null;
+    $has_railway = ($alt && (isset($_ENV[$alt]) || getenv($alt) !== false));
+
+    if (!$has_standard && !$has_railway) {
         $missing_vars[] = $var;
     }
 }
@@ -56,12 +68,12 @@ if (!empty($missing_vars)) {
     die($error_msg);
 }
 
-// Define constants from environment
-if (!defined('DB_HOST')) define('DB_HOST', $_ENV['DB_HOST'] ?? getenv('DB_HOST'));
-if (!defined('DB_USER')) define('DB_USER', $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME'));
-if (!defined('DB_PASS')) define('DB_PASS', $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD'));
-if (!defined('DB_PORT')) define('DB_PORT', $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?? 3306);
-if (!defined('DB_NAME')) define('DB_NAME', $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE'));
+// Define constants from environment (Support Railway/Standard names as fallback)
+if (!defined('DB_HOST')) define('DB_HOST', $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?? $_ENV['MYSQLHOST'] ?? getenv('MYSQLHOST'));
+if (!defined('DB_USER')) define('DB_USER', $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME') ?? $_ENV['MYSQLUSER'] ?? getenv('MYSQLUSER'));
+if (!defined('DB_PASS')) define('DB_PASS', $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?? $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD'));
+if (!defined('DB_PORT')) define('DB_PORT', $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?? $_ENV['MYSQLPORT'] ?? getenv('MYSQLPORT') ?? 3306);
+if (!defined('DB_NAME')) define('DB_NAME', $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE') ?? $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE'));
 
 // Establish connection
 if (!isset($conn) || !($conn instanceof mysqli)) {
