@@ -77,6 +77,11 @@ class AuthController extends BaseController {
             return $adminResult;
         }
         
+        // DEBUG: If adminLogin returned a specific debug message, return it immediately to avoid overwrite
+        if (isset($adminResult['message']) && strpos($adminResult['message'], 'Debug:') === 0) {
+            return $adminResult;
+        }
+        
         // Fallback to regular user login
         $result = $this->authService->login($identifier, $password);
         // Bridge modern session to legacy admin session keys for legacy views
