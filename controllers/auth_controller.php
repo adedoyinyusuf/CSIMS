@@ -77,11 +77,6 @@ class AuthController extends BaseController {
             return $adminResult;
         }
         
-        // DEBUG: If adminLogin returned a specific debug message, return it immediately to avoid overwrite
-        if (isset($adminResult['message']) && strpos($adminResult['message'], 'Debug:') === 0) {
-            return $adminResult;
-        }
-        
         // Fallback to regular user login
         $result = $this->authService->login($identifier, $password);
         // Bridge modern session to legacy admin session keys for legacy views
@@ -136,12 +131,12 @@ class AuthController extends BaseController {
         $admin = $result->fetch_assoc();
         
         if (!$admin) {
-            return ['success' => false, 'message' => 'Debug: User not found in database (TiDB)'];
+            return ['success' => false, 'message' => 'Invalid credentials'];
         }
         
         // Verify password
         if (!password_verify($password, $admin['password'])) {
-            return ['success' => false, 'message' => 'Debug: User found, but password verification failed'];
+            return ['success' => false, 'message' => 'Invalid credentials'];
         }
         
         // Start session and store admin data using Session wrapper
