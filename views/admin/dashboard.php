@@ -8,10 +8,23 @@ if (!class_exists('AuthController')) {
 $session = Session::getInstance();
 
 // Simple and robust authentication check aligned with Session
+// DEBUG: Inspect session state
 if (!$session->isLoggedIn() || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
-    $_SESSION['error'] = 'Please login to access the dashboard';
-    header("Location: ../../index.php");
-    exit();
+    echo "<h1>Dashboard Access Denied</h1>";
+    echo "<pre>";
+    echo "Check Reason:\n";
+    echo "isLoggedIn: " . ($session->isLoggedIn() ? "TRUE" : "FALSE") . "\n";
+    echo "user_type set: " . (isset($_SESSION['user_type']) ? "YES" : "NO") . "\n";
+    echo "user_type value: " . ($_SESSION['user_type'] ?? 'N/A') . "\n";
+    echo "\nFull Session:\n";
+    print_r($_SESSION);
+    echo "</pre>";
+    die("Debug Mode Active");
+    
+    // Original redirect (disabled for debug)
+    // $_SESSION['error'] = 'Please login to access the dashboard';
+    // header("Location: ../../index.php");
+    // exit();
 }
 
 // Clear redirect check flag since we're successfully accessing dashboard
