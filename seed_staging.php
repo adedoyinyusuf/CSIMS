@@ -172,6 +172,15 @@ if ($result) {
         }
     } else {
         echo "<span style='color:blue'>Admin already exists</span><br>";
+        
+        // FORCE RESET PASSWORD due to login issues
+        $new_password = password_hash('admin123', PASSWORD_DEFAULT);
+        $reset_sql = "UPDATE admins SET password = '$new_password' WHERE username = 'admin'";
+        if ($conn->query($reset_sql) === TRUE) {
+            echo "<span style='color:green'><strong>PASSWORD RESET:</strong> Password for 'admin' has been reset to 'admin123'</span><br>";
+        } else {
+            echo "<span style='color:red'>Failed to reset password: " . $conn->error . "</span><br>";
+        }
     }
 } else {
     echo "<span style='color:red'>Could not query admins table</span><br>";
